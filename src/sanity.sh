@@ -1094,7 +1094,7 @@ if test x"$*" = x; then
 	tests="${tests} clean"
 	# Checking out various places (modules, checkout -d, &c)
 	tests="${tests} modules modules2 modules3 modules4 modules5 modules6"
-	tests="${tests} mkmodules co-d"
+	tests="${tests} modules7 mkmodules co-d"
 	tests="${tests} cvsadm emptydir abspath abspath2 toplevel toplevel2"
         tests="${tests} rstar-toplevel trailingslashes checkout_repository"
 	# Log messages, error messages.
@@ -2071,8 +2071,11 @@ for what in $tests; do
 '
 Concurrent Versions System (CVS) [0-9.]*.*
 
-Copyright (c) [-0-9]* Brian Berliner, david d .zoo. zuhn, 
-                        Jeff Polk, and other authors
+Copyright (C) [0-9]* Free Software Foundation, Inc.
+
+Senior active maintainers include Larry Jones, Derek R. Price,
+and Mark D. Baushke.  Please see the AUTHORS and README files from the CVS
+distribution kit for a complete list of contributors and copyrights.
 
 CVS may be copied only under the terms of the GNU General Public License,
 a copy of which can be found with the CVS distribution kit.
@@ -3738,7 +3741,17 @@ Are you sure you want to release (and delete) directory .first-dir.: "
 "${PROG} rtag: Tagging first-dir
 ${PROG} rtag: Tagging first-dir/dir1
 ${PROG} rtag: Tagging first-dir/dir1/dir2"
-
+		# The next test used to cause an assert failure
+		# something like:
+		# cvs: ./recurse.c:667: do_recursion: Assertion `repository != ((void *)0)' failed.
+		dotest basic2-21b "${testcvs} co -p -r rtagged-by-head first-dir/file6" \
+"===================================================================
+Checking out first-dir/file6
+RCS:  $CVSROOT_DIRNAME/first-dir/file6,v
+VERS: 1\.2
+\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+file6
+file6"
 		# tag by tag
 		dotest basic2-22 "${testcvs} rtag -r rtagged-by-head rtagged-by-tag first-dir" \
 "${PROG} rtag: Tagging first-dir
@@ -12695,6 +12708,78 @@ ${PROG} commit: Rebuilding administrative file database"
 	  fi
 	  ;;
 
+
+
+	modules7)
+	  #
+	  # Test tag problems vs an empty CVSROOT/val-tags file
+	  #
+	  # See the header comment for the `modules' test for an index of
+	  # the complete suite of modules tests.
+	  #
+	  mkdir modules7
+	  cd modules7
+	  dotest modules7-1 "$testcvs -Q co -d top ."
+	  cd top
+	  mkdir zero one
+	  dotest modules7-2 "$testcvs -Q add zero one"
+	  cd one
+	  echo 'file1 contents' > file1
+	  dotest modules7-2 "$testcvs -Q add file1"
+	  dotest modules7-3 "$testcvs -Q ci -mnew file1" \
+"RCS file: $CVSROOT_DIRNAME/one/file1,v
+done
+Checking in file1;
+$CVSROOT_DIRNAME/one/file1,v  <--  file1
+initial revision: 1\.1
+done"
+	  dotest modules7-4 "$testcvs -Q tag mytag file1"
+	  cd ../CVSROOT
+	  echo 'all -a zero one' > modules
+	  dotest modules7-5 "$testcvs -Q ci -mall-module" \
+"Checking in modules;
+$CVSROOT_DIRNAME/CVSROOT/modules,v  <--  modules
+new revision: [0-9.]*; previous revision: [0-9.]*
+done
+$PROG commit: Rebuilding administrative file database"
+	  cd ../..
+	  mkdir myexport
+	  cd myexport
+	  # FIXCVS: The export should NOT be aborted here
+	  dotest_fail modules7-6 "$testcvs export -rmytag all" \
+"$PROG \[export aborted\]: no such tag mytag"
+	  cd ..
+	  rm -fr myexport
+	  mkdir myexport
+	  cd myexport
+	  # FIXCVS: Workaround is to have mytag listed in val-tags
+	  echo 'mytag y' > $CVSROOT_DIRNAME/CVSROOT/val-tags
+	  dotest modules7-7 "$testcvs export -rmytag all" \
+"$PROG export: Updating zero
+$PROG export: Updating one
+U one/file1"
+	  dotest modules7-8 'cat one/file1' 'file1 contents'
+
+	  if $keep; then
+	    echo Keeping $TESTDIR and exiting due to --keep
+	    exit 0
+	  fi
+
+	  # cleanup
+	  cd ../top/CVSROOT
+	  echo "# empty modules file" >modules
+	  dotest modules7-cleanup-1 "$testcvs -Q ci -mempty-modules" \
+"Checking in modules;
+$CVSROOT_DIRNAME/CVSROOT/modules,v  <--  modules
+new revision: [0-9.]*; previous revision: [0-9.]*
+done
+$PROG commit: Rebuilding administrative file database"
+	  cd ../../..
+	  rm -fr modules7
+	  rm -rf $CVSROOT_DIRNAME/zero $CVSROOT_DIRNAME/one
+	  ;;
+
+
 	mkmodules)
 	  # When a file listed in checkoutlist doesn't exist, cvs-1.10.4
 	  # would fail to remove the CVSROOT/.#[0-9]* temporary file it
@@ -18297,6 +18382,28 @@ ${log_rev3}
 ${log_rev2}
 ${log_trailer}"
 
+	  # Test BASE pseudotag
+	  dotest log-23 "${testcvs} log -rBASE file1" \
+"${log_header1}
+${log_tags1}
+${log_keyword}
+total revisions: 5;	selected revisions: 1
+description:
+${log_rev2b}
+${log_trailer}"
+
+	  dotest log-24 "${testcvs} -q up -r1.2 file1" "[UP] file1"
+	  dotest log-25 "${testcvs} log -rBASE file1" \
+"${log_header1}
+${log_tags1}
+${log_keyword}
+total revisions: 5;	selected revisions: 1
+description:
+${log_rev2}
+${log_trailer}"
+
+	  dotest log-26 "${testcvs} -q up -rbranch file1" "[UP] file1"
+
 	  # Now the same tests but with rlog
 
 	  dotest log-r11 "${testcvs} rlog first-dir/file1" \
@@ -18518,6 +18625,26 @@ total revisions: 5;	selected revisions: 2
 description:
 ${log_rev3}
 ${log_rev2}
+${log_trailer}"
+
+	  # Test BASE pseudotag
+	  dotest log-r23 "${testcvs} rlog -rBASE first-dir/file1" \
+"${PROG} rlog: warning: no revision .BASE. in .${CVSROOT_DIRNAME}/first-dir/file1,v.
+${rlog_header1}
+${log_tags1}
+${log_keyword}
+total revisions: 5;	selected revisions: 0
+description:
+${log_trailer}"
+
+	  dotest log-r24 "${testcvs} -q up -r1.2 file1" "[UP] file1"
+	  dotest log-r25 "${testcvs} rlog -rBASE first-dir/file1" \
+"${PROG} rlog: warning: no revision .BASE. in .${CVSROOT_DIRNAME}/first-dir/file1,v.
+${rlog_header1}
+${log_tags1}
+${log_keyword}
+total revisions: 5;	selected revisions: 0
+description:
 ${log_trailer}"
 
 	  # Test when head is dead
@@ -28768,6 +28895,10 @@ done"
 	    fail "cleanup: PWD != TESTDIR (\``pwd`' != \`$TESTDIR')"
     fi
 
+    # Reset val-tags to a pristine state.
+    if test -s $CVSROOT_DIRNAME/CVSROOT/val-tags; then
+       : > $CVSROOT_DIRNAME/CVSROOT/val-tags
+    fi
     verify_tmp_empty "post $what"
 
 done # The big loop
