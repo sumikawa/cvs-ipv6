@@ -114,8 +114,13 @@
    FIXME: Why two different macros for setmode?  */
 #undef HAVE_SETMODE
 
+#undef ENABLE_IPV6
+
 /* Define if you have the crypt function.  */
 #undef HAVE_CRYPT
+
+/* Define if you have the dup2 function.  */
+#undef HAVE_DUP2
 
 /* Define if you have the fchdir function.  */
 #undef HAVE_FCHDIR
@@ -132,6 +137,12 @@
 /* Define if you have the ftruncate function.  */
 #undef HAVE_FTRUNCATE
 
+/* Define if you have the getaddrinfo function.  */
+#undef HAVE_GETADDRINFO
+
+/* Define if you have the getnameinfo function.  */
+#undef HAVE_GETNAMEINFO
+
 /* Define if you have the getpagesize function.  */
 #undef HAVE_GETPAGESIZE
 
@@ -144,6 +155,12 @@
 /* Define if you have the krb_get_err_text function.  */
 #undef HAVE_KRB_GET_ERR_TEXT
 
+/* Define if you have the memmove function.  */
+#undef HAVE_MEMMOVE
+
+/* Define if you have the mkdir function.  */
+#undef HAVE_MKDIR
+
 /* Define if you have the mktemp function.  */
 #undef HAVE_MKTEMP
 
@@ -152,6 +169,9 @@
 
 /* Define if you have the readlink function.  */
 #undef HAVE_READLINK
+
+/* Define if you have the rename function.  */
+#undef HAVE_RENAME
 
 /* Define if you have the sigaction function.  */
 #undef HAVE_SIGACTION
@@ -168,6 +188,15 @@
 /* Define if you have the sigvec function.  */
 #undef HAVE_SIGVEC
 
+/* Define if you have the strerror function.  */
+#undef HAVE_STRERROR
+
+/* Define if you have the strstr function.  */
+#undef HAVE_STRSTR
+
+/* Define if you have the strtoul function.  */
+#undef HAVE_STRTOUL
+
 /* Define if you have the tempnam function.  */
 #undef HAVE_TEMPNAM
 
@@ -177,11 +206,17 @@
 /* Define if you have the tzset function.  */
 #undef HAVE_TZSET
 
+/* Define if you have the valloc function.  */
+#undef HAVE_VALLOC
+
 /* Define if you have the vprintf function.  */
 #undef HAVE_VPRINTF
 
 /* Define if you have the wait3 function.  */
 #undef HAVE_WAIT3
+
+/* Define if you have the waitpid function.  */
+#undef HAVE_WAITPID
 
 /* Define if you have the <direct.h> header file.  */
 #undef HAVE_DIRECT_H
@@ -206,6 +241,9 @@
 
 /* Define if you have the <io.h> header file.  */
 #undef HAVE_IO_H
+
+/* Define if you have the <krb5.h> header file.  */
+#undef HAVE_KRB5_H
 
 /* Define if you have the <limits.h> header file.  */
 #undef HAVE_LIMITS_H

@@ -43,3 +43,5 @@
 /* Define if the diff library should use setmode for binary files.
    FIXME: Why two different macros for setmode?  */
 #undef HAVE_SETMODE
+
+#undef ENABLE_IPV6
