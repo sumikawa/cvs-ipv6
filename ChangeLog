@@ -1,3 +1,118 @@
+2004-04-13  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note validation of paths passed to the client.
+
+2004-04-07  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Clarify relative-path up-reference article.
+
+2004-04-07  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note ignoring of method options in CVSROOTs.
+
+2004-04-06  Derek Price  <derek@ximbiot.com>
+
+	* TODO (196, 217, 219, 220, 222, 226): Remove completed items.
+	(230): New item.
+
+2004-04-06  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note this change.
+	* configure.in: Do not try and use TMP, TEMP, or TMPDIR as default
+	temporary directories.
+	* configure: Regenerated.
+
+2004-04-04  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Cygwin handles paths like X:\.
+
+2004-04-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Windows ISDIRSEP fix.
+
+2004-04-02  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Instruct users to use the Workspace file and not the project
+	file for MSVC++.
+	(Patch from Conrad T. Pino <conrad@pino.com>.)
+
+2004-04-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Make some notes as to client/serverness of changes.
+
+2004-04-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note relative path fix.
+
+2004-04-01  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Record run race removal.
+
+2004-03-31  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvs.spec.in (BuildRequires): Do not fail if info DIR file does
+	not exist. (Not everyone has an install-info that generates the
+	dir file that we want deleted.)
+	(Report from Geoff Beier <geoff@caradas.com>.)
+
+2004-03-25  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note failure of Cygwin to convert back slashes to slashes.
+
+2004-03-25  Derek Price  <derek@ximbiot.com>
+
+	* cvs.spec.in (BuildRoot): Use a more unique directory name.
+
+2004-03-22  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Note compilation & --without-gssapi requirement for HPPA
+	with HP-UX 11.11.
+	(Report from Nicolas Vervelle <nicolas.vervelle@steria.com>.)
+
+2004-03-20  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note resurrection fixes.
+
+2004-03-18  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Back out previous NEWS change at Larry Jones' suggestion.
+
+2004-03-17  Derek Price  <derek@ximbiot.com>
+
+	* configure.in (--enable-password-authentication-client): Correct
+	error message text.
+	* NEWS: Note this change.
+	* configure: Regenerated.
+
+2004-03-15  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note cvs release + Kerberos fix.
+
+2004-03-15  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Correct grammar in help text.
+	* configure: Regenerated.
+
+2004-03-15  Derek Price  <derek@ximbiot.com>
+
+	* macintosh/.cvsignore: Complete pruning of directory started in 1999.
+
+2004-03-14  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note resurrection fix.
+
+2004-03-14  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note error & status message corrections.
+
+2004-03-14  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note diff of added files against arbitrary revisions fix.
+
+2004-03-12  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Larry's recent documentation fixes.
+
 2004-03-03  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note that directories and files named `CVS' are now also

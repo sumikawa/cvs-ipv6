@@ -1,5 +1,59 @@
-Changes since 1.11.13:
+Changes since 1.11.14:
 **********************
+
+SERVER SECURITY ISSUES
+
+* Piped checkouts of paths above $CVSROOT no longer work.  Previously, clients
+  could have requested the contents of RCS archive files anywhere on a CVS
+  server.
+
+CLIENT SECURITY ISSUES
+
+* Clients now check paths from the server to verify that they are within one of
+  the sandboxes the user requested be updated.  Previously, a trojan server
+  could have written or overwritten files anywhere the user had access,
+  presenting a serious security risk.
+
+GENERAL USER ISSUES
+
+* Method options (used by WinCVS & CVS 1.12.7+) in CVSROOTs are ignored.
+
+* Configure no longer checks the $TMPDIR, $TMP, & $TEMP variables to set the
+  default temporary directory.
+
+* CVS on Cygwin correctly handles X:\ style paths.
+
+* Import now uses backslash rather than slash on Windows when checking for
+  "CVS" directories to ignore in import commands.
+
+* Relative paths containing up-references (`..') should now work in
+  client/server mode (client fix).
+
+* A race condition between the ordering of messages from CVS and messages from
+  called scripts in client/server mode has been removed (server fix).
+
+* Resurrected files now get their modes and timestamps set correctly and a
+  longstanding bug involving resurrection of an uncommitted removal has been
+  fixed (server fix).
+
+* Some resurrection (cvs add) status messages have changed slightly.
+
+* `cvs release' now works with Kerberos or GSSAPI encryption enabled (server
+  fix).
+
+* File resurrection from a previously existing revision no longer just reports
+  that it works (server fix).
+
+* Misc error & status message corrections.
+
+* Diffing of locally added files against arbitrary revisions in an RCS archive
+  is now allowed when a file of the same name exists or used to exist on some
+  branch (server fix).
+
+* Misc documentation fixes.
+
+Changes from 1.11.13 to 1.11.14:
+********************************
 
 GENERAL USER ISSUES
 

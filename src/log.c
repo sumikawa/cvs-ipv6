@@ -115,9 +115,10 @@ struct log_data_and_rcs
 static int rlog_proc PROTO((int argc, char **argv, char *xwhere,
 			    char *mwhere, char *mfile, int shorten,
 			    int local_specified, char *mname, char *msg));
-static Dtype log_dirproc PROTO ((void *callerdat, char *dir,
-				 char *repository, char *update_dir,
-				 List *entries));
+static Dtype log_dirproc PROTO ((void *callerdat, const char *dir,
+                                 const char *repository,
+                                 const char *update_dir,
+                                 List *entries));
 static int log_fileproc PROTO ((void *callerdat, struct file_info *finfo));
 static struct option_revlist *log_parse_revlist PROTO ((const char *));
 static void log_parse_date PROTO ((struct log_data *, const char *));
@@ -224,7 +225,7 @@ cvslog (argc, argv)
     int local = 0;
     struct option_revlist **prl;
 
-    is_rlog = (strcmp (command_name, "rlog") == 0);
+    is_rlog = (strcmp (cvs_cmd_name, "rlog") == 0);
 
     if (argc == -1)
 	usage (log_usage);
@@ -486,39 +487,46 @@ rlog_proc (argc, argv, xwhere, mwhere, mfile, shorten, local, mname, msg)
 
     if (is_rlog)
     {
-	repository = xmalloc (strlen (current_parsed_root->directory) + strlen (argv[0])
+	repository = xmalloc (strlen (current_parsed_root->directory)
+                              + strlen (argv[0])
 			      + (mfile == NULL ? 0 : strlen (mfile) + 1) + 2);
-	(void) sprintf (repository, "%s/%s", current_parsed_root->directory, argv[0]);
-	where = xmalloc (strlen (argv[0]) + (mfile == NULL ? 0 : strlen (mfile) + 1)
+	(void)sprintf (repository, "%s/%s",
+                       current_parsed_root->directory, argv[0]);
+	where = xmalloc (strlen (argv[0])
+                         + (mfile == NULL ? 0 : strlen (mfile) + 1)
 			 + 1);
 	(void) strcpy (where, argv[0]);
 
-	/* if mfile isn't null, we need to set up to do only part of the module */
+	/* If mfile isn't null, we need to set up to do only part of theu
+         * module.
+         */
 	if (mfile != NULL)
 	{
 	    char *cp;
 	    char *path;
 
-	    /* if the portion of the module is a path, put the dir part on repos */
+	    /* If the portion of the module is a path, put the dir part on
+             * repos.
+             */
 	    if ((cp = strrchr (mfile, '/')) != NULL)
 	    {
 		*cp = '\0';
-		(void) strcat (repository, "/");
-		(void) strcat (repository, mfile);
-		(void) strcat (where, "/");
-		(void) strcat (where, mfile);
+		(void)strcat (repository, "/");
+		(void)strcat (repository, mfile);
+		(void)strcat (where, "/");
+		(void)strcat (where, mfile);
 		mfile = cp + 1;
 	    }
 
 	    /* take care of the rest */
 	    path = xmalloc (strlen (repository) + strlen (mfile) + 5);
-	    (void) sprintf (path, "%s/%s", repository, mfile);
+	    (void)sprintf (path, "%s/%s", repository, mfile);
 	    if (isdir (path))
 	    {
 		/* directory means repository gets the dir tacked on */
-		(void) strcpy (repository, path);
-		(void) strcat (where, "/");
-		(void) strcat (where, mfile);
+		(void)strcpy (repository, path);
+		(void)strcat (where, "/");
+		(void)strcat (where, mfile);
 	    }
 	    else
 	    {
@@ -531,12 +539,12 @@ rlog_proc (argc, argv, xwhere, mwhere, mfile, shorten, local, mname, msg)
 	}
 
 	/* cd to the starting repository */
-	if ( CVS_CHDIR (repository) < 0)
+	if (CVS_CHDIR (repository) < 0)
 	{
 	    error (0, errno, "cannot chdir to %s", repository);
 	    free (repository);
-	    free( where );
-	    return (1);
+	    free (where);
+	    return 1;
 	}
 	/* End section which is identical to patch_proc.  */
 
@@ -554,17 +562,17 @@ rlog_proc (argc, argv, xwhere, mwhere, mfile, shorten, local, mname, msg)
 			   argc - 1, argv + 1, local, which, 0, CVS_LOCK_READ,
 			   where, 1, repository);
 
-    if ( ! ( which & W_LOCAL ) ) free (repository);
-    if( where ) free( where );
+    if (!(which & W_LOCAL)) free (repository);
+    if (where) free (where);
 
     return err;
 }
 
 
+
 /*
  * Parse a revision list specification.
  */
-
 static struct option_revlist *
 log_parse_revlist (argstring)
     const char *argstring;
@@ -788,6 +796,8 @@ printlock_proc (lock, foo)
     return 0;
 }
 
+
+
 /*
  * Do an rlog on a file
  */
@@ -817,14 +827,14 @@ log_fileproc (callerdat, finfo)
 		if (!really_quiet)
 		    error (0, 0, "%s has been added, but not committed",
 			   finfo->file);
-		return(0);
+		return 0;
 	    }
 	}
 	
 	if (!really_quiet)
 	    error (0, 0, "nothing known about %s", finfo->file);
 	
-	return (1);
+	return 1;
     }
 
     if (log_data->sup_header || !log_data->nameonly)
@@ -837,7 +847,8 @@ log_fileproc (callerdat, finfo)
 	   revisions.  */
 	revlist = log_expand_revlist (rcsfile, log_data->revlist,
 				      log_data->default_branch);
-	if (log_data->sup_header || (!log_data->header && !log_data->long_header))
+	if (log_data->sup_header
+            || (!log_data->header && !log_data->long_header))
 	{
 	    log_data_and_rcs.log_data = log_data;
 	    log_data_and_rcs.revlist = revlist;
@@ -850,10 +861,10 @@ log_fileproc (callerdat, finfo)
 	       start date for each specific revision.  */
 	    if (log_data->singledatelist != NULL)
 		walklist (rcsfile->versions, log_fix_singledate,
-			  (void *) &log_data_and_rcs);
+			  (void *)&log_data_and_rcs);
 
 	    selrev = walklist (rcsfile->versions, log_count_print,
-			       (void *) &log_data_and_rcs);
+			       (void *)&log_data_and_rcs);
 	    if (log_data->sup_header && selrev == 0)
 	    {
 		log_free_revlist (revlist);
@@ -924,7 +935,7 @@ log_fileproc (callerdat, finfo)
 
 		cvs_output ("\n\t", 2);
 		cp2 = cp;
-		while (! isspace ((unsigned char) *cp2) && *cp2 != '\0')
+		while (!isspace ((unsigned char) *cp2) && *cp2 != '\0')
 		    ++cp2;
 		cvs_output (cp, cp2 - cp);
 		cp = cp2;
@@ -933,7 +944,7 @@ log_fileproc (callerdat, finfo)
 	}
     }
 
-    if (! log_data->notags)
+    if (!log_data->notags)
     {
 	List *syms;
 
@@ -961,14 +972,14 @@ log_fileproc (callerdat, finfo)
 
     cvs_output ("\n", 1);
 
-    if (! log_data->header || log_data->long_header)
+    if (!log_data->header || log_data->long_header)
     {
 	cvs_output ("description:\n", 0);
 	if (rcsfile->desc != NULL)
 	    cvs_output (rcsfile->desc, 0);
     }
 
-    if (! log_data->header && ! log_data->long_header && rcsfile->head != NULL)
+    if (!log_data->header && ! log_data->long_header && rcsfile->head != NULL)
     {
 	p = findnode (rcsfile->versions, rcsfile->head);
 	if (p == NULL)
@@ -1016,6 +1027,8 @@ log_fileproc (callerdat, finfo)
 
     return 0;
 }
+
+
 
 /*
  * Fix up a revision list in order to compare it against versions.
@@ -1380,6 +1393,8 @@ log_version_requested (log_data, revlist, rcs, vnode)
     return 1;
 }
 
+
+
 /*
  * Output a single symbol.  This is called via walklist.
  */
@@ -1396,6 +1411,8 @@ log_symbol (p, closure)
     return 0;
 }
 
+
+
 /*
  * Count the number of entries on a list.  This is called via walklist.
  */
@@ -1407,6 +1424,8 @@ log_count (p, closure)
 {
     return 1;
 }
+
+
 
 /*
  * Sort out a single date specification by narrowing down the date
@@ -1466,6 +1485,8 @@ log_fix_singledate (p, closure)
 
     return 0;
 }
+
+
 
 /*
  * Count the number of revisions we are going to print.
@@ -1688,9 +1709,9 @@ log_branch (p, closure)
 static Dtype
 log_dirproc (callerdat, dir, repository, update_dir, entries)
     void *callerdat;
-    char *dir;
-    char *repository;
-    char *update_dir;
+    const char *dir;
+    const char *repository;
+    const char *update_dir;
     List *entries;
 {
     if (!isdir (dir))

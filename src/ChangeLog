@@ -1,3 +1,287 @@
+2004-04-11  Derek Price  <derek@ximbiot.com>
+
+	* client.c (call_in_directory): Check paths the server sends us to make
+	sure they are within a sandbox the user requested be updated.
+	(is_valid_client_path, path_list_prefixed): New functions.
+
+2004-04-11  Derek Price  <derek@ximbiot.com>
+
+	* modules.c (do_module): Don't allow up-level references in paths to
+	step out of the repository.
+	* sanity.sh (multiroot3): Update tests and add a few more.
+
+2004-04-07  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (parseroot): Replace hard path with $HOME.
+
+2004-04-07  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (parseroot): s/oberon/$username/.
+
+2004-04-07  Derek Price  <derek@ximbiot.com>
+
+	* client.c (start_tcp_server): Use xstrdup rather than
+	xmalloc(strlen)/strcpy.
+
+2004-04-07  Derek Price  <derek@ximbiot.com>
+
+	* root.c (parse_cvsroot): Ignore method options.
+	* sanity.sh (parseroot): Verify that method options are ignored.
+
+2004-04-06  Derek Price  <derek@ximbiot.com>
+
+	* root.h (cvsroot_t): Move username, password, hostname, port inside
+	CLIENT_SUPPORT ifdefs.
+	* buffer.c, root.c, server.c: Add #ifdefs as necessary so that this
+        will compile without client support and the root.h change.  Some
+	gratuitous restyling.
+
+2004-04-06  Derek Price  <derek@ximbiot.com>
+
+	* log.c, tag.c: Gratuitous restyling.
+
+2004-04-04  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c (isabsolute): Move...
+	* subr.c: ...here and use new ISABSOLUTE macro.
+
+2004-04-04  Derek Price  <derek@ximbiot.com>
+
+	* client.c (send_file_names): Cast out an unneeded const to avoid a
+	warning.
+
+2004-04-03  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* client.c (send_file_names): Remove unused variables.
+
+2004-04-02  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (client): Honor $keep.
+
+2004-04-02  Derek Price  <derek@ximbiot.com>
+
+	* log.c, patch.c, rcs.c: Gratuitous restyling.
+
+2004-04-02  Derek Price  <derek@ximbiot.com>
+
+	* import.c (import): Use ISDIRSEP rather than testing paths against `/'
+	directly.  Some gratuitos reformatting.
+
+2004-04-02  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh: Note the effectiveness of `tail -f check.log' in providing
+	running status.
+
+2004-04-02  Derek Price  <derek@ximbiot.com>
+
+	* client.c (send_file_names): Move code which calculates and sends
+	Max-dotdot...
+	(send_max_dotdot): ...to this new function.
+	(send_files): Call send_max_dotdot.
+	* sanity.sh (files-14): Expect .. in paths to work now.
+	(status): Add a few new tests using `..'.
+
+2004-04-01  Derek Price  <derek@ximbiot.com>
+
+	* lock.c: Gratuitous restyling.
+
+2004-04-01  Derek Price  <derek@ximbiot.com>
+
+	* cvs.h, server.c: Gratuitous restyling.
+	* run.c (run_exec): Ditto, plus call cvs_flush{out,err}() instead of
+	flushing stderr & stdout directly.
+
+2004-03-29  Derek Price  <derek@ximbiot.com>
+
+	* server.c: Gratuitous restyling.
+
+2004-03-29  Derek Price  <derek@ximbiot.com>
+
+	* login.c: Gratuitous restyling.
+
+2004-03-22  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (toplevel): Remove FIXME type comment and unneeded
+	Emtptydir removal.
+
+2004-03-22  Derek Price  <derek@ximbiot.com>
+
+	* update.c: Some minor style cleanup.
+
+2004-03-22  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (top-level): Don't match most of the assertion since this
+	string is often system dependent.
+	(Thanks to Larry Jones <lawrence.jones@ugsplm.com>.)
+
+2004-03-22  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (top-level): Don't match the assertion's line number.
+
+2004-03-22  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (top-level): New test to confirm assertion failure.
+
+2004-03-22  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh: Only verify argument to -f when -f was passed.  Check for
+	$TMPDIR/cvsXXXXXX temp files after each test.
+
+2004-03-22  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh: Verify that the argument to -f is really a test.
+
+2004-03-20  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* cvs.h: Change command_name to cvs_command_name to avoid conflict
+	on HP-UX (incredibly, it declares a global command_name in prot.h,
+	which is included from shadow.h, which we include in server.c).
+	Change all references.
+
+	* subr.c (previous_rev): Fix == vs = typo.
+
+	* buffer.h: Add prototype for buf_empty.
+
+	* add.c (add): Remove unused variable.
+
+2004-03-20  Derek Price  <derek@ximbiot.com>
+
+	* add.c (add, add_directory, build_entry), admin.c (admin_dirproc),
+	checkin.c (Checkin), checkout.c (safe_location, build_dirs_and_chdir),
+	client.c (add_prune_candidate, send_repository, send_a_repository,
+	send_to_server, start_rsh_server, send_arg, send_modified,
+	send_ignproc, send_filesdone_proc, send_dirent_proc,
+	send_dirleave_proc, client_notify), commit.c (check_direntproc,
+	check_filesdoneproc, checkaddfile, commit_direntproc,
+	commit_dirleaveproc, lock_RCS, precommit_proc, find_data,
+	find_dirent_proc, find_ignproc, find_filesdoneproc), create_adm.c
+	(Create_Admin), cvsrc.c (read_cvsrc), diff.c (diff_dirproc,
+	diff_filesdoneproc, diff_dirleaveproc), edit.c (onoff_filesdoneproc,
+	mark_up_to_date, editor_set, notify_proc_args, notify_proc, notify_do,
+	notify_check), entries.c (Scratch_Entry, Register, WriteTag),
+	expand_path.c (expand_variable, expand_path), fileattr.c
+	(fileattr_startdir), filesubr.c (mkdir_if_needed, xchmod,
+	last_component), history.c (history_write), ignore.c (ignore_directory,
+	ignore_files), import.c (get_comment, add_rcs_file, expand_at_signs),xi
+	lock.c (lock_filesdoneproc), log.c (log_dirproc), logmsg.c
+	(logfile_write, rcsinfo_proc, update_logfile_proc, editinfo_proc,
+	verifymsg_proc, do_editor, do_verify, Update_Logfile), main.c (main
+	program_name, program_path, command_name), parseinfo.c (Parse_Info),
+	patch.c (patch_dirproc), rcs.c (RCS_getdatebranch, rcs_lockfilename,
+	RCS_parse, RCS_setattic, RCS_getversion, RCS_gettag, RCS_getbranch,
+	RCS_getdate, RCS_datecmp, RCS_getrevtime, RCS_setexpand,
+	expand_keywords, RCS_checkout, RCS_addbranch, RCS_checkin, RCS_lock,
+	RCS_cmp_file, RCS_deltas, rcs_lockfilename, make_file_label),
+	rcscmds.c (RCS_output_diff_options, call_diff, RCS_merge,
+	RCS_exec_rcsdiff, diff_exec), recurse.c (start_recursion, do_recursion,
+	do_file_proc), remove.c (remove_dirproc), repos.c (Name_Repository,
+	Short_Repository), root.c (Name_Root, Create_Root), run.c
+	(piped_child), server.c (output_dir, server_register,
+	server_checked_in, server_update_entries, server_copy_file,
+	server_set_entstat, server_clear_entstat, server_set_sticky,
+	server_template, cvs_output_tagged), status.c (status_dirproc), subr.c
+	(make_message_rcslegal), tag.c (pretag_proc, tag_dirproc,
+	check_fileproc, check_filesdoneproc, tag_fileproc, val_direntproc),
+	update.c (update_dirent_proc, update_dirleave_proc, update_ignproc,
+	update_filesdone_proc, isemptydir), vers_ts.c (time_stamp_server,
+	time_stamp), watch.c (watch_modify_watchers, addremove_filesdoneproc),
+	zlib.c (read_and_gzip): Make most string args const, mainly in the
+	interest of preserving repository & updatedir but including some
+	collateral damage.  Update a few functions to comply with new
+	requirement.  Some style fixes.
+	* client.h, cvs.h, edit.h, fileattr.h, rcs.h, server.h, update.h,
+	watch.h: Update prototypes to match.
+
+2004-03-20  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (conflicts2): s/cvs/$testcvs/.
+
+2004-03-20  Derek Price  <derek@ximbiot.com>
+
+	* add.c (add): Correct longstanding resurrection bugs.  Remove FIXME
+	comment to this effect.  Set mode and Entries timestamps of resurrected
+	files correctly.
+	* sanity.sh (basica, binfiles, conflicts2, recase, resurrection,
+	update-p): Update tests to compensate.  Remove FIXCVS comments.
+
+2004-03-19  Mark D. Baushke  <mdb@cvshome.org>
+
+	* server.c (gserver_authenticate_connection): Handle large
+	GSSAPI packets dynamically.
+	(Bug report from Douglas Engert <DEEngert@anl.gov>)
+
+2004-03-19  Derek Price  <derek@ximbiot.com>
+
+	* cvs.h (pathname_levels, previous_rev): Remove leading underscore from
+	prototype arguments to avoid potential conflicts with implementations.
+
+2004-03-18  Derek Price  <derek@ximbiot.com>
+
+	* cvs.h (pathname_levels): Make string argument const.
+	* subr.c (pathname_levels): Simplify function.
+
+2004-03-17  Derek Price  <derek@ximbiot.com>
+
+	* subr.c (pathname_levels): Get it right this time.
+
+2004-03-17  Derek Price  <derek@ximbiot.com>
+
+	* subr.c (pathname_levels): Remove incorrect assertion and just
+	return 0 when pathname is NULL.
+
+2004-03-17  Derek Price  <derek@ximbiot.com>
+
+	* subr.c (pathname_levels): Use ISDIRSEP() instead of strchr('/')
+	and remove FIXME comment to that effect.
+
+2004-03-16  Derek Price  <derek@ximbiot.com>
+
+	* main.c (main): Update the --version Copyright (c) string to
+	include 2004.
+
+2004-03-15  Mark D. Baushke  <mdb@cvshome.org>
+
+	* release.c (release): Add missing xmalloc of update_cmd.
+
+2004-03-15  Derek Price  <derek@ximbiot.com>
+
+	* release.c (release): Enable authentication and encryption for a child
+	update process when necessary.
+	(Original patch from Dan Russell <russelld@aol.net> via Hal Mahaffey
+	<HMahaffey@aol.com>.)
+
+2004-03-14  Derek Price  <derek@ximbiot.com>
+
+	* add.c (add): Only call server_updated() when we actual have a new
+	resurrected file for the client.
+
+2004-03-14  Derek Price  <derek@ximbiot.com>
+
+	* cvs.h (previous_rev, write_letter): New prototypes.
+	(struct file_info): Move to before the write_letter prototype.
+	* add.c (add): Allow resurrection of files which used to exist on a
+	branch.
+	* subr.c (previous_rev): New function.
+	* update.c: Consolidate like pragmas.
+	 (write_letter): Remove prototype.  Remove static declaration.
+	* sanity.sh (resurrection): New tests.
+
+2004-03-14  Derek Price  <derek@ximbiot.com>
+
+	* commit.c (remove_file): Print the actual previous revision instead of
+	a branch number.
+	* sanity.sh: Update to match.
+
+2004-03-14  Derek Price  <derek@ximbiot.com>
+
+	* rcs.c (RCS_cmp_file): Print the actual name of the file we failed to
+	open in the error message.
+
+2004-03-14  Derek Price  <derek@ximbiot.com>
+
+	* diff.c (diff_fileproc): Allow diffing of new files against arbitrary
+	revisions instead of assuming that there is no RCS archive file.
+
 2004-03-03  Derek Price  <derek@ximbiot.com>
 
 	* import.c (import): Check that the module name specified by the user

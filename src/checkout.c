@@ -130,7 +130,7 @@ checkout (argc, argv)
      * options to be default (like -kv) and takes care to remove the CVS
      * directory when it has done its duty
      */
-    if (strcmp (command_name, "export") == 0)
+    if (strcmp (cvs_cmd_name, "export") == 0)
     {
         m_type = EXPORT;
 	valid_options = "+Nnk:d:flRQqr:D:";
@@ -177,7 +177,7 @@ checkout (argc, argv)
 #endif
 		    error (1, 0,
 			   "-q or -Q must be specified before \"%s\"",
-			   command_name);
+			   cvs_cmd_name);
 		break;
 	    case 'l':
 		local = 1;
@@ -466,8 +466,11 @@ safe_location (where)
 		char *parent;
 
 		/* strip the last_component */
-		where_location = xstrdup( where );
-		parent = last_component( where_location );
+		where_location = xstrdup (where);
+                /* It's okay to cast out the const below since we know we just
+                 * allocated where_location and can do what we like with it.
+                 */
+		parent = (char *)last_component (where_location);
 		parent[-1] = '\0';
 
 		if( chdir( where_location ) != -1 )
@@ -1233,7 +1236,7 @@ build_dirs_and_chdir (dirs, sticky)
 
     while (dirs != NULL)
     {
-	char *dir = last_component (dirs->dirpath);
+	const char *dir = last_component (dirs->dirpath);
 
 	if (!dirs->just_chdir)
 	{

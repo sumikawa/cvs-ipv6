@@ -182,7 +182,8 @@ fi
 echo 'This test should produce no other output than this message, and a final "OK".'
 echo '(Note that the test can take an hour or more to run and periodically stops'
 echo 'for as long as one minute.  Do not assume there is a problem just because'
-echo 'nothing seems to happen for a long time.)'
+echo 'nothing seems to happen for a long time.  If you cannot live without'
+echo "running status, try the command: \`tail -f check.log' from another window.)"
 
 # Regexp to match what CVS will call itself in output that it prints.
 # FIXME: we don't properly quote this--if the name contains . we'll
@@ -778,7 +779,7 @@ if test x"$*" = x; then
 	# Branching, tagging, removing, adding, multiple directories
 	tests="${tests} rdiff rdiff-short"
 	tests="${tests} rdiff2 diff diffnl death death2"
-	tests="${tests} rm-update-message rmadd rmadd2 rmadd3"
+	tests="${tests} rm-update-message rmadd rmadd2 rmadd3 resurrection"
 	tests="${tests} dirs dirs2 branches branches2 tagc tagf"
 	tests="${tests} rcslib multibranch import importb importc import-CVS"
 	tests="${tests} update-p import-after-initial branch-after-import"
@@ -791,7 +792,7 @@ if test x"$*" = x; then
 	tests="${tests} modules modules2 modules3 modules4 modules5 modules6"
 	tests="${tests} mkmodules co-d"
 	tests="${tests} cvsadm emptydir abspath abspath2 toplevel toplevel2"
-        tests="${tests} checkout_repository"
+        tests="${tests} top-level checkout_repository"
 	# Log messages, error messages.
 	tests="${tests} mflag editor errmsg1 errmsg2 adderrmsg opterrmsg"
 	# Watches, binary files, history browsing, &c.
@@ -826,6 +827,30 @@ if test x"$*" = x; then
 else
 	tests="$*"
 fi
+
+# Now check the -f argument for validity.
+if test -n "$fromtest"; then
+	# Don't allow spaces - they are our delimiters in tests
+	count=0
+	for sub in $fromtest; do
+	  count=`expr $count + 1`
+	done
+	if test $count != 1; then
+		echo "No such test \`$fromtest'." >&2
+		exit 2
+	fi
+	# make sure it is in $tests
+	case " $tests " in
+		*" $fromtest "*)
+			;;
+		*)
+			echo "No such test \`$fromtest'." >&2
+			exit 2
+			;;
+	esac
+fi
+
+
 
 # a simple function to compare directory contents
 #
@@ -1950,7 +1975,7 @@ new revision: delete; previous revision: 3\.1
 done"
 	  dotest basica-r3 "${testcvs} -q up -p -r 3.1 ./ssfile >ssfile" ""
 	  dotest basica-r4 "${testcvs} add ssfile" \
-"${PROG} add: re-adding file .ssfile. (in place of dead revision 3\.2)
+"${PROG} add: Re-adding file .ssfile. (in place of dead revision 3\.2)\.
 ${PROG} add: use .${PROG} commit. to add this file permanently"
 	  dotest basica-r5 "${testcvs} -q ci -m resurrect" \
 "Checking in ssfile;
@@ -3678,13 +3703,27 @@ ${CVSROOT_DIRNAME}/CVSROOT/modules,v  <--  modules
 new revision: 1\.2; previous revision: 1\.1
 done
 ${PROG} commit: Rebuilding administrative file database"
-	  CVSROOT=${CVSROOT_save}
+
+	  if $remote; then
+	    # I only test these when testing remote in case CVS was compiled
+	    # without client support.
+
+	    # logout does not try to contact the server.
+	    CVSROOT=":pserver;proxy=localhost;proxyport=8080:localhost/dev/null"
+	    dotest parseroot-3r "$testcvs -d'$CVSROOT' logout" \
+"$PROG logout: WARNING: Ignoring method options found in CVSROOT: \`proxy=localhost;proxyport=8080'\.
+$PROG logout: Use CVS version 1\.12\.7 or later to handle method options\.
+Logging out of :pserver:$username@localhost:2401/dev/null
+$PROG logout: warning: failed to open $HOME/\.cvspass for reading: No such file or directory
+$PROG logout: Entry not found\."
+	  fi
 
 	  if $keep; then
-		echo Keeping ${TESTDIR} and exiting due to --keep
+		echo Keeping $TESTDIR and exiting due to --keep
 		exit 0
 	  fi
 
+	  CVSROOT=$CVSROOT_save
 	  cd ..
 	  rm -r 1
 	  ;;
@@ -3806,9 +3845,12 @@ ${CVSROOT_DIRNAME}/first-dir/dir/sdir/ssdir/Attic/\.file,v  <--  \.file
 new revision: 1\.1\.2\.4; previous revision: 1\.1\.2\.3
 done"
 	  if $remote; then
-	    dotest_fail files-14 \
+	    dotest files-14 \
 "${testcvs} commit -fmtest ../../first-dir/dir/.file" \
-"protocol error: .\.\./\.\./first-dir/dir' has too many \.\."
+"Checking in \.\./\.\./first-dir/dir/\.file;
+${CVSROOT_DIRNAME}/first-dir/dir/Attic/\.file,v  <--  .file
+new revision: 1\.1\.2\.4; previous revision: 1\.1\.2\.3
+done"
 	  else
 	    dotest files-14 \
 "${testcvs} commit -fmtest ../../first-dir/dir/.file" \
@@ -4006,14 +4048,65 @@ File: tfile            	Status: Locally Modified
 		dotest status-4 "grep 'Result of merge' CVS/Entries" \
 "/tfile/1\.2/Result of merge${PLUS}[a-zA-Z0-9 :]*//"
 
+                cd ..
+                mkdir fourth-dir
+                dotest status-init-8 "$testcvs add fourth-dir" \
+"Directory $CVSROOT_DIRNAME/fourth-dir added to the repository"
+                cd fourth-dir
+                echo yet another line >t3file
+                dotest status-init-9 "$testcvs add t3file" \
+"$PROG add: scheduling file .t3file. for addition
+$PROG add: use .$PROG commit. to add this file permanently"
+                dotest status-init-10 "$testcvs -q ci -m add" \
+"RCS file: $CVSROOT_DIRNAME/fourth-dir/t3file,v
+done
+Checking in t3file;
+$CVSROOT_DIRNAME/fourth-dir/t3file,v  <--  t3file
+initial revision: 1\.1
+done"
+                cd ../first-dir
+                mkdir third-dir
+                dotest status-init-11 "$testcvs add third-dir" \
+"Directory $CVSROOT_DIRNAME/first-dir/third-dir added to the repository"
+                cd third-dir
+                echo another line >t2file
+                dotest status-init-12 "$testcvs add t2file" \
+"$PROG add: scheduling file .t2file. for addition
+$PROG add: use .$PROG commit. to add this file permanently"
+                dotest status-init-13 "$testcvs -q ci -m add" \
+"RCS file: $CVSROOT_DIRNAME/first-dir/third-dir/t2file,v
+done
+Checking in t2file;
+$CVSROOT_DIRNAME/first-dir/third-dir/t2file,v  <--  t2file
+initial revision: 1\.1
+done"
+                dotest status-5 "$testcvs status ../tfile" \
+"===================================================================
+File: tfile            	Status: Locally Modified
+
+   Working revision:	1\.2.*
+   Repository revision:	1\.2	$CVSROOT_DIRNAME/first-dir/tfile,v
+   Sticky Tag:		(none)
+   Sticky Date:		(none)
+   Sticky Options:	(none)"
+                dotest status-6 "$testcvs status ../../fourth-dir/t3file" \
+"===================================================================
+File: t3file           	Status: Up-to-date
+
+   Working revision:	1\.1.*
+   Repository revision:	1\.1	$CVSROOT_DIRNAME/fourth-dir/t3file,v
+   Sticky Tag:		(none)
+   Sticky Date:		(none)
+   Sticky Options:	(none)"
+
 		if $keep; then
-			echo Keeping ${TESTDIR} and exiting due to --keep
+			echo Keeping $TESTDIR and exiting due to --keep
 			exit 0
 		fi
 
-		cd ../..
+		cd ../../..
 		rm -rf status
-		rm -rf ${CVSROOT_DIRNAME}/first-dir
+		rm -rf $CVSROOT_DIRNAME/first-dir $CVSROOT_DIRNAME/fourth-dir
 		;;
 
 	rdiff)
@@ -4960,7 +5053,7 @@ diff -N file1
 	  dotest death2-8 "${testcvs} -q ci -m removed" \
 "Removing file1;
 ${CVSROOT_DIRNAME}/first-dir/file1,v  <--  file1
-new revision: delete; previous revision: 1\.1\.2
+new revision: delete; previous revision: 1\.1
 done"
 
 	  # Test diff of a dead file.
@@ -5065,7 +5158,7 @@ ${PROG} remove: use .${PROG} commit. to remove this file permanently"
 	  dotest death2-10b "${testcvs} -q ci -m removed" \
 "Removing file4;
 ${CVSROOT_DIRNAME}/first-dir/file4,v  <--  file4
-new revision: delete; previous revision: 1\.1\.2
+new revision: delete; previous revision: 1\.1
 done"
 
 	  # Back to the trunk.
@@ -5700,6 +5793,88 @@ $PROG \[commit aborted\]: correct above errors first!"
 	  rm -rf ${CVSROOT_DIRNAME}/first-dir
 	  ;;
 
+	resurrection)
+	  # This test tests a few file resurrection scenarios.
+	  mkdir 1; cd 1
+	  dotest resurrection-init1 "$testcvs -q co -l ." ''
+	  mkdir first-dir
+	  dotest resurrection-init2 "$testcvs add first-dir" \
+"Directory $CVSROOT_DIRNAME/first-dir added to the repository"
+	  cd first-dir
+
+	  echo initial content for file1 >file1
+	  dotest resurrection-init3 "$testcvs add file1" \
+"$PROG add: scheduling file \`file1' for addition
+$PROG add: use '$PROG commit' to add this file permanently"
+	  dotest resurrection-init4 "$testcvs -q ci -m add" \
+"RCS file: $CVSROOT_DIRNAME/first-dir/file1,v
+done
+Checking in file1;
+$CVSROOT_DIRNAME/first-dir/file1,v  <--  file1
+initial revision: 1\.1
+done"
+
+	  dotest resurrection-init5 "$testcvs -Q rm -f file1"
+
+	  # The first test is that `cvs add' will resurrect a file before it
+	  # has been committed.
+	  dotest_sort resurrection-1 "$testcvs add file1" \
+"U file1
+$PROG add: file1, version 1\.1, resurrected"
+	  dotest resurrection-2 "$testcvs -Q diff file1" ""
+
+	  dotest resurrection-init6 "$testcvs -Q tag -b resurrection"
+	  dotest resurrection-init7 "$testcvs -Q rm -f file1"
+	  dotest resurrection-init8 "$testcvs -Q ci -mrm" \
+"Removing file1;
+$CVSROOT_DIRNAME/first-dir/file1,v  <--  file1
+new revision: delete; previous revision: 1\.1
+done"
+
+	  # The next test is that CVS will resurrect a committed removal.
+	  dotest_sort resurrection-3 "$testcvs add file1" \
+"U file1
+$PROG add: Re-adding file \`file1' (in place of dead revision 1\.2)\.
+$PROG add: Resurrecting file \`file1' from revision 1\.1\.
+$PROG add: use 'cvs commit' to add this file permanently"
+	  dotest resurrection-4 "$testcvs -q diff -r1.1 file1" ""
+	  dotest resurrection-5 "$testcvs -q ci -mreadd" \
+"Checking in file1;
+$CVSROOT_DIRNAME/first-dir/file1,v  <--  file1
+new revision: 1\.3; previous revision: 1\.2
+done"
+
+	  dotest resurrection-init9 "$testcvs -Q up -rresurrection"
+	  dotest resurrection-init10 "$testcvs -Q rm -f file1"
+	  dotest resurrection-init11 "$testcvs -Q ci -mrm-on-resurrection" \
+"Removing file1;
+$CVSROOT_DIRNAME/first-dir/file1,v  <--  file1
+new revision: delete; previous revision: 1\.1
+done"
+
+	  # The next test is that CVS will resurrect a committed removal to a
+	  # branch.
+	  dotest_sort resurrection-6 "$testcvs add file1" \
+"U file1
+$PROG add: Resurrecting file \`file1' from revision 1\.1\.
+$PROG add: file \`file1' will be added on branch \`resurrection' from version 1\.1\.2\.1
+$PROG add: use 'cvs commit' to add this file permanently"
+	  dotest resurrection-7 "$testcvs -Q diff -r1.1 file1" ""
+	  dotest resurrection-8 "$testcvs -q ci -mreadd" \
+"Checking in file1;
+$CVSROOT_DIRNAME/first-dir/file1,v  <--  file1
+new revision: 1\.1\.2\.2; previous revision: 1\.1\.2\.1
+done"
+	  if $keep; then
+	    echo Keeping $TESTDIR and exiting due to --keep
+	    exit 0
+	  fi
+
+	  cd ../..
+	  rm -r 1
+	  rm -rf $CVSROOT_DIRNAME/first-dir
+	  ;;
+
 	dirs)
 	  # Tests related to removing and adding directories.
 	  # See also:
@@ -5875,7 +6050,7 @@ ${PROG} remove: use .${PROG} commit. to remove this file permanently"
 	  dotest dirs2-13 "${testcvs} -q ci -m remove" \
 "Removing sdir/file1;
 ${CVSROOT_DIRNAME}/first-dir/sdir/file1,v  <--  file1
-new revision: delete; previous revision: 1\.1\.2
+new revision: delete; previous revision: 1\.1
 done"
 	  cd ../../2/first-dir
 	  if $remote; then
@@ -6562,7 +6737,7 @@ done"
 	  echo v2 > $file
 	  dotest update-p-undead-7 "$testcvs -Q update -p -rT $file" v1
 	  dotest update-p-undead-8 "$testcvs add $file" \
-"${PROG} add: re-adding file .$file. (in place of dead revision 1\.2)
+"${PROG} add: Re-adding file .$file. (in place of dead revision 1\.2)\.
 ${PROG} add: use .${PROG} commit. to add this file permanently"
 
 	  dotest update-p-undead-9 "$testcvs -Q update -p -rT $file" v1
@@ -9400,15 +9575,15 @@ done"
 	  dotest join-rm-init-8 "$testcvs -Q ci -mrm" \
 "Removing b;
 $CVSROOT_DIRNAME/join-rm/b,v  <--  b
-new revision: delete; previous revision: 1\.1\.2
+new revision: delete; previous revision: 1\.1
 done
 Removing d;
 $CVSROOT_DIRNAME/join-rm/d,v  <--  d
-new revision: delete; previous revision: 1\.1\.2
+new revision: delete; previous revision: 1\.1
 done
 Removing g;
 $CVSROOT_DIRNAME/join-rm/g,v  <--  g
-new revision: delete; previous revision: 1\.1\.2
+new revision: delete; previous revision: 1\.1
 done"
 
 	  # update to the trunk
@@ -9474,7 +9649,7 @@ rm
 	  dotest join-rm-init-12 "$testcvs -Q ci -m rma" \
 "Removing a;
 $CVSROOT_DIRNAME/join-rm/a,v  <--  a
-new revision: delete; previous revision: 1\.1\.2
+new revision: delete; previous revision: 1\.1
 done"
 
 	  # now the test: update to the trunk
@@ -9607,7 +9782,7 @@ ${PROG} remove: use .${PROG} commit. to remove this file permanently"
 	  dotest newb-123h "${testcvs} -q ci -m removed" \
 "Removing a;
 ${CVSROOT_DIRNAME}/first-dir/a,v  <--  a
-new revision: delete; previous revision: 1\.1\.2
+new revision: delete; previous revision: 1\.1
 done"
 
 	  # Check out the file on the branch.  This should report
@@ -9972,9 +10147,18 @@ ${PROG} remove: use .${PROG} commit. to remove this file permanently"
 C a"
 	  # Resolve the conflict by deciding not to remove the file
 	  # after all.
-	  dotest conflicts2-142b5 "${testcvs} add a" "U a
+	  dotest_sort conflicts2-142b5 "${testcvs} add a" "U a
 ${PROG} add: a, version 1\.1, resurrected"
-	  dotest conflicts2-142b6 "${testcvs} -q update" ''
+	  dotest conflicts2-142b5b1 "$testcvs status a" \
+"===================================================================
+File: a                	Status: Needs Patch
+
+   Working revision:	1\.1.*
+   Repository revision:	1\.2	$CVSROOT_DIRNAME/first-dir/a,v
+   Sticky Tag:		(none)
+   Sticky Date:		(none)
+   Sticky Options:	(none)"
+	  dotest conflicts2-142b6 "${testcvs} -q update" 'U a'
 
 	  # Now one level up.
 	  cd ..
@@ -9984,22 +10168,13 @@ ${PROG} remove: use .${PROG} commit. to remove this file permanently"
 
 	  if $remote; then
 	    # Haven't investigated this one.
-	    dotest_fail conflicts2-142b8 "${testcvs} add first-dir/a" \
+	    dotest_fail conflicts2-142b8r "$testcvs add first-dir/a" \
 "${PROG} add: in directory \.:
 ${PROG} \[add aborted\]: there is no version here; do '${PROG} checkout' first"
 	    cd first-dir
 	  else
-	    # The "nothing known" is a bug.  Correct behavior is for a to get
-	    # created, as above.  Cause is pretty obvious - add.c
-	    # calls update() without dealing with the fact we are chdir'd.
-	    # Also note that resurrecting 1.2 instead of 1.1 is also a
-	    # bug, I think (the same part of add.c has a comment which says
-	    # "XXX - bugs here; this really resurrect the head" which
-	    # presumably refers to this).
-	    # The fix for both is presumably to call RCS_checkout() or
-	    # something other than update().
 	    dotest conflicts2-142b8 "${testcvs} add first-dir/a" \
-"${PROG} add: nothing known about first-dir
+"U first-dir/a
 ${PROG} add: first-dir/a, version 1\.2, resurrected"
 	    cd first-dir
 	    # Now recover from the damage that the 142b8 test did.
@@ -10008,8 +10183,7 @@ ${PROG} add: first-dir/a, version 1\.2, resurrected"
 ${PROG} remove: use .${PROG} commit. to remove this file permanently"
 	  fi
 
-	  # As before, 1.2 instead of 1.1 is a bug.
-	  dotest conflicts2-142b10 "${testcvs} add a" "U a
+	  dotest_sort conflicts2-142b10 "${testcvs} add a" "U a
 ${PROG} add: a, version 1\.2, resurrected"
 	  # As with conflicts2-142b6, check that things are normal again.
 	  dotest conflicts2-142b11 "${testcvs} -q update" ''
@@ -10122,7 +10296,7 @@ File: aa\.c             	Status: Unresolved Conflict
 
 	  cd ../..
 
-	  rm -r 1 2 ; rm -rf ${CVSROOT_DIRNAME}/first-dir
+	  rm -r 1 2; rm -rf ${CVSROOT_DIRNAME}/first-dir
 	  ;;
 
 	conflicts3)
@@ -13446,13 +13620,6 @@ $PROG \[checkout aborted\]: end of file from server (consult above messages if a
 	  # test the feature that cvs creates a CVS subdir also for
 	  # the toplevel directory
 
-	  # Some test, somewhere, is creating Emptydir.  That test
-	  # should, perhaps, clean up for itself, but I don't know which
-	  # one it is (cvsadm, emptydir, &c).
-	  # (On the other hand, should CVS care whether there is an
-	  # Emptydir?  That would seem a bit odd).
-	  rm -rf ${CVSROOT_DIRNAME}/CVSROOT/Emptydir
-
 	  # First set the TopLevelAdmin setting.
 	  mkdir 1; cd 1
 	  dotest toplevel-1a "${testcvs} -q co CVSROOT/config" \
@@ -13679,6 +13846,26 @@ ${PROG} commit: Rebuilding administrative file database"
 	  rm -r 1
 	  rm -rf ${CVSROOT_DIRNAME}/top-dir ${CVSROOT_DIRNAME}/second-dir
 	  ;;
+
+
+
+	top-level)
+	  # FIXCVS:
+	  # This test confirms a bug that exists in the r* commands currently
+	  # when run against the top-level project.
+	  #
+	  # The assertion failure is something like:
+	  # do_recursion: Assertion \`strstr (repository, \"/\./\") == ((void \*)0)' failed\..*"
+	  dotest_fail top-level-1 "$testcvs rlog ." \
+"${DOTSTAR}ssertion.*failed${DOTSTAR}" "${DOTSTAR}failed assertion${DOTSTAR}"
+
+	  if $keep; then
+	    echo Keeping ${TESTDIR} and exiting due to --keep
+	    exit 0
+	  fi
+	;;
+
+
 
         checkout_repository)
           dotest_fail checkout_repository-1 \
@@ -15673,7 +15860,7 @@ new revision: delete; previous revision: 1\.1
 done"
 	  cp ../binfile.dat file1
 	  dotest binfiles3-6 "${testcvs} add -kb file1" \
-"${PROG} add: re-adding file .file1. (in place of dead revision 1\.2)
+"${PROG} add: Re-adding file .file1. (in place of dead revision 1\.2)\.
 ${PROG} add: use .${PROG} commit. to add this file permanently"
 	  # The idea behind this test is to make sure that the file
 	  # gets opened in binary mode to send to "cvs ci".
@@ -24048,7 +24235,7 @@ initial revision: 1\.1
 done"
 	  else # server insensitive
 	    dotest recase-1si "$testcvs add FiLe" \
-"$PROG add: re-adding file \`FiLe' (in place of dead revision 1\.2)
+"$PROG add: Re-adding file \`FiLe' (in place of dead revision 1\.2)\.
 $PROG add: use '$PROG commit' to add this file permanently"
 	    dotest recase-2si "$testcvs -q ci -mrecase" \
 "Checking in FiLe;
@@ -25898,41 +26085,45 @@ ${PROG} \[diff aborted\]: read lock failed - giving up"
 	  dotest multiroot3-11 "${testcvs} -q diff dir1/file1 dir2/file2" ""
 
 	  # make sure we can't access across repositories
-	  # FIXCVS: we probably shouldn't even create the local directories
-	  # in this case, but we do, so deal with it.
 	  mkdir 1a
 	  cd 1a
 	  dotest_fail multiroot3-12 \
-"${testcvs} -d ${CVSROOT1} -q co ../root2/dir2" \
-"${PROG} checkout: in directory \.\./root2/dir2:
-${PROG} checkout: .\.\..-relative repositories are not supported.
-${PROG} \[checkout aborted\]: illegal source repository"
-	  rm -rf ../root2
+"$testcvs -d $CVSROOT1 -q co ../root2/dir2" \
+"$PROG \[checkout aborted\]: up-level in module reference (\`..') invalid: \`\.\./root2/dir2'\." \
+"$PROG \[server aborted\]: up-level in module reference (\`..') invalid: \`\.\./root2/dir2'\.
+$PROG \[checkout aborted\]: end of file from server (consult above messages if any)"
 	  dotest_fail multiroot3-13 \
-"${testcvs} -d ${CVSROOT2} -q co ../root1/dir1" \
-"${PROG} checkout: in directory \.\./root1/dir1:
-${PROG} checkout: .\.\..-relative repositories are not supported.
-${PROG} \[checkout aborted\]: illegal source repository"
-	  rm -rf ../root1
+"$testcvs -d $CVSROOT2 -q co ../root1/dir1" \
+"$PROG \[checkout aborted\]: up-level in module reference (\`..') invalid: \`\.\./root1/dir1'\." \
+"$PROG \[server aborted\]: up-level in module reference (\`..') invalid: \`\.\./root1/dir1'\.
+$PROG \[checkout aborted\]: end of file from server (consult above messages if any)"
 	  dotest_fail multiroot3-14 \
-"${testcvs} -d ${CVSROOT1} -q co ./../root2/dir2" \
-"${PROG} checkout: in directory \./\.\./root2/dir2:
-${PROG} checkout: .\.\..-relative repositories are not supported.
-${PROG} \[checkout aborted\]: illegal source repository"
-	  rm -rf ../root2
+"$testcvs -d $CVSROOT1 -q co ./../root2/dir2" \
+"$PROG \[checkout aborted\]: up-level in module reference (\`..') invalid: \`\./\.\./root2/dir2'\." \
+"$PROG \[server aborted\]: up-level in module reference (\`..') invalid: \`\./\.\./root2/dir2'\.
+$PROG \[checkout aborted\]: end of file from server (consult above messages if any)"
 	  dotest_fail multiroot3-15 \
-"${testcvs} -d ${CVSROOT2} -q co ./../root1/dir1" \
-"${PROG} checkout: in directory \./\.\./root1/dir1:
-${PROG} checkout: .\.\..-relative repositories are not supported.
-${PROG} \[checkout aborted\]: illegal source repository"
-	  rm -rf ../root1
-
-	  cd ../..
+"$testcvs -d $CVSROOT2 -q co ./../root1/dir1" \
+"$PROG \[checkout aborted\]: up-level in module reference (\`..') invalid: \`\./\.\./root1/dir1'\." \
+"$PROG \[server aborted\]: up-level in module reference (\`..') invalid: \`\./\.\./root1/dir1'\.
+$PROG \[checkout aborted\]: end of file from server (consult above messages if any)"
+	  dotest_fail multiroot3-16 \
+"$testcvs -d $CVSROOT1 -q co -p ../root2/dir2" \
+"$PROG \[checkout aborted\]: up-level in module reference (\`..') invalid: \`\.\./root2/dir2'\." \
+"$PROG \[server aborted\]: up-level in module reference (\`..') invalid: \`\.\./root2/dir2'\.
+$PROG \[checkout aborted\]: end of file from server (consult above messages if any)"
+	  dotest_fail multiroot3-17 \
+"$testcvs -d $CVSROOT1 -q co -p ./../root1/dir1" \
+"$PROG \[checkout aborted\]: up-level in module reference (\`..') invalid: \`\./\.\./root1/dir1'\." \
+"$PROG \[server aborted\]: up-level in module reference (\`..') invalid: \`\./\.\./root1/dir1'\.
+$PROG \[checkout aborted\]: end of file from server (consult above messages if any)"
 
 	  if $keep; then
-	    echo Keeping ${TESTDIR} and exiting due to --keep
+	    echo Keeping $TESTDIR and exiting due to --keep
 	    exit 0
 	  fi
+
+	  cd ../..
 
 	  rm -r 1
 	  rm -rf ${TESTDIR}/root1 ${TESTDIR}/root2
@@ -26963,10 +27154,204 @@ u=rw,g=r,o=r
 abc
 update"
 
+	    # The following test tests what was a potential client update in
+	    # CVS versions 1.11.14 and CVS versions 1.12.6 and earlier.  This
+	    # exploit would allow a trojan server to create arbitrary files,
+	    # anywhere the user had write permissions, even outside of the
+	    # user's sandbox.
+	    cat >$HOME/.bashrc <<EOF
+#!$TESTSHELL
+# This is where login scripts would usually be
+# stored.
+EOF
+	    cat >$TESTDIR/serveme <<EOF
+#!$TESTSHELL
+echo "Valid-requests Root Valid-responses valid-requests Directory Entry Modified Unchanged Argument Argumentx ci co update"
+echo "ok"
+echo "Rcs-diff $HOME/"
+echo "$HOME/.bashrc"
+echo "/.bashrc/73.50///"
+echo "u=rw,g=rw,o=rw"
+echo "20"
+echo "a1 1"
+echo "echo 'gotcha!'"
+echo "ok"
+cat >/dev/null
+EOF
+	    
+	    # If I don't run the following sleep between the above cat and
+	    # the following calls to dotest, sometimes the serveme file isn't
+	    # completely written yet by the time CVS tries to execute it,
+	    # causing the shell to intermittantly report syntax errors (usually
+	    # early EOF).  There's probably a new race condition here, but this
+	    # works.
+	    #
+	    # Incidentally, I can reproduce this behavior with Linux 2.4.20 and
+	    # Bash 2.05 or Bash 2.05b.
+	    sleep 1
+	    dotest_fail client-10 "$testcvs update" \
+"$PROG update: Server attempted to update a file via an invalid pathname:
+$PROG \[update aborted\]: \`$HOME/.bashrc'\."
+
+	    # A second try at a client exploit.  This one never actually
+	    # failed in the past, but I thought it wouldn't hurt to add a test.
+	    cat >$TESTDIR/serveme <<EOF
+#!$TESTSHELL
+echo "Valid-requests Root Valid-responses valid-requests Directory Entry Modified Unchanged Argument Argumentx ci co update"
+echo "ok"
+echo "Rcs-diff ./"
+echo "$HOME/.bashrc"
+echo "/.bashrc/73.50///"
+echo "u=rw,g=rw,o=rw"
+echo "20"
+echo "a1 1"
+echo "echo 'gotcha!'"
+echo "ok"
+cat >/dev/null
+EOF
+	    sleep 1
+	    dotest_fail client-11 "$testcvs update" \
+"$PROG \[update aborted\]: patch original file \./\.bashrc does not exist"
+
+	    # A third try at a client exploit.  This one did used to fail like
+	    # client-10.
+	    cat >$TESTDIR/serveme <<EOF
+#!$TESTSHELL
+echo "Valid-requests Root Valid-responses valid-requests Directory Entry Modified Unchanged Argument Argumentx ci co update"
+echo "ok"
+echo "Rcs-diff ../../home/"
+echo "../../.bashrc"
+echo "/.bashrc/73.50///"
+echo "u=rw,g=rw,o=rw"
+echo "20"
+echo "a1 1"
+echo "echo 'gotcha!'"
+echo "ok"
+cat >/dev/null
+EOF
+	    sleep 1
+	    dotest_fail client-12 "$testcvs update" \
+"$PROG update: Server attempted to update a file via an invalid pathname:
+$PROG \[update aborted\]: \`\.\./\.\./home/.bashrc'\."
+
+	    # Try the same exploit using the Created response.
+	    cat >$TESTDIR/serveme <<EOF
+#!$TESTSHELL
+echo "Valid-requests Root Valid-responses valid-requests Directory Entry Modified Unchanged Argument Argumentx ci co update"
+echo "ok"
+echo "Created $HOME/"
+echo "$HOME/.bashrc"
+echo "/.bashrc/73.50///"
+echo "u=rw,g=rw,o=rw"
+echo "26"
+echo "#! /bin/sh"
+echo "echo 'gotcha!'"
+echo "ok"
+cat >/dev/null
+EOF
+	    sleep 1
+	    dotest_fail client-13 "$testcvs update" \
+"$PROG update: Server attempted to update a file via an invalid pathname:
+$PROG \[update aborted\]: \`$HOME/.bashrc'\."
+
+	    # Now try using the Update-existing response
+	    cat >$TESTDIR/serveme <<EOF
+#!$TESTSHELL
+echo "Valid-requests Root Valid-responses valid-requests Directory Entry Modified Unchanged Argument Argumentx ci co update"
+echo "ok"
+echo "Update-existing ../../home/"
+echo "../../home/.bashrc"
+echo "/.bashrc/73.50///"
+echo "u=rw,g=rw,o=rw"
+echo "26"
+echo "#! /bin/sh"
+echo "echo 'gotcha!'"
+echo "ok"
+cat >/dev/null
+EOF
+	    sleep 1
+	    dotest_fail client-14 "$testcvs update" \
+"$PROG update: Server attempted to update a file via an invalid pathname:
+$PROG \[update aborted\]: \`\.\./\.\./home/.bashrc'\."
+
+	    # Try the same exploit using the Merged response.
+	    cat >$TESTDIR/serveme <<EOF
+#!$TESTSHELL
+echo "Valid-requests Root Valid-responses valid-requests Directory Entry Modified Unchanged Argument Argumentx ci co update"
+echo "ok"
+echo "Merged $HOME/"
+echo "$HOME/.bashrc"
+echo "/.bashrc/73.50///"
+echo "u=rw,g=rw,o=rw"
+echo "26"
+echo "#! /bin/sh"
+echo "echo 'gotcha!'"
+echo "ok"
+cat >/dev/null
+EOF
+	    sleep 1
+	    dotest_fail client-15 "$testcvs update" \
+"$PROG update: Server attempted to update a file via an invalid pathname:
+$PROG \[update aborted\]: \`$HOME/.bashrc'\."
+
+	    # Now try using the Updated response
+	    cat >$TESTDIR/serveme <<EOF
+#!$TESTSHELL
+echo "Valid-requests Root Valid-responses valid-requests Directory Entry Modified Unchanged Argument Argumentx ci co update"
+echo "ok"
+echo "Updated ../../home/"
+echo "../../home/.bashrc"
+echo "/.bashrc/73.50///"
+echo "u=rw,g=rw,o=rw"
+echo "26"
+echo "#! /bin/sh"
+echo "echo 'gotcha!'"
+echo "ok"
+cat >/dev/null
+EOF
+	    sleep 1
+	    dotest_fail client-16 "$testcvs update" \
+"$PROG update: Server attempted to update a file via an invalid pathname:
+$PROG \[update aborted\]: \`\.\./\.\./home/.bashrc'\."
+
+	    # Try the same exploit using the Copy-file response.
+	    # As far as I know, Copy-file was never exploitable either.
+	    cat >$TESTDIR/serveme <<EOF
+#!$TESTSHELL
+echo "Valid-requests Root Valid-responses valid-requests Directory Entry Modified Unchanged Argument Argumentx ci co update"
+echo "ok"
+echo "Created ."
+echo "./innocuous"
+echo "/innocuous/73.50///"
+echo "u=rw,g=rw,o=rw"
+echo "26"
+echo "#! /bin/sh"
+echo "echo 'gotcha!'"
+echo "Copy-file ."
+echo "./innocuous"
+echo "$HOME/innocuous"
+echo "ok"
+cat >/dev/null
+EOF
+	    sleep 1
+	    dotest_fail client-18 "$testcvs update" \
+"$PROG \[update aborted\]: protocol error: Copy-file tried to specify directory"
+
+	    # And verify that none of the exploits was successful.
+	    dotest client-19 "cat $HOME/.bashrc" \
+"#!$TESTSHELL
+# This is where login scripts would usually be
+# stored\."
+
+	    if $keep; then
+	      echo Keeping ${TESTDIR} and exiting due to --keep
+	      exit 0
+	    fi
+
 	    cd ../..
 	    rm -r 1
 	    rmdir ${TESTDIR}/bogus
-	    rm ${TESTDIR}/serveme
+	    rm $TESTDIR/serveme $HOME/.bashrc
 	    CVS_SERVER=${save_CVS_SERVER}; export CVS_SERVER
 	  fi # skip the whole thing for local
 	  ;;
@@ -27105,11 +27490,15 @@ done"
 	    fail "cleanup: PWD != TESTDIR (\``pwd`' != \`$TESTDIR')"
     fi
 
-    # Test our temp directory for cvs-serv* directories.  We would like to not
-    # leave any behind.
+    # Test our temp directory for cvs-serv* directories and cvsXXXXXX temp
+    # files.  We would like to not leave any behind.
     if $remote && ls $TMPDIR/cvs-serv* >/dev/null 2>&1; then
 	# A true value means ls found files/directories with these names.
 	fail "Found cvs-serv* directories in $TMPDIR."
+    fi
+    if ls $TMPDIR/cvs?????? >/dev/null 2>&1; then
+	# A true value means ls found files/directories with these names.
+	fail "Found cvsXXXXXX temp files in $TMPDIR."
     fi
 
 done # The big loop

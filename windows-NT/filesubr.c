@@ -291,7 +291,7 @@ make_directories (name)
    existed.  */
 int
 mkdir_if_needed (name)
-    char *name;
+    const char *name;
 {
     if (mkdir (name) < 0)
     {
@@ -320,7 +320,7 @@ mkdir_if_needed (name)
  */
 void
 xchmod (fname, writable)
-    char *fname;
+    const char *fname;
     int writable;
 {
     struct stat sb;
@@ -723,23 +723,7 @@ FILE *cvs_temp_file (filename)
     return fp;
 }
 
-/* Return non-zero iff FILENAME is absolute.
-   Trivial under Unix, but more complicated under other systems.  */
-int
-isabsolute (filename)
-    const char *filename;
-{
-    /* FIXME: This routine seems to interact poorly with
-       strip_trailing_slashes.  For example, specify ":local:r:\" as
-       CVSROOT.  The CVS/Root file will contain ":local:r:" and then
-       isabsolute will complain about the root not being an absolute
-       pathname.  My guess is that strip_trailing_slashes is the right
-       place to fix this.  */
-    return (ISDIRSEP (filename[0])
-            || (filename[0] != '\0'
-                && filename[1] == ':'
-                && ISDIRSEP (filename[2])));
-}
+
 
 /* char *
  * xresolvepath ( const char *path )
@@ -781,11 +765,11 @@ xresolvepath ( path )
 }
 
 /* Return a pointer into PATH's last component.  */
-char *
-last_component (char *path)
+const char *
+last_component (const char *path)
 {
-    char *scan;
-    char *last = 0;
+    const char *scan;
+    const char *last = 0;
 
     for (scan = path; *scan; scan++)
         if (ISDIRSEP (*scan))

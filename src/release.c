@@ -94,7 +94,7 @@ release (argc, argv)
 	    case 'q':
 		error (1, 0,
 		       "-q or -Q must be specified before \"%s\"",
-		       command_name);
+		       cvs_cmd_name);
 		break;
 	    case 'd':
 		delete_flag++;
@@ -116,12 +116,17 @@ release (argc, argv)
      * up to the user to take note of them, at least currently
      * (ignore-193 in testsuite)).
      */
-    /* Construct the update command. */
+    /* Construct the update command.  Be sure to add authentication and
+       encryption if we are using them currently, else our child process may
+       not be able to communicate with the server.  */
     update_cmd = xmalloc (strlen (program_path)
-			  + strlen (current_parsed_root->original)
-			  + 20);
-    sprintf (update_cmd, "%s -n -q -d %s update",
-             program_path, current_parsed_root->original);
+                        + strlen (current_parsed_root->original)
+                        + 1 + 3 + 3 + 16 + 1);
+    sprintf (update_cmd, "%s %s%s-n -q -d %s update",
+             program_path,
+             cvsauthenticate ? "-a " : "",
+             cvsencrypt ? "-x " : "",
+             current_parsed_root->original);
 
 #ifdef CLIENT_SUPPORT
     /* Start the server; we'll close it after looping. */
@@ -216,7 +221,7 @@ release (argc, argv)
 	    if (c)			/* "No" */
 	    {
 		(void) fprintf (stderr, "** `%s' aborted by user choice.\n",
-				command_name);
+				cvs_cmd_name);
 		free (repository);
 		if (restore_cwd (&cwd, NULL))
 		    error_exit ();
