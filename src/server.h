@@ -30,6 +30,16 @@ extern int server_active;
 /* Run the server.  */
 extern int server PROTO((int argc, char **argv));
 
+/* kserver user authentication.  */
+# ifdef HAVE_KERBEROS
+extern void kserver_authenticate_connection PROTO ((void));
+# endif
+
+/* pserver user authentication.  */
+# if defined (AUTH_SERVER_SUPPORT) || defined (HAVE_GSSAPI)
+extern void pserver_authenticate_connection PROTO ((void));
+# endif
+
 /* See server.c for description.  */
 extern void server_pathname_check PROTO ((char *));
 
@@ -118,8 +128,6 @@ extern void server_update_entries
    to the client.  */
 extern char *server_dir;
 
-enum progs {PROG_CHECKIN, PROG_UPDATE};
-extern void server_prog PROTO((char *, char *, enum progs));
 extern void server_cleanup PROTO((int sig));
 
 #ifdef SERVER_FLOWCONTROL

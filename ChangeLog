@@ -1,3 +1,224 @@
+2003-05-25  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Update CVS version to 1.11.6.
+
+	* configure: Regenerated.
+
+2003-05-25  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Note current intermittant BSDI failures.
+
+2003-05-22  Larry Jones  <lawrence.jones@eds.com>
+
+	* NEWS: Note recent administrative file changes.
+
+2003-05-21  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Mention new Automake version.
+	* NEWS: Ditto.
+
+	* Makefile.in: Regenerated.
+	* aclocal.m4: Ditto.
+	* config.h.in: Ditto.
+	* configure: Ditto.
+
+2003-05-20  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Using Autoconf version 2.57.
+	* NEWS: Ditto.  Reorder NEWS items to put the stuff which it is likely
+	that only developers care about last.
+	* configure: Regenerated with Autoconf 2.57.
+
+2003-05-09  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Back out all the S_ISSOCK changes I just made and move
+	the equivalent to lib/system.h.
+
+	* configure.in: Regenerated.
+	* config.h.in: Ditto.
+
+2003-05-09  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Try again, with AC_TRY_LINK this time.
+
+	* configure: Regenerated.
+
+2003-05-09  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Correct a typo in my last patch.
+
+	* configure: Regenerated.
+
+2003-05-09  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add some checks for S_ISSOCK to avoid a problem on
+	SCO OpenServer 5.0.6a.
+	(Reported by Boyd Lynn Gerber <gerberb@zenez.com>.)
+
+	* config.h.in: Regenerated.
+	* configure: Ditto.
+
+2003-05-01  Derek Price  <derek@ximbiot.com>
+
+	* TODO (149): Remove reference to defunct RELATIVE_REPOS macro.
+
+2003-04-30  Derek Price  <derek@ximbiot.com>
+
+	* acinclude.m4 (ACX_WITH_GSSAPI): Fix typo in broken conditional.
+	(Thanks to Alexey Mahotkin <alexm@hsys.msk.ru>.)
+
+	* configure: Regenerated.
+	* aclocal.m4: Ditto.
+
+2003-04-28  Derek Price  <derek@ximbiot.com>
+
+	* NEWS (Changes since 1.11.5): Note removal of Checkin.prog and
+	Update.prog functionality.
+
+2003-04-10  Larry Jones  <lawrence.jones@eds.com>
+
+	* aclocal.m4 (AM_MAINTAINER_MODE): New macro to support
+	--enable-maintainer-mode.
+	* configure.in: Use it.
+	* configure: Regenerated.
+	* Makefile.in: Regenerated.
+	* noautomake.sh: Removed; no longer needed.
+	* INSTALL: Remove reference to noautomake.sh, add reference to
+	--enable-maintainer-mode.
+	* Makefile.am: Remove noautomake.sh.
+	* NEWS: Add note about --enable-maintainer-mode and noautomake.sh.
+	* README: Remove noautomake.sh.
+
+2003-04-01  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Remove a pcl-cvs bug.  pcl-cvs is no longer part of the CVS
+	source distribution.
+	
+2003-04-01  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Remove reference to cvs admin SEGV bug Larry Jones fixed
+	on 2003-02-19.
+
+2003-04-01  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Remove obsolete bug.
+	* configure.in: Tail the BUGS file for status.
+
+	* configure: Regenerated.
+
+2003-03-28  Derek Price  <derek@ximbiot.com>
+
+	* configure.in (--with-editor): Quit with an error message when no
+	editor is found.  Allow --with-editor to override $EDITOR from the
+	user's environment.  Add vim to the list of defaults.
+
+	* configure: Regenerated.
+
+2003-03-26  Derek Price  <derek@ximbiot.com>
+
+	* configure.in (--with-editor): Quit with an error message when
+	--without-editor is specified.
+	(Report from Jim Salter <jsalterjim@earthlink.net>.)
+
+	* configure: Regenerated.
+
+2003-03-24  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add copyright notice.
+	* Makefile.am: Update copyright notice.
+
+	* Makefile.in: Regenerated.
+	* configure: Ditto.
+
+2003-03-07  Derek Price  <derek@ximbiot.com>
+
+	* TESTS: Document some more global variables.
+
+2003-03-05  Mark D Baushke <mdb@cvshome.org>
+
+	* NEWS (Changes since 1.11.5): Backout CVS_LOCAL_BRANCH_NUM feature.
+
+	* NEWS (Changes since 1.11.5): Mention CVS_LOCAL_BRANCH_NUM 
+        environment varaible.
+
+2003-02-25  Derek Price  <derek@ximbiot.com>
+
+	* configure.in (WITH_KRB4): Import KRB4 patch from Redhat 8.0's CVS
+	1.11.2-5 SRPM.  It's not the right fix, but it will work until I get
+	around to merging some of the code with WITH_GSSAPI and seperating the
+	bits into separate M4 files.
+
+	* configure: Regenerated.
+	* config.h.in: Ditto.
+
+2003-02-28  Derek Price  <derek@ximbiot.com>
+
+	* acinclude.m4 (ACX_WITH_GSSAPI): Move the checkin from 1/23 to
+	aclocal.m4 to the source, here.
+
+	* aclocal.m4: Regenerated.
+	* configure: Regenerated.
+
+2003-02-28  Larry Jones  <lawrence.jones@eds.com>
+
+	* TODO (206): Done in 1.11.3.
+	(226): Add comment about deadlock.
+	(228, 229): New items.
+
+2003-02-26  Derek Price  <derek@ximbiot.com>
+
+	* mktemp.sh: Actually add file this time.
+	* mktemp.sh: Add copyright notice, some comments, and attempt to return
+	success and error codes.
+
+2003-02-25  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add checks for mktemp and sendmail.
+	* mktemp.sh: New file.
+
+	* Makefile.in: Regenerated.
+	* configure: Ditto.
+
+2003-02-06  Derek Price  <derek@ximbiot.com>
+
+	* NEWS (Changes since 1.11.5): Note error message corrections.
+
+2003-01-30  Larry Jones  <lawrence.jones@eds.com>
+
+	* FAQ: Update URL for tkCVS info.
+
+	* NEWS (Changes from 1.11.2 to 1.11.3): Add note about fixing watch
+	in server mode.
+
+2003-01-28  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Remove a reference to options.h.
+	(Thanks to Jenn Vesperman <jenn@anthill.echidna.id.au> for the report.)
+
+2003-01-28  Larry Jones  <lawrence.jones@eds.com>
+
+	* NEWS: Update for 1.11.5, add notes about bug fixes in older
+	versions.
+
+2003-01-23  Derek Price  <derek@ximbiot.com>
+
+	* aclocal.m4 (WITH_GSSAPI): Check for libcrypt before libroken to
+	satisfy a FreeBSD 4.6 dependency.
+	(Thanks to Jan Ruzicka <jan.ruzicka@comtechmobile.com> for the bug
+	report and a partial fix.)
+
+	* configure: regenerated.
+
+2003-01-20  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Update the news for the last release to mention that client
+	builds are not affected by the security vulnerability.
+
+2003-01-20  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Update to dev version 1.11.5.1.
+	* configure: Regenerated.
+
 2003-01-16  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Add 1.11.4 entry in regards to
@@ -5,6 +226,13 @@
 	The Common Vulnerabilities and Exposures project (cve.mitre.org)
 	has assigned the name CAN-2003-0015 to this issue.
 	* configure.in: Update to CVS version 1.11.5.
+
+	* configure: Regenerated.
+
+2002-01-16  Derek Price  <derek@ximbiot.com>
+
+	* configure.in (--with-editor): Look for nano, the GNU GPL pico clone.
+	(Reported by Robin Cook <rcook@wyrms.net>.)
 
 	* configure: Regenerated.
 

@@ -195,110 +195,36 @@ RCS_parse (file, repos)
 {
     RCSNode *rcs;
     FILE *fp;
-    RCSNode *retval;
+    RCSNode *retval = NULL;
     char *rcsfile;
+    int inattic;
 
     /* We're creating a new RCSNode, so there is no hope of finding it
        in the cache.  */
     rcsbuf_cache_close ();
 
-    rcsfile = xmalloc (strlen (repos) + strlen (file)
-		       + sizeof (RCSEXT) + sizeof (CVSATTIC) + 10);
-    (void) sprintf (rcsfile, "%s/%s%s", repos, file, RCSEXT);
-    if ((fp = CVS_FOPEN (rcsfile, FOPEN_BINARY_READ)) != NULL) 
+    if ( ( rcsfile = locate_rcs ( repos, file, &inattic ) ) == NULL )
     {
-        rcs = RCS_parsercsfile_i(fp, rcsfile);
-	if (rcs != NULL) 
-	    rcs->flags |= VALID;
-
-	retval = rcs;
-	goto out;
+	/* Handle the error cases */
     }
-    else if (! existence_error (errno))
-    {
-	error (0, errno, "cannot open %s", rcsfile);
-	retval = NULL;
-	goto out;
-    }
-
-    (void) sprintf (rcsfile, "%s/%s/%s%s", repos, CVSATTIC, file, RCSEXT);
-    if ((fp = CVS_FOPEN (rcsfile, FOPEN_BINARY_READ)) != NULL) 
+    else if ((fp = CVS_FOPEN (rcsfile, FOPEN_BINARY_READ)) != NULL) 
     {
         rcs = RCS_parsercsfile_i(fp, rcsfile);
 	if (rcs != NULL)
-	{
-	    rcs->flags |= INATTIC;
+	{	
 	    rcs->flags |= VALID;
+	    if ( inattic )
+		rcs->flags |= INATTIC;
 	}
 
+	free ( rcsfile );
 	retval = rcs;
-	goto out;
     }
     else if (! existence_error (errno))
     {
+	free ( rcsfile );
 	error (0, errno, "cannot open %s", rcsfile);
-	retval = NULL;
-	goto out;
     }
-#if defined (SERVER_SUPPORT) && !defined (FILENAMES_CASE_INSENSITIVE)
-    else if (ign_case)
-    {
-	int status;
-	char *found_path;
-
-	/* The client might be asking for a file which we do have
-	   (which the client doesn't know about), but for which the
-	   filename case differs.  We only consider this case if the
-	   regular CVS_FOPENs fail, because fopen_case is such an
-	   expensive call.  */
-	(void) sprintf (rcsfile, "%s/%s%s", repos, file, RCSEXT);
-	status = fopen_case (rcsfile, "rb", &fp, &found_path);
-	if (status == 0)
-	{
-	    rcs = RCS_parsercsfile_i (fp, rcsfile);
-	    if (rcs != NULL) 
-		rcs->flags |= VALID;
-
-	    free (rcs->path);
-	    rcs->path = found_path;
-	    retval = rcs;
-	    goto out;
-	}
-	else if (! existence_error (status))
-	{
-	    error (0, status, "cannot open %s", rcsfile);
-	    retval = NULL;
-	    goto out;
-	}
-
-	(void) sprintf (rcsfile, "%s/%s/%s%s", repos, CVSATTIC, file, RCSEXT);
-	status = fopen_case (rcsfile, "rb", &fp, &found_path);
-	if (status == 0)
-	{
-	    rcs = RCS_parsercsfile_i (fp, rcsfile);
-	    if (rcs != NULL)
-	    {
-		rcs->flags |= INATTIC;
-		rcs->flags |= VALID;
-	    }
-
-	    free (rcs->path);
-	    rcs->path = found_path;
-	    retval = rcs;
-	    goto out;
-	}
-	else if (! existence_error (status))
-	{
-	    error (0, status, "cannot open %s", rcsfile);
-	    retval = NULL;
-	    goto out;
-	}
-    }
-#endif
-    retval = NULL;
-
- out:
-    free (rcsfile);
 
     return retval;
 }
@@ -2999,8 +2925,10 @@ RCS_getdate (rcs, date, force_tag_match)
 	p = findnode (rcs->versions, "1.1.1.1");
 	if (p)
 	{
+	    char *date_1_1 = vers->date;
+
 	    vers = (RCSVers *) p->data;
-	    if (RCS_datecmp (vers->date, date) != 0)
+	    if (RCS_datecmp (vers->date, date_1_1) != 0)
 		return xstrdup ("1.1");
 	}
     }
@@ -4062,14 +3990,14 @@ expand_keywords (rcs, ver, name, log, loglen, expand, buf, len, retbuf, retlen)
 
 int
 RCS_checkout (rcs, workfile, rev, nametag, options, sout, pfn, callerdat)
-     RCSNode *rcs;
-     char *workfile;
-     char *rev;
-     char *nametag;
-     char *options;
-     char *sout;
-     RCSCHECKOUTPROC pfn;
-     void *callerdat;
+    RCSNode *rcs;
+    char *workfile;
+    char *rev;
+    char *nametag;
+    char *options;
+    char *sout;
+    RCSCHECKOUTPROC pfn;
+    void *callerdat;
 {
     int free_rev = 0;
     enum kflag expand;
@@ -4096,7 +4024,7 @@ RCS_checkout (rcs, workfile, rev, nametag, options, sout, pfn, callerdat)
 
     if (trace)
     {
-	(void) fprintf (stderr, "%s-> checkout (%s, %s, %s, %s)\n",
+	(void) fprintf (stderr, "%s-> RCS_checkout (%s, %s, %s, %s, %s)\n",
 #ifdef SERVER_SUPPORT
 			server_active ? "S" : " ",
 #else
@@ -4104,6 +4032,7 @@ RCS_checkout (rcs, workfile, rev, nametag, options, sout, pfn, callerdat)
 #endif
 			rcs->path,
 			rev != NULL ? rev : "",
+			nametag != NULL ? nametag : "",
 			options != NULL ? options : "",
 			(pfn != NULL ? "(function)"
 			 : (workfile != NULL
@@ -4368,7 +4297,7 @@ RCS_checkout (rcs, workfile, rev, nametag, options, sout, pfn, callerdat)
 		       workfile, info->data);
 	}
     }
-#endif
+#endif /* PRESERVE_PERMISSIONS_SUPPORT */
 
     if (expand != KFLAG_O && expand != KFLAG_B)
     {
@@ -8563,3 +8492,8 @@ make_file_label (path, rev, rcs)
     }
     return label;
 }
+
+
+
+/* vim:tabstop=8:shiftwidth=4
+ */

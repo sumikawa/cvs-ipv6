@@ -261,10 +261,6 @@ trying to accomplish and what the best way is -kingdon, Jul 1997).
      This behavior was not particularly popular and has been since
      reverted.
 
-     Note also RELATIVE_REPOS in options.h; it needs to be set for
-     changing CVS/Root (not CVS/Repository) to be sufficient in the
-     case where the directory has changed.
-
      This whole area is a rather bad pile of individual decisions which
      accumulated over time, some of them probably bad decisions with
      hindsight.  But we didn't get into this mess overnight, and we're
@@ -825,9 +821,6 @@ and other non-canonical paths confuse CVS.  Most of the cases that do
 work are handled on an ad-hoc basis.  We need to come up with a coherent
 strategy to address path canonicalization and apply it consistently.
 
-206.  Restore directory-at-a-time locking for tag operations instead of
-locking the entire tree.
-
 208.  Merge enhancements to the diff package back into the original GNU source.
 
 209.  Go through this file and try to:
@@ -901,7 +894,8 @@ local time string according to the localization settings before printing it.
 
 226.  Add support for upgrading read locks to write locks and use it to
 avoid holding potentially long-term write locks (for example, in tag and
-commit).
+commit).  Note that avoiding deadlock is tricky if two read lock holders
+both want to upgrade to write.
 
 227.  'cvs release' should use the CVS/Root in the directory being released
 when such is specified rather than $CVSROOT.  In my work directory with no CVS
@@ -909,3 +903,9 @@ dir, a release of subdirectories causes the released projects to be tested
 against my $CVSROOT environment variable, which often isn't correct but which
 can complete without generating error messages if the project also exists in
 the other CVSROOT.  This happens a lot with my copies of the ccvs project.
+
+228.  Consider adding -d to commit ala ci.
+
+229.  Improve the locking code to use a random delay with exponential
+backoff ala Ethernet and separate the notification interval from the
+wait interval.

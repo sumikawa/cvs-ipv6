@@ -237,7 +237,7 @@ the work when each developer is done.
 @sc{cvs} started out as a bunch of shell scripts written by
 Dick Grune, posted to the newsgroup
 @code{comp.sources.unix} in the volume 6
-release of December, 1986.  While no actual code from
+release of July, 1986.  While no actual code from
 these shell scripts is present in the current version
 of @sc{cvs} much of the @sc{cvs} conflict resolution algorithms
 come from them.
@@ -528,8 +528,6 @@ you want to edit.  @xref{Multiple developers}, for an explanation.
 @subsection Committing your changes
 @cindex Committing changes to files
 @cindex Log message entry
-@cindex CVSEDITOR, environment variable
-@cindex EDITOR, environment variable
 
 When you have checked that the compiler is still compilable you decide
 to make a new version of @file{backend.c}.  This will
@@ -546,6 +544,8 @@ $ cvs commit backend.c
 message.  You type in ``Added an optimization pass.'',
 save the temporary file, and exit the editor.
 
+@cindex CVSEDITOR, environment variable
+@cindex EDITOR, environment variable
 The environment variable @code{$CVSEDITOR} determines
 which editor is started.  If @code{$CVSEDITOR} is not
 set, then if the environment variable @code{$EDITOR} is
@@ -1668,16 +1668,6 @@ tags and dates, see @ref{Sticky tags}.
 @c someplace which discusses, per-directory sticky
 @c tags and the distinction with per-file sticky tags.
 
-@cindex Checkin.prog file, in CVS directory
-@cindex CVS/Checkin.prog file
-@cindex Update.prog file, in CVS directory
-@cindex CVS/Update.prog file
-@item Checkin.prog
-@itemx Update.prog
-These files store the programs specified by the
-@samp{-i} and @samp{-u} options in the modules file,
-respectively.
-
 @cindex Notify file, in CVS directory
 @cindex CVS/Notify file
 @item Notify
@@ -2029,7 +2019,7 @@ repository is just like using a local one, except that
 the format of the repository name is:
 
 @example
-:@var{method}:[[@var{user}][:@var{password}]@@]@var{hostname}[:[@var{port}]]/path/to/repository
+[:@var{method}:][[@var{user}][:@var{password}]@@]@var{hostname}[:[@var{port}]]/path/to/repository
 @end example
 
 Specifying a password in the repository name is not recommended during
@@ -2762,7 +2752,8 @@ You need to edit @file{inetd.conf} on the server
 machine to run @code{cvs kserver}.  The client uses
 port 1999 by default; if you want to use another port
 specify it in the @code{CVSROOT} (@pxref{Remote repositories})
-or the @code{CVS_CLIENT_PORT} environment variable on the client.
+or the @code{CVS_CLIENT_PORT} environment variable
+(@pxref{Environment variables}) on the client.
 
 @cindex kinit
 When you want to use @sc{cvs}, get a ticket in the
@@ -2917,11 +2908,11 @@ cvs-serv@var{pid}
 
 @noindent
 where @var{pid} is the process identification number of
-the server.  They are located in the directory
-specified by the @code{TMPDIR} environment variable
-(@pxref{Environment variables}), the @samp{-T} global
-option (@pxref{Global options}), or failing that
-@file{/tmp}.
+the server.
+They are located in the directory specified by 
+the @samp{-T} global option (@pxref{Global options}), 
+the @code{TMPDIR} environment variable (@pxref{Environment variables}), 
+or, failing that, @file{/tmp}.
 
 In most cases the server will remove the temporary
 directory when it is done, whether it finishes normally
@@ -3807,8 +3798,9 @@ File: driver.c          Status: Up-to-date
 The sticky tags will remain on your working files until
 you delete them with @samp{cvs update -A}.  The
 @samp{-A} option retrieves the version of the file from
-the head of the trunk, and forgets any sticky tags,
-dates, or options.
+the head of the trunk, removing any sticky tags,
+dates, or options.  See @ref{update} for more on the operation
+of @code{cvs update}.
 
 @cindex Sticky date
 The most common use of sticky tags is to identify which
@@ -4243,8 +4235,9 @@ no way to see how the tag was assigned yesterday).
 You can merge changes made on a branch into your working copy by giving
 the @samp{-j @var{branchname}} flag to the @code{update} subcommand.  With one
 @samp{-j @var{branchname}} option it merges the changes made between the
-point where the branch forked and newest revision on that branch (into
-your working copy).
+greatest common ancestor (GCA) of the branch and the destination revision (in
+the simple case below the GCA is the point where the branch forked) and the
+newest revision on that branch into your working copy.
 
 @cindex Join
 The @samp{-j} stands for ``join''.
@@ -5894,6 +5887,16 @@ sending an entire file accomplishes the same thing.
 Someone else has committed a newer revision to the repository, and you
 have also made modifications to the file.
 
+@item Unresolved Conflict
+@cindex Unresolved Conflict
+@c FIXCVS - This file status needs to be changed to some more informative
+@c text that distinguishes it more clearly from each of the Locally Added,
+@c File had conflicts on merge, and Unknown status types, but an exact and
+@c succinct wording escapes me at the moment.
+A file with the same name as this new file has been added to the repository
+from a second workspace.  This file will need to be moved out of the way
+to allow an @code{update} to complete.
+
 @item File had conflicts on merge
 @cindex File had conflicts on merge
 @c is it worth saying that this message was "Unresolved
@@ -6367,7 +6370,7 @@ To enable the watch features, you first specify that
 certain files are to be watched.
 
 @cindex watch on (subcommand)
-@deffn Command {cvs watch on} [@code{-lR}] files @dots{}
+@deffn Command {cvs watch on} [@code{-lR}] [@var{files}]@dots{}
 
 @cindex Read-only files, and watches
 Specify that developers should run @code{cvs edit}
@@ -6391,7 +6394,7 @@ If @var{files} is omitted, it defaults to the current directory.
 @cindex watch off (subcommand)
 @end deffn
 
-@deffn Command {cvs watch off} [@code{-lR}] files @dots{}
+@deffn Command {cvs watch off} [@code{-lR}] [@var{files}]@dots{}
 
 Do not create @var{files} read-only on checkout; thus,
 developers will not be reminded to use @code{cvs edit}
@@ -6420,7 +6423,7 @@ watch on}, to remind developers to use the @code{cvs edit}
 command.
 
 @cindex watch add (subcommand)
-@deffn Command {cvs watch add} [@code{-a} action] [@code{-lR}] files @dots{}
+@deffn Command {cvs watch add} [@code{-lR}] [@code{-a} @var{action}]@dots{} [@var{files}]@dots{}
 
 Add the current user to the list of people to receive notification of
 work done on @var{files}.
@@ -6474,7 +6477,7 @@ The @var{files} and options are processed as for
 
 
 @cindex watch remove (subcommand)
-@deffn Command {cvs watch remove} [@code{-a} action] [@code{-lR}] files @dots{}
+@deffn Command {cvs watch remove} [@code{-lR}] [@code{-a} @var{action}]@dots{} [@var{files}]@dots{}
 
 Remove a notification request established using @code{cvs watch add};
 the arguments are the same.  If the @code{-a} option is present, only
@@ -6568,19 +6571,19 @@ source}), an operation which those systems call a
 @c a technical meaning for).
 
 @cindex edit (subcommand)
-@deffn Command {cvs edit} [options] files @dots{}
+@deffn Command {cvs edit} [@code{-lR}] [@code{-a} @var{action}]@dots{} [@var{files}]@dots{}
 
 Prepare to edit the working files @var{files}.  @sc{cvs} makes the
 @var{files} read-write, and notifies users who have requested
 @code{edit} notification for any of @var{files}.
 
-The @code{cvs edit} command accepts the same @var{options} as the
+The @code{cvs edit} command accepts the same options as the
 @code{cvs watch add} command, and establishes a temporary watch for the
 user on @var{files}; @sc{cvs} will remove the watch when @var{files} are
 @code{unedit}ed or @code{commit}ted.  If the user does not wish to
 receive notifications, she should specify @code{-a none}.
 
-The @var{files} and options are processed as for the @code{cvs
+The @var{files} and the options are processed as for the @code{cvs
 watch} commands.
 
 @ignore
@@ -6605,7 +6608,7 @@ the @code{cvs unedit} command.
 @cindex unedit (subcommand)
 @cindex Abandoning work
 @cindex Reverting to repository version
-@deffn Command {cvs unedit} [@code{-lR}] files @dots{}
+@deffn Command {cvs unedit} [@code{-lR}] [@var{files}]@dots{}
 
 Abandon work on the working files @var{files}, and revert them to the
 repository versions on which they are based.  @sc{cvs} makes those
@@ -6638,7 +6641,7 @@ successful @sc{cvs} command.
 @subsection Information about who is watching and editing
 
 @cindex watchers (subcommand)
-@deffn Command {cvs watchers} [@code{-lR}] files @dots{}
+@deffn Command {cvs watchers} [@code{-lR}] [@var{files}]@dots{}
 
 List the users currently watching changes to @var{files}.  The report
 includes the files being watched, and the mail address of each watcher.
@@ -6650,7 +6653,7 @@ The @var{files} and options are processed as for the
 
 
 @cindex editors (subcommand)
-@deffn Command {cvs editors} [@code{-lR}] files @dots{}
+@deffn Command {cvs editors} [@code{-lR}] [@var{files}]@dots{}
 
 List the users currently working on @var{files}.  The report
 includes the mail address of each user, the time when the user began
@@ -8960,9 +8963,6 @@ them):
 @table @code
 @item -l
 Local; run only in current working directory.
-
-@item -n
-Do not run any module program.
 
 @item -R
 Commit directories recursively.  This is on by default.
@@ -12104,23 +12104,13 @@ module are exported.  @var{prog} runs with a single
 argument, the module name.
 @c FIXME: Is it run on server? client?
 
-@cindex Checkin program
-@cindex -i, in modules file
-@item -i @var{prog}
-Specify a program @var{prog} to run whenever files in a
-module are committed.  @var{prog} runs with a single
-argument, the full pathname of the affected directory
-in a source repository.  The @file{commitinfo},
-@file{loginfo}, and @file{verifymsg} files provide other
-ways to call a program on commit.
-@c FIXME: Is it run on server? client?
-
 @cindex Checkout program
 @cindex -o, in modules file
 @item -o @var{prog}
 Specify a program @var{prog} to run whenever files in a
 module are checked out.  @var{prog} runs with a single
-argument, the module name.
+argument, the module name.  See @ref{Module program options} for
+information on how @var{prog} is called.
 @c FIXME: Is it run on server? client?
 
 @cindex Status of a module
@@ -12150,21 +12140,6 @@ that taginfo is a better solution (@pxref{user-defined logging}).
 @c * It doesn't get passed all the information that
 @c   taginfo does ("mov", &c).
 @c * It only is run for rtag, not tag.
-
-@cindex Update program
-@cindex -u, in modules file
-@item -u @var{prog}
-Specify a program @var{prog} to run whenever @samp{cvs
-update} is executed from the top-level directory of the
-checked-out module.  @var{prog} runs with a single
-argument, the full path to the source repository for
-this module.
-@c FIXME: Is it run on server? client?
-@c One drawback of -u and -i are that CVS/Update.prog
-@c and CVS/Checkin.prog only get updated on initial
-@c checkout, and don't get updated if the modules file
-@c changes.  Also, the user can edit them, which means
-@c they are no good for security-type stuff.
 @end table
 
 You should also see @pxref{Module program options} about how the
@@ -12175,10 +12150,8 @@ You should also see @pxref{Module program options} about how the
 @node Module program options
 @appendixsubsec How the modules file ``program options'' programs are run
 @cindex Modules file program options
-@cindex -u, in modules file
 @cindex -t, in modules file
 @cindex -o, in modules file
-@cindex -i, in modules file
 @cindex -e, in modules file
 
 @noindent
@@ -12193,18 +12166,6 @@ If using ``local access'' (on a local or remote NFS file system, i.e.
 repository set just to a path),
 the program will be executed from the newly checked-out tree, if
 found there, or alternatively searched for in the path if not.
-
-@noindent
-The commit and update programs are locally-based, and are run as
-follows:-
-
-The program is always run locally. One must
-re-checkout the tree one is using if these options are updated in the
-modules administrative file. The file CVS/Checkin.prog contains the
-value of the option `-i' set in the modules file, and similarly for
-the file CVS/Update.prog and `-u'. The program is always executed from
-the top level of the checked-out copy on the client. Again, the program
-is first searched for in the checked-out copy and then using the path.
 
 The programs are all run after the operation has effectively
 completed.
@@ -13299,10 +13260,10 @@ error.
 
 @item CVSEDITOR
 @cindex CVSEDITOR, internal variable
-@itemx VISUAL
-@cindex VISUAL, internal variable
 @itemx EDITOR
 @cindex EDITOR, internal variable
+@itemx VISUAL
+@cindex VISUAL, internal variable
 These all expand to the same value, which is the editor
 that @sc{cvs} is using.  @xref{Global options}, for how
 to specify this.
@@ -13468,7 +13429,7 @@ repository with LockDir enabled.
 @cindex LogHistory, in CVSROOT/config
 @item LogHistory=@var{value}
 Control what is logged to the @file{CVSROOT/history} file (@pxref{history}).
-Default of @samp{TOFEWGCMAR} (or simply @samp{all}) will log
+Default of @samp{TOEFWUCGMAR} (or simply @samp{all}) will log
 all transactions.  Any subset of the default is
 legal.  (For example, to only log transactions that modify the
 @file{*,v} files, use @samp{LogHistory=TMAR}.)
@@ -13539,12 +13500,18 @@ the file @file{CVS/Root}), so normally you only need to
 worry about this when initially checking out a working
 directory.
 
-@item $EDITOR
-@itemx $CVSEDITOR
+@item $CVSEDITOR
+@cindex CVSEDITOR, environment variable
+@itemx $EDITOR
+@cindex EDITOR, environment variable
 @itemx $VISUAL
+@cindex VISUAL, environment variable
 Specifies the program to use for recording log messages
 during commit.  @code{$CVSEDITOR} overrides
-@code{$EDITOR}.  See @ref{Committing your changes}.
+@code{$EDITOR}, which overrides @code{$VISUAL}.
+See @ref{Committing your changes} for more or
+@ref{Global options} for alternative ways of specifying a
+log editor.
 
 @cindex PATH, environment variable
 @item $PATH
@@ -13589,9 +13556,9 @@ login server}.  Default value is @file{$HOME/.cvspass}.
 @pxref{Password authentication client}
 
 @item $CVS_CLIENT_PORT
-Used in client-server mode when accessing the server
-via Kerberos, GSSAPI, or @sc{cvs}'s password authentication if the port is not
-specified in $CVSROOT.
+Used in client-server mode to set the port to use when accessing the server
+via Kerberos, GSSAPI, or @sc{cvs}'s password authentication protocol
+if the port is not specified in the CVSROOT.
 @pxref{Remote repositories}
 
 @cindex CVS_RCMD_PORT, environment variable
@@ -14214,10 +14181,12 @@ directions given for :ext:.
 Errors along the lines of "connection refused" typically indicate
 that inetd isn't even listening for connections on port 2401
 whereas errors like "connection reset by peer",
-"received broken pipe signal", or "recv() from server: EOF"
+"received broken pipe signal", "recv() from server: EOF",
+or "end of file from server"
 typically indicate that inetd is listening for
 connections but is unable to start @sc{cvs} (this is frequently
-caused by having an incorrect path in @file{inetd.conf}).
+caused by having an incorrect path in @file{inetd.conf}
+or by firewall software rejecting the connection).
 "unrecognized auth response" errors are caused by a bad command
 line in @file{inetd.conf}, typically an invalid option or forgetting
 to put the @samp{pserver} command at the end of the line.

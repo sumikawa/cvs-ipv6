@@ -54,7 +54,6 @@ static void fixbranch PROTO((RCSNode *, char *branch));
 static void unlockrcs PROTO((RCSNode *rcs));
 static void ci_delproc PROTO((Node *p));
 static void masterlist_delproc PROTO((Node *p));
-static char *locate_rcs PROTO((char *file, char *repository));
 
 struct commit_info
 {
@@ -71,7 +70,6 @@ struct master_lists
 
 static int force_ci = 0;
 static int got_message;
-static int run_module_prog = 1;
 static int aflag;
 static char *saved_tag;
 static char *write_dirtag;
@@ -84,8 +82,7 @@ static time_t last_register_time;
 
 static const char *const commit_usage[] =
 {
-    "Usage: %s %s [-nRlf] [-m msg | -F logfile] [-r rev] files...\n",
-    "    -n          Do not run the module program (if any).\n",
+    "Usage: %s %s [-Rlf] [-m msg | -F logfile] [-r rev] files...\n",
     "    -R          Process directories recursively.\n",
     "    -l          Local directory only (not recursive).\n",
     "    -f          Force the file to be committed; disables recursion.\n",
@@ -326,6 +323,11 @@ copy_ulist (node, data)
 }
 #endif /* CLIENT_SUPPORT */
 
+#ifdef SERVER_SUPPORT
+# define COMMIT_OPTIONS "+nlRm:fF:r:"
+#else /* !SERVER_SUPPORT */
+# define COMMIT_OPTIONS "+lRm:fF:r:"
+#endif /* SERVER_SUPPORT */
 int
 commit (argc, argv)
     int argc;
@@ -364,13 +366,17 @@ commit (argc, argv)
 #endif /* CVS_BADROOT */
 
     optind = 0;
-    while ((c = getopt (argc, argv, "+nlRm:fF:r:")) != -1)
+    while( ( c = getopt( argc, argv, COMMIT_OPTIONS ) ) != -1 )
     {
 	switch (c)
 	{
+#ifdef SERVER_SUPPORT
 	    case 'n':
-		run_module_prog = 0;
+		/* Silently ignore -n for compatibility with old
+		 * clients.
+		 */
 		break;
+#endif /* SERVER_SUPPORT */
 	    case 'm':
 #ifdef FORCE_USE_EDITOR
 		use_editor = 1;
@@ -425,7 +431,8 @@ commit (argc, argv)
 	/* strip trailing dots and leading zeros */
 	while (*--p == '.') ;
 	p[1] = '\0';
-	while (*saved_tag == '0') ++saved_tag;
+	while (saved_tag[0] == '0' && isdigit ((unsigned char) saved_tag[1]))
+	    ++saved_tag;
     }
 
     /* some checks related to the "-F logfile" option */
@@ -551,8 +558,6 @@ commit (argc, argv)
 	    send_arg("-l");
 	if (force_ci)
 	    send_arg("-f");
-	if (!run_module_prog)
-	    send_arg("-n");
 	option_with_arg ("-r", saved_tag);
 	send_arg ("--");
 
@@ -862,29 +867,13 @@ check_fileproc (callerdat, finfo)
 	    }
 	    if (status == T_MODIFIED && !force_ci && vers->ts_conflict)
 	    {
-		char *filestamp;
-		int retcode;
-
 		/*
 		 * We found a "conflict" marker.
 		 *
 		 * If the timestamp on the file is the same as the
 		 * timestamp stored in the Entries file, we block the commit.
 		 */
-#ifdef SERVER_SUPPORT
-		if (server_active)
-		    retcode = vers->ts_conflict[0] != '=';
-		else {
-		    filestamp = time_stamp (finfo->file);
-		    retcode = strcmp (vers->ts_conflict, filestamp);
-		    free (filestamp);
-		}
-#else
-		filestamp = time_stamp (finfo->file);
-		retcode = strcmp (vers->ts_conflict, filestamp);
-		free (filestamp);
-#endif
-		if (retcode == 0)
+		if ( file_has_conflict ( finfo, vers->ts_conflict ) )
 		{
 		    error (0, 0,
 			  "file `%s' had a conflict and has not been modified",
@@ -1471,56 +1460,6 @@ commit_filesdoneproc (callerdat, err, repository, update_dir, entries)
 	}
     }
 
-    if (err == 0 && run_module_prog)
-    {
-	FILE *fp;
-
-	if ((fp = CVS_FOPEN (CVSADM_CIPROG, "r")) != NULL)
-	{
-	    char *line;
-	    int line_length;
-	    size_t line_chars_allocated;
-	    char *repos;
-
-	    line = NULL;
-	    line_chars_allocated = 0;
-	    line_length = getline (&line, &line_chars_allocated, fp);
-	    if (line_length > 0)
-	    {
-		/* Remove any trailing newline.  */
-		if (line[line_length - 1] == '\n')
-		    line[--line_length] = '\0';
-		repos = Name_Repository ((char *) NULL, update_dir);
-		run_setup (line);
-		run_arg (repos);
-		cvs_output (program_name, 0);
-		cvs_output (" ", 1);
-		cvs_output (command_name, 0);
-		cvs_output (": Executing '", 0);
-		run_print (stdout);
-		cvs_output ("'\n", 0);
-		cvs_flushout ();
-		(void) run_exec (RUN_TTY, RUN_TTY, RUN_TTY, RUN_NORMAL);
-		free (repos);
-	    }
-	    else
-	    {
-		if (ferror (fp))
-		    error (0, errno, "warning: error reading %s",
-			   CVSADM_CIPROG);
-	    }
-	    if (line != NULL)
-		free (line);
-	    if (fclose (fp) < 0)
-		error (0, errno, "warning: cannot close %s", CVSADM_CIPROG);
-	}
-	else
-	{
-	    if (! existence_error (errno))
-		error (0, errno, "warning: cannot open %s", CVSADM_CIPROG);
-	}
-    }
-
     return (err);
 }
 
@@ -1790,7 +1729,7 @@ finaladd (finfo, rev, tag, options)
     int ret;
     char *rcs;
 
-    rcs = locate_rcs (finfo->file, finfo->repository);
+    rcs = locate_rcs ( finfo->repository, finfo->file, NULL );
     ret = Checkin ('A', finfo, rcs, rev, tag, options, saved_message);
     if (ret == 0)
     {
@@ -1839,7 +1778,7 @@ fixaddfile (file, repository)
     char *rcs;
     int save_really_quiet;
 
-    rcs = locate_rcs (file, repository);
+    rcs = locate_rcs ( repository, file, NULL );
     save_really_quiet = really_quiet;
     really_quiet = 1;
     if ((rcsfile = RCS_parsercsfile (rcs)) == NULL)
@@ -1888,7 +1827,6 @@ checkaddfile (file, repository, tag, options, rcsnode)
 {
     char *rcs;
     char *fname;
-    mode_t omask;
     int retcode = 0;
     int newfile = 0;
     RCSNode *rcsfile = NULL;
@@ -1906,24 +1844,41 @@ checkaddfile (file, repository, tag, options, rcsnode)
        this.  */
     adding_on_branch = tag != NULL && !isdigit ((unsigned char) tag[0]);
 
-    if (adding_on_branch)
+    if ( ( rcs = locate_rcs ( repository, file, NULL ) ) == NULL )
     {
-	rcs = xmalloc (strlen (repository) + strlen (file)
-		       + sizeof (RCSEXT) + sizeof (CVSATTIC) + 10);
-        (void) sprintf (rcs, "%s/%s%s", repository, file, RCSEXT);
-	if (! isreadable (rcs))
+	if ( adding_on_branch )
 	{
-	    (void) sprintf(rcs, "%s/%s", repository, CVSATTIC);
-	    omask = umask (cvsumask);
-	    if (CVS_MKDIR (rcs, 0777) != 0 && errno != EEXIST)
-		error (1, errno, "cannot make directory `%s'", rcs);;
-	    (void) umask (omask);
-	    (void) sprintf (rcs, "%s/%s/%s%s", repository, CVSATTIC, file,
-			    RCSEXT);
+	    mode_t omask;
+	    rcs = xmalloc ( strlen ( repository )
+			    + sizeof ( CVSATTIC )
+		    	    + strlen ( file )
+			    + sizeof ( RCSEXT )
+			    + 3 );
+	    (void) sprintf ( rcs, "%s/%s", repository, CVSATTIC );
+	    omask = umask ( cvsumask );
+	    if ( CVS_MKDIR ( rcs, 0777 ) != 0 && errno != EEXIST )
+		error ( 1, errno, "cannot make directory `%s'", rcs );
+	    (void) umask ( omask );
+	    (void) sprintf ( rcs,
+			     "%s/%s/%s%s",
+			     repository,
+			     CVSATTIC,
+			     file,
+			     RCSEXT );
+	}
+	else
+	{
+	    rcs = xmalloc ( strlen ( repository )
+		    	    + strlen ( file )
+			    + sizeof ( RCSEXT )
+			    + 2 );
+	    (void) sprintf ( rcs,
+			     "%s/%s%s",
+			     repository,
+			     file,
+			     RCSEXT );
 	}
     }
-    else
-	rcs = locate_rcs (file, repository);
 
     if (isreadable (rcs))
     {
@@ -2145,6 +2100,8 @@ checkaddfile (file, repository, tag, options, rcsnode)
 	    char *head;
 	    char *magicrev;
 
+	    fixbranch (rcsfile, sbranch);
+
 	    head = RCS_getversion (rcsfile, NULL, NULL, 0, (int *) NULL);
 	    magicrev = RCS_magicrev (rcsfile, head);
 
@@ -2344,29 +2301,7 @@ masterlist_delproc (p)
     free (ml);
 }
 
-/* Find an RCS file in the repository.  Most parts of CVS will want to
-   rely instead on RCS_parse which performs a similar operation and is
-   called by recurse.c which then puts the result in useful places
-   like the rcs field of struct file_info.
 
-   REPOSITORY is the repository (including the directory) and FILE is
-   the filename within that directory (without RCSEXT).  Returns a
-   newly-malloc'd array containing the absolute pathname of the RCS
-   file that was found.  */
-static char *
-locate_rcs (file, repository)
-    char *file;
-    char *repository;
-{
-    char *rcs;
 
-    rcs = xmalloc (strlen (repository) + strlen (file) + sizeof (RCSEXT) + 10);
-    (void) sprintf (rcs, "%s/%s%s", repository, file, RCSEXT);
-    if (!isreadable (rcs))
-    {
-	(void) sprintf (rcs, "%s/%s/%s%s", repository, CVSATTIC, file, RCSEXT);
-	if (!isreadable (rcs))
-	    (void) sprintf (rcs, "%s/%s%s", repository, file, RCSEXT);
-    }
-    return rcs;
-}
+/* vim:tabstop=8:shiftwidth=4
+ */

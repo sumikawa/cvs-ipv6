@@ -1,3 +1,139 @@
+2003-05-25  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1: Regenerated for 1.11.6.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2003-05-21  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerate with Automake version 1.7.5.
+
+2003-04-28  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Working directory storage, Module options, Module
+	program options): Remove references to Checkin.prog and Update.prog.
+	(commit options): Remove reference to -n option.
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-04-10  Larry Jones  <lawrence.jones@eds.com>
+
+	* Makefile.in: Regenerated.
+
+2003-03-26  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-03-25  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (Server temporary directory): Reorder list of places
+	to match code.
+	(Connection): Add additional example error message and note about
+	firewall software.
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-03-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Update copyright notice.
+
+	* Makefile.in: Regenerated.
+
+2003-03-06  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (What is CVS?): Correct date of first post of CVS by
+	Dick Grune from December to July based on the archive posted on
+	Google:
+	<http://groups.google.com/groups?q=Grune+cvs+group:mod.sources.*&hl=en&lr=&ie=UTF-8&selm=122%40mirror.UUCP&rnum=2>.
+	(Thanks to David A Wheeler <dwheeler@dwheeler.com>.)
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-03-05  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvs.texinfo (CVS_LOCAL_BRANCH_NUM): Backout CVS_LOCAL_BRANCH_NUM 
+	feature.
+
+	* cvs.texinfo (CVS_LOCAL_BRANCH_NUM): Document new environment
+	variable.
+
+2003-02-27  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Environment variables): Make the information on
+	CVS_CLIENT_PORT slightly clearer.
+	(Kerberos authenticated): XREF the Environment variables node.
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-02-25  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+	* stamp-1: Ditto.
+	* version-client.texi: Ditto.
+
+2003-02-06  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Working directory storage, Module options,
+	Module program options): Correct description of where Checkin.prog
+	and Update.prog are run.  Provide more index entries and cross
+	references.  Remove some FIXME comments.  Add a FIXCVS THEN FIXME.
+	(Thanks to Art Manion at the CERT Coordination Center <cert@cert.org>.)
+
+2003-02-04  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (File status): Mention the "Unresolved Conflict" status
+	which was apparently and erroneously removed from the doc at some
+	point in the past.
+
+2003-02-03  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Merging a branch): Mention the GCA as opposed to the
+	"branch point" as the implicit revision when merging a branch.
+
+2003-02-03  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Remote repositories): :METHOD: is optional.
+
+2003-02-03  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Committing your changes): Move index entries closer to
+	their corresponding references.
+	(Environment variables): Include $VISUAL in order of
+	preference.  Add index entries.  Reference Global options node.
+	(Variables): Change order of list to match the Env. Variables node
+	mentioned above.
+
+	* stamp-1: Regenerated.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2003-02-14  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Watch Information, Editing files, Getting Notified,
+	Setting a watch): Edit usage specs for correctness and uniformity.
+	(Sticky tags): Use ref rather than xref to avoid a warning from
+	makeinfo.
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-01-23  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1: Regenerated.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
+2003-01-22  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.texinfo (config): Correct LogHistory default (U was omitted).
+
 2003-01-16  Derek Price  <derek@ximbiot.com>
 
 	* stamp-1: Regenerated for version (1.11.5).

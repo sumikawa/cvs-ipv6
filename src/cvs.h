@@ -127,8 +127,6 @@ extern int errno;
 #define CVSADM_ENTSTAT  "CVS/Entries.Static"
 #define CVSADM_REP      "CVS/Repository."
 #define CVSADM_ROOT     "CVS/Root."
-#define CVSADM_CIPROG   "CVS/Checkin.prog"
-#define CVSADM_UPROG    "CVS/Update.prog"
 #define CVSADM_TAG      "CVS/Tag."
 #define CVSADM_NOTIFY   "CVS/Notify."
 #define CVSADM_NOTIFYTMP "CVS/Notify.tmp"
@@ -144,8 +142,6 @@ extern int errno;
 #define	CVSADM_ENTSTAT	"CVS/Entries.Static"
 #define	CVSADM_REP	"CVS/Repository"
 #define	CVSADM_ROOT	"CVS/Root"
-#define	CVSADM_CIPROG	"CVS/Checkin.prog"
-#define	CVSADM_UPROG	"CVS/Update.prog"
 #define	CVSADM_TAG	"CVS/Tag"
 #define CVSADM_NOTIFY	"CVS/Notify"
 #define CVSADM_NOTIFYTMP "CVS/Notify.tmp"
@@ -562,6 +558,9 @@ void rename_file PROTO((const char *from, const char *to));
 extern void expand_wild PROTO ((int argc, char **argv, 
                                 int *pargc, char ***pargv));
 
+extern char *locate_rcs PROTO (( const char *repository,
+				 const char *file,
+				 int *inattic ));
 #ifdef SERVER_SUPPORT
 extern int cvs_casecmp PROTO ((char *, char *));
 extern int fopen_case PROTO ((char *, char *, FILE **, char **));
@@ -647,6 +646,8 @@ int SIG_inCrSect PROTO((void));
 void read_cvsrc PROTO((int *argc, char ***argv, char *cmdname));
 
 char *make_message_rcslegal PROTO((char *message));
+extern int file_has_conflict PROTO ((const struct file_info *,
+				     const char *ts_conflict));
 extern int file_has_markers PROTO ((const struct file_info *));
 extern void get_file PROTO ((const char *, const char *, const char *,
 			     char **, size_t *, size_t *));

@@ -15,12 +15,6 @@ similar file for the unix-like operating systems (not yet, at least).
 This file also might contain some platform-specific bugs.
 
 
-* Need more work on the procedure for fixing it if a binary file is
-accidentally added in text mode (sanity.sh test cases, better
-documentation, probably update and/or admin -kb should update
-the -k setting in CVS/Entries).
-
-
 * Wrappers (-t/-f) do not work client/server, and there are a variety of other
 bugs and annoyances with wrappers.
 
@@ -59,10 +53,6 @@ file's description.
   users who try to add the same directory at nearly the same time.
 
 
-* 'cvs admin' dumped core when files were missing from working directory
-  (and from the repository)?
-
-
 * The following bug was reported against CVS 1.9:
 
     Create a module named test with a file named test in it.
@@ -80,11 +70,6 @@ file's description.
       rcs.c:2139: failed assertion `rev == NULL || isdigit (*rev)'
       Abort (core dumped)
       Exit 134
-
-
-* pcl-cvs doesn't like it when you try to check in a file which isn't
-  up-to-date.  The messages produced by the server perhaps don't match
-  what pcl-cvs is looking for.
 
 
 * From: billr@mpd.tandem.com (Bill Robertson)
@@ -229,3 +214,23 @@ file's description.
   
   Send me a PGP-signed message if you want the password to use the machine
   where the problem showed up.
+
+* CVS does not always seem to be waiting to the next filesystem timestamp
+quanta after commits.  So far this has only shown up in testing under the BSDI
+OS.  The symptoms are that ocassionally CVS will not notice that modified files
+are modified, though the file must be modified within a short time after the
+commit, probably milliseconds or seconds, for this symptom to be noticed.  One
+suspected cause is that one of the calls to sleep_past() is being called with
+an incorrect value, though this does not explain why symptoms have only been
+noticed under BSDI.
+
+* Status
+
+                             /*-------.
+                             | Stable |
+                             `-------*/
+
+                     /*-------------------------.
+                     | Sane for full scale use. |
+                     `-------------------------*/
+

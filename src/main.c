@@ -545,7 +545,7 @@ main (argc, argv)
 		version (0, (char **) NULL);    
 		(void) fputs ("\n", stdout);
 		(void) fputs ("\
-Copyright (c) 1989-2002 Brian Berliner, david d `zoo' zuhn, \n\
+Copyright (c) 1989-2003 Brian Berliner, david d `zoo' zuhn, \n\
                         Jeff Polk, and other authors\n", stdout);
 		(void) fputs ("\n", stdout);
 		(void) fputs ("CVS may be copied only under the terms of the GNU General Public License,\n", stdout);
@@ -590,14 +590,19 @@ Copyright (c) 1989-2002 Brian Berliner, david d `zoo' zuhn, \n\
 		break;
 	    case 'z':
 #ifdef CLIENT_SUPPORT
-		gzip_level = atoi (optarg);
-		if (gzip_level < 0 || gzip_level > 9)
+		gzip_level = strtol (optarg, &end, 10);
+		if (*end != '\0' || gzip_level < 0 || gzip_level > 9)
 		  error (1, 0,
 			 "gzip compression level must be between 0 and 9");
-#endif
+#endif /* CLIENT_SUPPORT */
 		/* If no CLIENT_SUPPORT, we just silently ignore the gzip
-		   level, so that users can have it in their .cvsrc and not
-		   cause any trouble.  */
+		 * level, so that users can have it in their .cvsrc and not
+		 * cause any trouble.
+		 *
+		 * We still parse the argument to -z for correctness since
+		 * one user complained of being bitten by a run of
+		 * `cvs -z -n up' which read -n as the argument to -z without
+		 * complaining.  */
 		break;
 	    case 's':
 		variable_set (optarg);
