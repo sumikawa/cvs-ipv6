@@ -672,16 +672,11 @@ commit (argc, argv)
     Lock_Cleanup ();
     dellist (&mulist);
 
+    /* see if we need to sleep before returning to avoid time-stamp races */
     if (last_register_time)
     {
-	time_t now;
-
-	for (;;)
-	{
-	    (void) time (&now);
-	    if (now != last_register_time) break;
-	    sleep (1);			/* to avoid time-stamp races */
-	}
+	while (time ((time_t *) NULL) == last_register_time)
+	    sleep (1);
     }
 
     return (err);
@@ -793,6 +788,12 @@ check_fileproc (callerdat, finfo)
     struct logfile_info *li;
 
     size_t cvsroot_len = strlen (CVSroot_directory);
+
+    if (!finfo->repository)
+    {
+	error (0, 0, "nothing known about `%s'", finfo->fullname);
+	return (1);
+    }
 
     if (strncmp (finfo->repository, CVSroot_directory, cvsroot_len) == 0
 	&& ISDIRSEP (finfo->repository[cvsroot_len])
@@ -1751,6 +1752,9 @@ remove_file (finfo, tag, message)
 		   "failed to commit dead revision for `%s'", finfo->fullname);
 	return (1);
     }
+/* At this point, the file has been committed as removed.  We should 
+        probably tell the history file about it  */
+    history_write ('R', NULL, finfo->rcs->head, finfo->file, finfo->repository);
 
     if (rev != NULL)
 	free (rev);

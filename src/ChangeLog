@@ -1,3 +1,596 @@
+2000-01-17  Larry Jones  <larry.jones@sdrc.com>
+
+	* mkmodules.c (init): Create CVSROOT/Emptydir to avoid problems
+	with users not having sufficient permissions to create it later.
+
+2000-01-04  Larry Jones  <larry.jones@sdrc.com>
+
+	* client.c (get_responses_and_close): Simplify time-stamp race
+	avoidance code.
+	* commit.c (commit): Ditto.
+	* update.c (do_update): Ditto.
+	(Prompted by patch submitted by Pavel Roskin
+	<pavel_roskin@geocities.com>.)
+
+	* hardlink.c: sizeof (char) is 1, by definition.
+	* logmsg.c: Ditto.
+	* rcs.c: Ditto.
+
+2000-01-03  Karl Fogel  <kfogel@red-bean.com>
+
+	* filesubr.c, subr.c (backup_file): moved this function from
+	filesubr.c to subr.c, at JimK's suggestion.
+
+2000-01-03  Jim Kingdon  <http://developer.redhat.com/>
+
+	* sanity.sh (clean): Test the contents of the .#cleanme.txt.1.1
+	file, not just its existence.
+
+2000-01-03  Karl Fogel  <kfogel@red-bean.com>
+
+	* cvs.h, filesubr.c (backup_file): use `const' for suffix too;
+	correct suffix length calculation and appending behavior; discard
+	unnecessary `void' cast.  Thanks to Jim Meyering for noticing.
+
+2000-01-03  Larry Jones <larry.jones@sdrc.com>
+
+	* sanity.sh (clean): Fix up expected output.
+
+2000-01-02  John P Cavanaugh <cavanaug@sr.hp.com>
+        and Karl Fogel <kfogel@red-bean.com>
+	
+	New -C option to update: overwrites local changes with clean
+	copies from the repository.  (This is an unreversion of the
+	1999-12-10 change, further modified to work remotely.)
+	
+	* client.h (BACKUP_MODIFIED_FILES): new #define.
+	
+	* client.c (struct send_data): new element `backup_modified'.
+	(send_files): set above element if BACKUP_MODIFIED_FILES flag is
+	present.
+	
+	* filesubr.c (backup_file): new function.
+	
+	* cvs.h: prototype for new function `backup_file'.
+	
+	* update.c (toss_local_changes): new file-scoped global.
+	(update): set toss_local_changes if -C flag seen.  If
+	client_active, send "-C" to server, and set SEND_NO_CONTENTS and
+	BACKUP_MODIFIED_FILES flags before calling send_files().
+
+	(update_fileproc): if file is modified and toss_local_changes is
+	set, then back the file up and then check out a fresh copy from
+	the repository.  Also, fixed indentation and formatting for a
+	particularly bad stretch of code near (but unrelated to) these
+	changes.
+
+	* sanity.sh: new test `clean', for update -C option.
+	
+1999-12-29  Jim Kingdon  <http://developer.redhat.com/>
+
+	* history.c (read_hrecs): st_blksize is unsigned long, not int.
+	This isn't just cosmetic - getting it wrong will cause coredumps
+	and such on 64 bit machines.
+
+	* import.c (import_descend), ignore.c (ignore_files): Placate gcc
+	-Wall by parenthesizing foo || (bar && baz).
+
+1999-12-24  Larry Jones <larry.jones@sdrc.com>
+
+	* release.c (release): Use fputs to echo lines from update instead
+	of printf to avoid problems with lines containing "%".  (Reported
+	by Jean-Luc Simard <Jean-Luc.Simard@matrox.com>.)
+
+	* history.c (read_hrecs): Allocate a single 2-block buffer instead
+	of allocating and freeing a buffer for each block.
+	(fill_hrec): Remove redundant code.
+	(select_hrec): Plug memory leak.
+
+1999-12-22  Larry Jones <larry.jones@sdrc.com>
+
+	* history.c (history): For "modified" or "checkout", sort on
+	file if user specified -l, even if user also specified a date-
+	oriented flag.
+	* sanity.sh (history): Update to match; add new tests.
+
+1999-12-15  Pavel Roskin <pavel_roskin@geocities.com>
+	and Larry Jones <larry.jones@sdrc.com>
+
+	* lock.c (lock_name): fixed assertion failure for the
+	top-level CVS directory when LockDir is used
+	* sanity.sh (lockfiles-9): new test for this case
+
+1999-12-11  Karl Fogel  <kfogel@red-bean.com>
+
+	* Revert previous change -- it doesn't work remotely yet.
+
+1999-12-10  John P Cavanaugh <cavanaug@sr.hp.com>
+        and Karl Fogel <kfogel@red-bean.com>
+	
+	* update.c: new -C option to update, overwrites local changes with
+	clean copies from the repository.
+	Also, fixed indentation and formatting for a particularly bad
+	stretch of code near these changes in update_fileproc().
+	
+	* sanity.sh: test new update -C option.
+	
+1999-12-10  Larry Jones <larry.jones@sdrc.com>
+
+	* commit.c (remove_file): Call history_write with update_dir NULL
+	like Checkin() does for add and modify.
+	* sanity.sh (basic2-64): Update to match, add "R" records to expected
+	remote output.
+
+1999-12-09  K.J. Paradise (kj@sourcegear.com)
+
+	* history.c, commit.c, sanity.sh: found (I think) final 
+	cause of seg fault in history command.  Also, added the "R" 
+	history functionality.  Fixed basic2-64 so it looks correct for 
+	the change. 
+
+1999-11-30  K.J. Paradise (kj@sourcegear.com)
+
+	* history.c: fixed seg fault caused by 11-03 changes.  
+	off by one in block memory allocations. 
+
+1999-11-29  Karl Fogel  <kfogel@red-bean.com>
+
+	* login.c (logout): free `tmp_name' when done.
+	Correct a comment.
+
+1999-11-29  Larry Jones <larry.jones@sdrc.com>
+
+	* cvs.h, error.c, import.c: Rename fperror to avoid name clash
+	on LynxOS.  (Reported by Markus Braun <MarkusBraun@gmx.de>.)
+
+1999-11-23  Larry Jones <larry.jones@sdrc.com>
+
+	* checkout.c (checkout_proc): Split declaration and initialization
+	of rp to placate neurotic compilers that gripe about jumping past
+	an initialization, even when the variable is not subsequently used.
+
+1999-11-19  Larry Jones <larry.jones@sdrc.com>
+
+	* server.c (switch_to_user): Correct setgid error messages.
+
+1999-11-19  Karl Fogel  <kfogel@red-bean.com>
+
+	* edit.c (unedit_usage, unedit): new struct, use it.  Now "cvs
+	unedit" prints an accurate usage message (formerly it printed the
+	message for "cvs edit", even though the two commands do not have
+	identical usages).
+	
+1999-11-19  Larry Jones <larry.jones@sdrc.com>
+
+	* history.c: Move -e documentation from Flags to Reports.
+	(history): Add -e to list of report types in error message.
+
+	* history.c (history): Process file arguments before client/server
+	processing so they get sent to the server.
+	* sanity.sh (history): New tests for above.  (Also remove comments
+	about variable spacing -- history output is in variable-width
+	columns with exactly one space between.)
+
+1999-11-19  Larry Jones <larry.jones@sdrc.com>
+
+	* sanity.sh: Reestablish check for running as root (using ``id -u''
+	instead of ``whoami'').
+
+	* sanity.sh(dotest, dotest_lit, dotest_fail, dotest_status,
+	dotest_sort): Eval the command so quoting and pipes work right.
+	(spacefiles, dirs, rcslib, modules, unedit-without-baserev,
+	ignore, rcs, rcs2, history, tagdate, pserver, server, server2)
+	Simplify various tests based on above.
+
+1999-11-19  Karl Fogel  <kfogel@red-bean.com>
+
+	* mkmodules.c (init): make history file world-writeable after
+	creating it, since it needs to be writeable for virtually any
+	CVS operation.
+	
+1999-11-10  Jim Kingdon  <http://developer.redhat.com/>
+
+	* admin.c: Revert change to add -H command option.  The help
+	invocation is "cvs -H admin" not "cvs admin -H" (see cvs.texinfo,
+	basicb-21 in sanity.sh; fix to cvs.1)
+
+1999-11-08  Jim Kingdon  <http://developer.redhat.com/>
+
+	* log.c (cvslog): If client_active, send options to the server
+	based on our parsed options rather than trying to send the exact
+	strings specified (using canonical forms, like RFC822/1123
+	dates, in the protocol is just cleaner).
+	(send_one, send_arg_list): New functions, helpers for above.
+	* sanity.sh (logopt-6a): New test, for this fix.
+
+1999-11-09  K.J. Paradise <kj@sourcegear.com>
+	
+	* admin.c: made the -H option do what it is documented to 
+	do.  a
+
+1999-11-08  Tom Tromey  <tromey@cygnus.com>
+
+	* client.c (connect_to_gserver): Print more error text if gssapi
+	initialization fails.  From Assar Westerlund <assar@sics.se>.
+
+1999-11-06  Larry Jones <larry.jones@sdrc.com>
+
+	*sanity.sh(rcs3-5): Remote output can be out-of-order, so need a
+	more general pattern to match the assertion failure.
+
+1999-11-05  K.J. Paradise (kj@sourcegear.com)
+
+	* history.c: Added a trap to verify that if a 
+	read(file, buffer,blocksize) returns less than blocksize, 
+	that we really are at the end of the file.  I can't easily
+	come up with a test case where this code gets touched, so 
+	it may cause problems.  All sanity tests still pass though.
+
+1999-11-05  Jim Kingdon  <http://developer.redhat.com/>
+
+	* sanity.sh (logopt): New test, for Larry's fix.
+	* sanity.sh (log-18a, rcs-15 to rcs-19): New tests, to test -d
+	and -r more thoroughly.
+
+1999-11-05  Larry Jones <larry.jones@sdrc.com>
+
+	* log.c (cvslog): Fix -s and -d with spaces on client side.
+	(log_usage): Revert Karl's change once again.
+	sanity.sh(rcs3-5): No longer get different results from local
+	and client/server.
+
+1999-11-04  Karl Fogel  <kfogel@red-bean.com>
+
+	* log.c (log_usage): Revert Jim Kingdon's reversion of my change
+	of 1999-11-03.  Allowing a space between option and argument
+	results in lossage; here is a reproduction recipe: run this from
+	the top of a remote copy of the cvs source tree
+
+	   cvs log -d '>1999-03-01' > log-out.with-space
+
+	and then run this (note there's no space after -d now):
+	
+	   cvs log -d'>1999-03-01' > log-out.no-space
+
+	The resulting files differ; furthermore, a glance at the output of
+	cvs shows that the first command failed to recurse into
+	subdirectories.  Until this misbehavior can be fixed in the source
+	code, the documentation should reflect the true state of affairs:
+	if one simply omits the space, everything works fine.
+
+1999-11-04  Jim Kingdon  <http://developer.redhat.com/>
+
+	* log.c (log_usage): Revert Karl's change regarding -d and
+	-s.  A space is allowed (see sanity.sh for example).
+
+1999-11-03  K.J. Paradise (kj@sourcegear.com>
+	
+	* history.c: cleaned up my prior change a bit, per Larry Jones'
+	comments, and John O'Conner's additional comments about bits of
+	non MS-Visual C++ compliancy of my code.  
+
+1999-11-04  Larry Jones <larry.jones@sdrc.com>
+
+	* sanity.sh: Check that tr that correctly handles NULs; if not, try
+	to find a version that does; if none can be found, warn user.
+	Also fix warnings for defective expr.
+
+1999-11-04  Karl Fogel  <kfogel@red-bean.com>
+
+	Changes for empty/random passwords in anon pserver access:
+	
+	* server.c (check_repository_password): if password empty, grant
+	access no matter what password is received; this is so anon CVS no
+	longer requires a password but remains backwards-compatible with
+	all those clients out there.
+
+	* client.c (connect_to_pserver): proceed with login even if
+	password not found in .cvspass file -- just use empty string as
+	password.  And if such a login fails, print a descriptive error.
+
+	* login.c (get_cvs_password): don't complain if file or password
+	not found.  That condition is no longer a showstopper, now that
+	empty passwords are permissible.
+	Cleaned up conditional chaining a bit, too.
+
+	* sanity.sh (pserver-9, pserver-10, pserver-11, pserver-12,
+	pserver-13): new tests, about empty-password pserver access.
+	
+1999-11-03  K.J. Paradise (kj@sourcegear.com>
+
+	* history.c:  modify parsing routines to parse the history
+	file a block at a time, rather than all at once.  This allows
+	people with large history files and small amount of memory 
+	to still get some functionality out of the history file. 
+
+1999-11-03  Karl Fogel  <kfogel@red-bean.com>
+
+	* log.c (log_usage): correct usage message for -d and -s options.
+	Because the space between the option letter and its argument has
+	been eliminated, I capitalized the argument portion to distinguish
+	it from the option letter.  This makes it slightly inconsistent
+	with other such usage summaries, but at least it is now both
+	correct and readable.
+
+1999-10-22  Larry Jones  <larry.jones@sdrc.com>
+
+	* sanity.sh (dotest_sort): Old versions of tr don't understand \t
+	so use a literal tab instead.
+
+1999-10-21  Larry Jones  <larry.jones@sdrc.com>
+
+	* sanity.sh (dotest_sort): Convert any tabs in the output into spaces
+	before sorting to avoid POSIX.2 sort weirdness.
+	(import-106, importb-2): Change expected output per above.
+
+1999-10-18  K.J. Paradise <kj@sourcegear.com>
+
+	Bug: users 'stan' and 'cartman' both have full read/write access
+	to the cvs repository.  'cartman' does a 'cvs admin -l foo.c'. 
+	'stan' then does a 'cvs admin -u foo.c'.  The lock wouldn't be 
+	removed, and no warning/error would be given.  This is now fixed. 
+	* rcs.c:(c.6157) remove caller/user check on the multiple lock 
+        detection routines.  Sanity.sh runs with no errors after this fix.
+	
+1999-10-14  Larry Jones  <larry.jones@sdrc.com>
+
+	Make "cvs admin -e" (with no list of users) work:
+	* admin.c (admin): Remove error message.
+	(admin_fileproc): If no args for -e, call RCS_delaccess with NULL user.
+	* rcs.c (RCS_delaccess): Interpret NULL user as request to delete
+	entire access list.
+	* sanity.sh (admin-19a-*): Test.
+
+1999-09-29  Larry Jones  <larry.jones@sdrc.com>
+
+	* entries.c (Subdirs_Known): Use entfilename when opening CVSADM_ENTLOG
+	like everywhere else.  Although this isn't strictly necessary (since
+	we immediately close it again), it keeps the code consistent and fixes
+	a bug where an open error reported the wrong file name.
+
+1999-09-16  Larry Jones  <larry.jones@sdrc.com>
+
+	* log.c (log_parse_revlist): Handle peculiar revision specs like
+	"-r.", "-r:", and "-r," correctly.  (Thanks to Pavel Roskin
+	<pavel_roskin@geocities.com> for submitting a patch, this fix is
+	somewhat different.)
+	* sanity.sh (log): New tests for above.
+
+1999-09-15  Larry Jones  <larry.jones@sdrc.com>
+
+	* sanity.sh (basica-8b1): New test to check fix for bad diff options
+	causing cvs to crash.
+
+1999-09-02  Larry Jones  <larry.jones@sdrc.com>
+
+	* modules.c (do_module): Handle case where module definition has
+	options and special options but no directory; fix potential problems
+	running off beginning of string while stripping trailing blanks.
+	* sanity.sh (modules2): New tests for above.
+
+1999-08-26  Larry Jones  <larry.jones@sdrc.com>
+
+	* lock.c (lock_name): Remove side-effects from assert() expression
+	since they won't occur if NDEBUG is defined (not that that's a good
+	thing to do).  (Reported by KOIE Hidetaka <hide@koie.org>.)
+
+1999-08-25  Larry Jones  <larry.jones@sdrc.com>
+
+	* sanity.sh: Use "${AWK}" instead of "awk" to make it easier for
+	people to use nawk/gawk/etc.; use an explicit "-print" with find
+	since some older version don't assume it; rename tests to avoid
+	duplicate importc-8.  (Changes along these lines suggested by
+	Chris Cameron <chris.cameron@ot.co.nz>.)
+
+1999-08-24  Larry Jones  <larry.jones@sdrc.com>
+
+	* commit.c (check_fileproc): Don't crash when a file has no
+	repository, just treat it as unknown.  (Reported by Stefaan
+	Diericx <stefaan.diericx@argenta.be>.)
+	* sanity.sh (errmsg2): New tests, for this fix.
+
+1999-08-18  Larry Jones  <larry.jones@sdrc.com>
+
+	* update.c (special_file_mismatch): Initialize *_hardlinks to
+	avoid trying to free garbage later on.  (Reported by Jan
+	Scheffczyk <herta@Xterminator.StudFB.UniBw-Muenchen.de>.)
+
+1999-08-17  Larry Jones  <larry.jones@sdrc.com>
+
+	* sanity.sh (basicc-11): Older versions of sh don't understand
+	``if ! test...''.  (Patch submitted by David J N Begley
+	<david@avarice.nepean.uws.edu.au>.)
+
+1999-08-17  Larry Jones  <larry.jones@sdrc.com>
+
+	* client.c, hardlink.c, hash.c, hash.h, main.c, recurse.c: Change
+	enum constant UNKNOWN to avoid conflicts on HPUX 11.0.  (Reported
+	by Laurent Duperval <laurent.duperval@cgi.ca>.)
+
+1999-08-16  Larry Jones  <larry.jones@sdrc.com>
+
+	client.c: Eliminate redundant #if.  (Patch submitted by Assar
+	Westerlund <assar@sics.se>.)
+  
+1999-07-30  Larry Jones  <larry.jones@sdrc.com>
+
+	* rcs.c (RCS_checkin): Terminate cleanly if RCS_addbranch fails
+	rather than blithely continuing on and crashing.
+	* sanity.sh (basica): New tests, for this fix.
+
+1999-07-29  Larry Jones  <larry.jones@sdrc.com>
+
+	* import.c (add_rcs_file): change "cannot lstat" message to include
+	userfile (the actual file causing the problem) instead of user
+	(which may or may not be the same).
+
+1999-07-29  Eric Sink   <eric@sourcegear.com>
+
+	* version.c: Push version number to 1.10.7.1.
+
+	* version.c: Version 1.10.7.
+
+1999-07-28  Eric Sink   <eric@sourcegear.com>
+
+	* sanity.sh: before running basicc-11, we need to see if
+	the cwd has been deleted (by basicc-8).  If so, we
+	recreate it to allow basicc-11 to proceed.  This may be
+	something that only happens under the Linux 2.2 kernel.
+
+1999-07-18  Karl Fogel  <kfogel@floss.red-bean.com>
+
+	* edit.c (notify_do): chop newline, if any, from the value
+	obtained from CVSROOT/users.  Otherwise it just gets passed along
+	in the argument to the notification program (usually mail), which
+	will misinterpret it as signifying the end of the command.
+
+1999-07-19  Larry Jones  <larry.jones@sdrc.com>
+
+	* rcs.c (RCS_delete_revs): In the WIN32 kludge, be sure that the result
+	of RCS_getexpand is not NULL before trying to use what it points to.
+	(Patch submitted by Timothy L. Taylor <ttaylor@mitre.org>.)
+
+1999-07-16  Tom Tromey  <tromey@cygnus.com>
+
+	* admin.c (admin): Allow `-k' options to be used unrestricted.
+
+1999-06-23  Jim Kingdon  <http://www.cyclic.com>
+
+	* sanity.sh (symlinks2): New test, for symlinks in working
+	directory without PreservePermissions.  This test (modulo a few
+	details not relevant to testing whether we are following symlinks)
+	worked remote as of now, or either remote or local for CVS 1.9.
+	* subr.c (get_file): Revert 1998-02-15 change to special-case
+	symlinks.  This makes the above test work local too.
+	* rcs.c (RCS_checkin): Move the logic to handle special-case
+	symlinks (and other files other than regular files) here, and make
+	it only happen if PreservePermissions is on.
+
+1999-06-18  Larry Jones  <larry.jones@sdrc.com>
+
+	* sanity.sh (devcom3-9a): Be less specific about the expected
+	error message (BSD/OS 4.0 has a bug that can cause exec* to fail
+	with EACCES instead of ENOENT).
+
+1999-06-08  Larry Jones  <larry.jones@sdrc.com>
+
+	* sanity.sh (diff-4, dirs2-10, tagf-13, importc-7, conflicts2-142b8):
+	Use ${PROG} instead of "cvs".
+
+1999-06-05  Jim Kingdon  <http://www.cyclic.com>
+
+	* recurse.c (do_recursion, do_dir_proc): Make the SERVER_ACTIVE
+	#ifdef be only around the check for server_active.  Modulo a few
+	cosmetic tweaks, same as a patch submitted by Johannes Stezenbach
+	of propack-data.de.
+
+1999-06-01  Jim Kingdon  <http://www.cyclic.com>
+
+	* sanity.sh: Add comment about rcs2-7 failures on certain days.
+
+	Make "cvs status -v" on a removed file work:
+	* status.c (cvsstatus): Reindent the client code.
+	(status_fileproc): Don't need a CVS/Entries listing to show the
+	tags.
+	* sanity.sh (rmadd2): New test rmadd2-16 tests the existing
+	behavior with "cvs log"; new test rmadd2-17 tests the new behavior
+	with "cvs status".
+
+	* sanity.sh (basicc): To match no output in dotest, put the empty
+	regexp first.  Remove tests which check that first-dir exists,
+	since that isn't true in the case where the OS let us delete it.
+	(dotest_internal): Fix so that things work with two regexps, with
+	an empty one first.
+
+1999-05-28  Larry Jones  <larry.jones@sdrc.com>
+
+	* sanity.sh (server-4): Replace bogus directory with real one since
+	the server now checks it.
+
+1999-05-27  Jim Kingdon  <http://www.cyclic.com>
+
+	* sanity.sh (spacefiles): Clean up -c, top, and -b at end.
+	(spacefiles, files): Fix bad references to CVSROOT_DIRNAME.
+
+	Fix two problems pointed out by Olaf Kirch of swb.de/caldera.de:
+	* server.c (outside_root): New function, contains expanded version
+	of code from serve_directory.
+	(serve_directory): Call outside_root.
+	(outside_dir): New function
+	(serve_modified, serve_is_modified, serve_notify,
+	serve_questionable, serve_unchanged): Call outside_dir.
+	* sanity.sh (server2): New tests, for these fixes.
+
+1999-05-26  Jim Kingdon  <http://www.cyclic.com>
+
+	* cvs.h, subr.c (xmalloc): Return void* not char*, like xrealloc
+	has done for some time.
+	* modules.c (do_module): If we find the module as a directory/file
+	(rather than in the modules file), skip a bunch of processing
+	which was unnecessary and also broken in most of the cases
+	now tested for by the spacefiles sanity.sh test.
+	* sanity.sh (spacefiles): New test, for specifying filenames
+	(containing spaces, or starting with '-', or starting with '/') to
+	"cvs co".
+
+1999-05-25  Jim Kingdon  <http://www.cyclic.com>
+
+	* client.c (update_entries): Make the old DONT_USE_PATCH code the
+	only code.  This means that if people are still on CVS 1.9
+	servers, then CVS will fall back to transferring entire files.
+	This is better than looking for an external "patch" program which
+	causes no end of troubles (especially on Windows, but someone just
+	posted to info-cvs about a problem with the Solaris patch).  (This
+	change was run by devel-cvs and feedback was positive).
+
+	* subr.c (xmalloc, xrealloc): The new error.c does not support
+	%lu; use sprintf instead.
+
+1999-05-25 Derek Price
+	<http://www-personal.engin.umich.edu/~oberon/resume.html>
+
+	* sanity.sh (server): Escaped a few more newlines in
+	another awk script.  Solaris awk still don't like 'em.
+
+1999-05-25 Derek Price
+	<http://www-personal.engin.umich.edu/~oberon/resume.html>
+	and Jim Kingdon
+
+	* log.c: Remove comment which said "you can delete [this line]"
+	and which stuck around for over 3 years.
+	* sanity.sh (errmsg2 & tagdate): Added tests to prove the
+	current functionality with respect to combining -r and -D.
+
+1999-05-20  Larry Jones  <larry.jones@sdrc.com>
+
+	* server.c (pserver_authenticate_connection): Previous changes
+	broke verify_and_exit (reported by Robert Fitzsimons, thanks).
+	* sanity.sh (pserver): New tests pserver-7 and pserver-8 for this.
+
+1999-05-18 Derek Price
+	<http://www-personal.engin.umich.edu/~oberon/resume.html>
+
+	* sanity.sh (keyword2): Escaped a newline in an awk script.
+	Apparently Solaris awk don't like 'em.
+
+1999-05-18  Jim Kingdon  <http://www.cyclic.com>
+
+	* sanity.sh (basicc): Allow the behavior whereby unlink(".")
+	succeeds.  Reported by Jeremy Buhler and Pavel Roskin.
+
+1999-05-17  Steve Cameron of Compaq
+
+	* sanity.sh: Modified to no longer use "test -e" for existence
+	test as it has turned out to be not portable enough.  Instead use
+	"test -f", "test -d", etc.
+	[SCO Unixware 7 apparently doesn't always support it -kingdon]
+
+1999-05-17  Jim Kingdon  <http://www.cyclic.com>
+
+	* version.c: Push version number to 1.10.6.1.
+
+	* version.c: Version 1.10.6.
+
 1999-05-16  Jim Kingdon  <http://www.cyclic.com>
 
 	* update.c (patch_file): When we are passing vn_rcs to

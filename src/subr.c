@@ -16,7 +16,7 @@ extern char *getlogin ();
 /*
  * malloc some data and die if it fails
  */
-char *
+void *
 xmalloc (bytes)
     size_t bytes;
 {
@@ -30,8 +30,12 @@ xmalloc (bytes)
 
     cp = malloc (bytes);
     if (cp == NULL)
-	error (1, 0, "out of memory; can not allocate %lu bytes",
-	       (unsigned long) bytes);
+    {
+	char buf[80];
+	sprintf (buf, "out of memory; can not allocate %lu bytes",
+		 (unsigned long) bytes);
+	error (1, 0, buf);
+    }
     return (cp);
 }
 
@@ -53,7 +57,12 @@ xrealloc (ptr, bytes)
 	cp = realloc (ptr, bytes);
 
     if (cp == NULL)
-	error (1, 0, "can not reallocate %lu bytes", (unsigned long) bytes);
+    {
+	char buf[80];
+	sprintf (buf, "out of memory; can not reallocate %lu bytes",
+		 (unsigned long) bytes);
+	error (1, 0, buf);
+    }
     return (cp);
 }
 
@@ -623,15 +632,14 @@ get_file (name, fullname, mode, buf, bufsize, len)
     }
     else
     {
-	if (CVS_LSTAT (name, &s) < 0)
-	    error (1, errno, "can't stat %s", fullname);
+	/* Although it would be cleaner in some ways to just read
+	   until end of file, reallocating the buffer, this function
+	   does get called on files in the working directory which can
+	   be of arbitrary size, so I think we better do all that
+	   extra allocation.  */
 
-	/* Don't attempt to read special files or symlinks. */
-	if (!S_ISREG (s.st_mode))
-	{
-	    *len = 0;
-	    return;
-	}
+	if (CVS_STAT (name, &s) < 0)
+	    error (1, errno, "can't stat %s", fullname);
 
 	/* Convert from signed to unsigned.  */
 	filesize = s.st_size;
@@ -660,9 +668,7 @@ get_file (name, fullname, mode, buf, bufsize, len)
 	if (feof (e))
 	    break;
 
-	/* It's probably paranoid to think S.ST_SIZE might be
-	   too small to hold the entire file contents, but we
-	   handle it just in case.  */
+	/* Allocate more space if needed.  */
 	if (tobuf == *buf + *bufsize)
 	{
 	    int c;
@@ -738,3 +744,37 @@ resolve_symlink (filename)
 	}
     }
 }
+
+/*
+ * Rename a file to an appropriate backup name based on BAKPREFIX.
+ * If suffix non-null, then ".<suffix>" is appended to the new name.
+ *
+ * Returns the new name, which caller may free() if desired.
+ */
+char *
+backup_file (filename, suffix)
+     const char *filename;
+     const char *suffix;
+{
+    char *backup_name;
+
+    if (suffix == NULL)
+    {
+        backup_name = xmalloc (sizeof (BAKPREFIX) + strlen (filename) + 1);
+        sprintf (backup_name, "%s%s", BAKPREFIX, filename);
+    }
+    else
+    {
+        backup_name = xmalloc (sizeof (BAKPREFIX)
+                               + strlen (filename)
+                               + strlen (suffix)
+                               + 2);  /* one for dot, one for trailing '\0' */
+        sprintf (backup_name, "%s%s.%s", BAKPREFIX, filename, suffix);
+    }
+
+    if (isfile (filename))
+        copy_file (filename, backup_name);
+
+    return backup_name;
+}
+

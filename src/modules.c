@@ -20,6 +20,7 @@
  *	command line.
  */
 
+#include <assert.h>
 #include "cvs.h"
 #include "savecwd.h"
 
@@ -120,7 +121,8 @@ do_module (db, mname, m_type, msg, callback_proc, where,
     int xmodargc;
     char **modargv;
     char **xmodargv;
-    char *value;
+    /* Found entry from modules file, including options and such.  */
+    char *value = NULL;
     char *zvalue = NULL;
     char *mwhere = NULL;
     char *mfile = NULL;
@@ -189,18 +191,13 @@ do_module (db, mname, m_type, msg, callback_proc, where,
 
 	/* If the line ends in a comment, strip it off */
 	if ((cp = strchr (val.dptr, '#')) != NULL)
-	{
-	    do
-		*cp-- = '\0';
-	    while (isspace ((unsigned char) *cp));
-	}
+	    *cp = '\0';
 	else
-	{
-	    /* Always strip trailing spaces */
-	    cp = strchr (val.dptr, '\0');
-	    while (cp > val.dptr && isspace ((unsigned char) *--cp))
-		*cp = '\0';
-	}
+	    cp = val.dptr + val.dsize;
+
+	/* Always strip trailing spaces */
+	while (cp > val.dptr && isspace ((unsigned char) *--cp))
+	    *cp = '\0';
 
 	value = val.dptr;
 	mwhere = xstrdup (mname);
@@ -231,7 +228,9 @@ do_module (db, mname, m_type, msg, callback_proc, where,
 
 	if (isdir (file))
 	{
-	    value = mname;
+	    modargv = xmalloc (sizeof (*modargv));
+	    modargv[0] = xstrdup (mname);
+	    modargc = 1;
 	    is_found = 1;
 	}
 	else
@@ -242,14 +241,12 @@ do_module (db, mname, m_type, msg, callback_proc, where,
 		/* if mname was a file, we have to split it into "dir file" */
 		if ((cp = strrchr (mname, '/')) != NULL && cp != mname)
 		{
-		    char *slashp;
-
-		    /* put the ' ' in a copy so we don't mess up the
-		       original */
-		    xvalue = xmalloc (strlen (mname) + 2);
-		    value = strcpy (xvalue, mname);
-		    slashp = strrchr (value, '/');
-		    *slashp = ' ';
+		    modargv = xmalloc (2 * sizeof (*modargv));
+		    modargv[0] = xmalloc (strlen (mname) + 2);
+		    strncpy (modargv[0], mname, cp - mname);
+		    modargv[0][cp - mname] = '\0';
+		    modargv[1] = xstrdup (cp + 1);
+		    modargc = 2;
 		}
 		else
 		{
@@ -261,31 +258,54 @@ do_module (db, mname, m_type, msg, callback_proc, where,
 		    if (cp == mname)
 		    {
 			/* drop the leading / if specified */
-			xvalue = xmalloc (strlen (mname) + 10);
-			value = strcpy (xvalue, ". ");
-			(void) strcat (xvalue, mname + 1);
+			modargv = xmalloc (2 * sizeof (*modargv));
+			modargv[0] = xstrdup (".");
+			modargv[1] = xstrdup (mname + 1);
+			modargc = 2;
 		    }
 		    else
 		    {
 			/* otherwise just copy it */
-			xvalue = xmalloc (strlen (mname) + 10);
-			value = strcpy (xvalue, ". ");
-			(void) strcat (xvalue, mname);
+			modargv = xmalloc (2 * sizeof (*modargv));
+			modargv[0] = xstrdup (".");
+			modargv[1] = xstrdup (mname);
+			modargc = 2;
 		    }
 		}
 		is_found = 1;
-	    }
-	    else
-	    {
-		/* This initialization suppresses a warning from gcc -Wall.  */
-	        value = NULL;
 	    }
 	}
 	free (attic_file);
 	free (file);
 
 	if (is_found)
-	    goto found;
+	{
+	    assert (value == NULL);
+
+	    /* OK, we have now set up modargv with the actual
+	       file/directory we want to work on.  We duplicate a
+	       small amount of code here because the vast majority of
+	       the code after the "found" label does not pertain to
+	       the case where we found a file/directory rather than
+	       finding an entry in the modules file.  */
+	    if (save_cwd (&cwd))
+		error_exit ();
+	    cwd_saved = 1;
+
+	    err += callback_proc (&modargc, modargv, where, mwhere, mfile,
+				  shorten,
+				  local_specified, mname, msg);
+
+	    free_names (&modargc, modargv);
+
+	    /* cd back to where we started.  */
+	    if (restore_cwd (&cwd, NULL))
+		error_exit ();
+	    free_cwd (&cwd);
+	    cwd_saved = 0;
+
+	    goto do_module_return;
+	}
     }
 
     /* look up everything to the first / as a module */
@@ -312,11 +332,14 @@ do_module (db, mname, m_type, msg, callback_proc, where,
 
 	    /* If the line ends in a comment, strip it off */
 	    if ((cp2 = strchr (val.dptr, '#')) != NULL)
-	    {
-		do
-		    *cp2-- = '\0';
-		while (isspace ((unsigned char) *cp2));
-	    }
+		*cp2 = '\0';
+	    else
+		cp2 = val.dptr + val.dsize;
+
+	    /* Always strip trailing spaces */
+	    while (cp2 > val.dptr  &&  isspace ((unsigned char) *--cp2))
+		*cp2 = '\0';
+
 	    value = val.dptr;
 
 	    /* mwhere gets just the module name */
@@ -352,6 +375,7 @@ do_module (db, mname, m_type, msg, callback_proc, where,
 
     /* copy value to our own string since if we go recursive we'll be
        really screwed if we do another dbm lookup */
+    assert (value != NULL);
     zvalue = xstrdup (value);
     value = zvalue;
 
@@ -361,62 +385,9 @@ do_module (db, mname, m_type, msg, callback_proc, where,
 	*cp = '\0';			/* null out the special char */
 	spec_opt = cp + 1;		/* save the options for later */
 
-	if (cp != value)		/* strip whitespace if necessary */
-	    while (isspace ((unsigned char) *--cp))
-		*cp = '\0';
-
-	if (cp == value)
-	{
-	    /*
-	     * we had nothing but special options, so skip arg
-	     * parsing and regular stuff entirely
-	     *
-	     * If there were only special ones though, we must
-	     * make the appropriate directory and cd to it
-	     */
-	    char *dir;
-
-	    /* XXX - XXX - MAJOR HACK - DO NOT SHIP - this needs to
-	       be !pipeout, but we don't know that here yet */
-	    if (!run_module_prog)
-		goto out;
-
-	    dir = where ? where : mname;
-	    /* XXX - think about making null repositories at each dir here
-		     instead of just at the bottom */
-	    make_directories (dir);
-	    if ( CVS_CHDIR (dir) < 0)
-	    {
-		error (0, errno, "cannot chdir to %s", dir);
-		spec_opt = NULL;
-		err++;
-		goto out;
-	    }
-	    if (!isfile (CVSADM))
-	    {
-		char *nullrepos;
-
-		nullrepos = emptydir_name ();
-
-		Create_Admin (".", dir,
-			      nullrepos, (char *) NULL, (char *) NULL, 0, 0);
-		if (!noexec)
-		{
-		    FILE *fp;
-
-		    fp = open_file (CVSADM_ENTSTAT, "w+");
-		    if (fclose (fp) == EOF)
-			error (1, errno, "cannot close %s", CVSADM_ENTSTAT);
-#ifdef SERVER_SUPPORT
-		    if (server_active)
-			server_set_entstat (dir, nullrepos);
-#endif
-		}
-		free (nullrepos);
-	    }
-	  out:
-	    goto do_special;
-	}
+	/* strip whitespace if necessary */
+	while (cp > value  &&  isspace ((unsigned char) *--cp))
+	    *cp = '\0';
     }
 
     /* don't do special options only part of a module was specified */
@@ -434,7 +405,8 @@ do_module (db, mname, m_type, msg, callback_proc, where,
 
     /* Put the value on a line with XXX prepended for getopt to eat */
     line = xmalloc (strlen (value) + 10);
-    (void) sprintf (line, "%s %s", "XXX", value);
+    strcpy(line, "XXX ");
+    strcpy(line + 4, value);
 
     /* turn the line into an argv[] array */
     line2argv (&xmodargc, &xmodargv, line, " \t");
@@ -452,44 +424,44 @@ do_module (db, mname, m_type, msg, callback_proc, where,
 		alias = 1;
 		break;
 	    case 'd':
-		nonalias_opt = 1;
 		if (mwhere)
 		    free (mwhere);
 		mwhere = xstrdup (optarg);
+		nonalias_opt = 1;
 		break;
 	    case 'i':
-		nonalias_opt = 1;
 		if (checkin_prog)
 		    free (checkin_prog);
 		checkin_prog = xstrdup (optarg);
+		nonalias_opt = 1;
 		break;
 	    case 'l':
-		nonalias_opt = 1;
 		local_specified = 1;
+		nonalias_opt = 1;
 		break;
 	    case 'o':
-		nonalias_opt = 1;
 		if (checkout_prog)
 		    free (checkout_prog);
 		checkout_prog = xstrdup (optarg);
+		nonalias_opt = 1;
 		break;
 	    case 'e':
-		nonalias_opt = 1;
 		if (export_prog)
 		    free (export_prog);
 		export_prog = xstrdup (optarg);
+		nonalias_opt = 1;
 		break;
 	    case 't':
-		nonalias_opt = 1;
 		if (tag_prog)
 		    free (tag_prog);
 		tag_prog = xstrdup (optarg);
+		nonalias_opt = 1;
 		break;
 	    case 'u':
-		nonalias_opt = 1;
 		if (update_prog)
 		    free (update_prog);
 		update_prog = xstrdup (optarg);
+		nonalias_opt = 1;
 		break;
 	    case '?':
 		error (0, 0,
@@ -501,7 +473,7 @@ do_module (db, mname, m_type, msg, callback_proc, where,
     }
     modargc -= optind;
     modargv += optind;
-    if (modargc == 0)
+    if (modargc == 0  &&  spec_opt == NULL)
     {
 	error (0, 0, "modules file missing directory for module %s", mname);
 	++err;
@@ -549,14 +521,64 @@ module `%s' is a request for a file in a module which is not a directory",
     }
 
     /* otherwise, process this module */
-    err += callback_proc (&modargc, modargv, where, mwhere, mfile, shorten,
-			  local_specified, mname, msg);
+    if (modargc > 0)
+    {
+	err += callback_proc (&modargc, modargv, where, mwhere, mfile, shorten,
+			      local_specified, mname, msg);
+    }
+    else
+    {
+	/*
+	 * we had nothing but special options, so we must
+	 * make the appropriate directory and cd to it
+	 */
+	char *dir;
 
-    free_names (&xmodargc, xmodargv);
+	/* XXX - XXX - MAJOR HACK - DO NOT SHIP - this needs to
+	   be !pipeout, but we don't know that here yet */
+	if (!run_module_prog)
+	    goto do_special;
+
+	dir = where ? where : (mwhere ? mwhere : mname);
+	/* XXX - think about making null repositories at each dir here
+		 instead of just at the bottom */
+	make_directories (dir);
+	if ( CVS_CHDIR (dir) < 0)
+	{
+	    error (0, errno, "cannot chdir to %s", dir);
+	    spec_opt = NULL;
+	    err++;
+	    goto do_special;
+	}
+	if (!isfile (CVSADM))
+	{
+	    char *nullrepos;
+
+	    nullrepos = emptydir_name ();
+
+	    Create_Admin (".", dir,
+			  nullrepos, (char *) NULL, (char *) NULL, 0, 0);
+	    if (!noexec)
+	    {
+		FILE *fp;
+
+		fp = open_file (CVSADM_ENTSTAT, "w+");
+		if (fclose (fp) == EOF)
+		    error (1, errno, "cannot close %s", CVSADM_ENTSTAT);
+#ifdef SERVER_SUPPORT
+		if (server_active)
+		    server_set_entstat (dir, nullrepos);
+#endif
+	    }
+	    free (nullrepos);
+	}
+    }
 
     /* if there were special include args, process them now */
 
   do_special:
+
+    free_names (&xmodargc, xmodargv);
 
     /* blow off special options if -l was specified */
     if (local_specified)
@@ -609,7 +631,7 @@ module `%s' is a request for a file in a module which is not a directory",
 	    /* strip whitespace off the end */
 	    do
 		*cp = '\0';
-	    while (isspace ((unsigned char) *--cp));
+	    while (cp > spec_opt  &&  isspace ((unsigned char) *--cp));
 	}
 	else
 	    next_opt = NULL;

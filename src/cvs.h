@@ -461,7 +461,7 @@ extern void check_numeric PROTO ((const char *, int, char **));
 char *getcaller PROTO((void));
 char *time_stamp PROTO((char *file));
 
-char *xmalloc PROTO((size_t bytes));
+void *xmalloc PROTO((size_t bytes));
 void *xrealloc PROTO((void *ptr, size_t bytes));
 void expand_string PROTO ((char **, size_t *, size_t));
 char *xstrdup PROTO((const char *str));
@@ -525,7 +525,7 @@ void cat_module PROTO((int status));
 void check_entries PROTO((char *dir));
 void close_module PROTO((DBM * db));
 void copy_file PROTO((const char *from, const char *to));
-void fperror PROTO((FILE * fp, int status, int errnum, char *message,...));
+void fperrmsg PROTO((FILE * fp, int status, int errnum, char *message,...));
 void free_names PROTO((int *pargc, char *argv[]));
 
 extern int ign_name PROTO ((char *name));
@@ -546,6 +546,7 @@ void make_directories PROTO((const char *name));
 void make_directory PROTO((const char *name));
 extern int mkdir_if_needed PROTO ((char *name));
 void rename_file PROTO((const char *from, const char *to));
+char *backup_file PROTO((const char *file, const char *suffix));
 /* Expand wildcards in each element of (ARGC,ARGV).  This is according to the
    files which exist in the current directory, and accordingly to OS-specific
    conventions regarding wildcard syntax.  It might be desirable to change the

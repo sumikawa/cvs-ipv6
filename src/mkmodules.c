@@ -865,6 +865,9 @@ init (argc, argv)
     if ( CVS_CHDIR (adm) < 0)
 	error (1, errno, "cannot change to directory %s", adm);
 
+    /* Make Emptydir so it's there if we need it */
+    make_directory (CVSNULLREPOS);
+
     /* 80 is long enough for all the administrative file names, plus
        "/" and so on.  */
     info = xmalloc (strlen (adm) + 80);
@@ -926,6 +929,11 @@ init (argc, argv)
 	fp = open_file (info, "w");
 	if (fclose (fp) < 0)
 	    error (1, errno, "cannot close %s", info);
+ 
+        /* Make the new history file world-writeable, since every CVS
+           user will need to be able to write to it.  We use chmod()
+           because xchmod() is too shy. */
+        chmod (info, 0666);
     }
 
     free (info);

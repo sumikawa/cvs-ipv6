@@ -2555,7 +2555,7 @@ RCS_tag2rev (rcs, tag)
     RCS_check_tag (tag); /* exit if not a valid tag */
 
     /* If tag is "HEAD", special case to get head RCS revision */
-    if (tag && (strcmp (tag, TAG_HEAD) == 0))
+    if (tag && STREQ (tag, TAG_HEAD))
         return (RCS_head (rcs));
 
     /* If valid tag let translate_symtag say yea or nay. */
@@ -4595,9 +4595,9 @@ RCS_checkout (rcs, workfile, rev, nametag, options, sout, pfn, callerdat)
 		error (1, 0, "%s:%s has bad `special' newphrase %s",
 		       workfile, vers->version, info->data);
 	    devnum = devnum_long;
-	    if (strcmp (devtype, "character") == 0)
+	    if (STREQ (devtype, "character"))
 		special_file = S_IFCHR;
-	    else if (strcmp (devtype, "block") == 0)
+	    else if (STREQ (devtype, "block"))
 		special_file = S_IFBLK;
 	    else
 		error (0, 0, "%s is a special file of unsupported type `%s'",
@@ -5158,6 +5158,9 @@ RCS_checkin (rcs, workfile, message, rev, flags)
     struct tm *ftm;
     time_t modtime;
     int adding_branch = 0;
+#ifdef PRESERVE_PERMISSIONS_SUPPORT
+    struct stat sb;
+#endif
 
     commitpt = NULL;
 
@@ -5228,7 +5231,6 @@ RCS_checkin (rcs, workfile, message, rev, flags)
     if (preserve_perms)
     {
 	Node *np;
-	struct stat sb;
 	char buf[64];	/* static buffer should be safe: see usage. -twp */
 
 	delta->other_delta = getlist();
@@ -5327,6 +5329,12 @@ RCS_checkin (rcs, workfile, message, rev, flags)
 
 	dtext->version = xstrdup (newrev);
 	bufsize = 0;
+#ifdef PRESERVE_PERMISSIONS_SUPPORT
+	if (preserve_perms && !S_ISREG (sb.st_mode))
+	    /* Pretend file is empty.  */
+	    bufsize = 0;
+	else
+#endif
 	get_file (workfile, workfile,
 		  rcs->expand != NULL && STREQ (rcs->expand, "b") ? "rb" : "r",
 		  &dtext->text, &bufsize, &dtext->len);
@@ -5458,6 +5466,13 @@ RCS_checkin (rcs, workfile, message, rev, flags)
 		goto checkin_done;
 	    }
 	    delta->version = RCS_addbranch (rcs, branch);
+	    if (!delta->version)
+	    {
+		free (branch);
+		free (newrev);
+		status = 1;
+		goto checkin_done;
+	    }
 	    adding_branch = 1;
 	    p = strrchr (branch, '.');
 	    *p = '\0';
@@ -5564,6 +5579,12 @@ RCS_checkin (rcs, workfile, message, rev, flags)
 	/* If this revision is being inserted on the trunk, the change text
 	   for the new delta should be the contents of the working file ... */
 	bufsize = 0;
+#ifdef PRESERVE_PERMISSIONS_SUPPORT
+	if (preserve_perms && !S_ISREG (sb.st_mode))
+	    /* Pretend file is empty.  */
+	    ;
+	else
+#endif
 	get_file (workfile, workfile,
 		  rcs->expand != NULL && STREQ (rcs->expand, "b") ? "rb" : "r",
 		  &dtext->text, &bufsize, &dtext->len);
@@ -6144,17 +6165,14 @@ RCS_unlock (rcs, rev, unlock_quiet)
 	lock = NULL;
 	for (p = locks->list->next; p != locks->list; p = p->next)
 	{
-	    if (STREQ (p->data, user))
+	    if (lock != NULL)
 	    {
-		if (lock != NULL)
-		{
-		    if (!unlock_quiet)
-			error (0, 0, "\
+		if (!unlock_quiet)
+		    error (0, 0, "\
 %s: multiple revisions locked by %s; please specify one", rcs->path, user);
-		    return 1;
-		}
-		lock = p;
+		return 1;
 	    }
+	    lock = p;
 	}
 	if (lock == NULL)
 	    return 0;	/* no lock found, ergo nothing to do */
@@ -6257,13 +6275,19 @@ RCS_delaccess (rcs, user)
     if (rcs->access == NULL)
 	return;
 
+    if (user == NULL)
+    {
+        free (rcs->access);
+        rcs->access = NULL;
+        return;
+    }
+
     p = rcs->access;
     ulen = strlen (user);
     while (p != NULL)
     {
-	if (p[ulen] == '\0' || p[ulen] == ' ')
-	    if (strncmp (p, user, ulen) == 0)
-		break;
+	if (strncmp (p, user, ulen) == 0 && (p[ulen] == '\0' || p[ulen] == ' '))
+	    break;
 	p = strchr (p, ' ');
 	if (p != NULL)
 	    ++p;
@@ -6645,9 +6669,12 @@ RCS_delete_revs (rcs, tag1, tag2, inclusive)
 	   need to use "-kb" and "--binary" and "rb" to get_file
 	   (probably can do it always, not just for binary files, if
 	   we are consistent between the RCS_checkout and the diff).  */
-	if (strcmp (RCS_getexpand (rcs), "b") == 0)
-	    error (1, 0,
+	{
+	    char *expand = RCS_getexpand (rcs);
+	    if (expand != NULL && STREQ (expand, "b"))
+		error (1, 0,
 		   "admin -o not implemented yet for binary on this system");
+	}
 #endif
 
 	afterfile = cvs_temp_name();
@@ -7787,7 +7814,7 @@ unable to parse %s; `state' not in the expected place", rcsfile);
 
 	/* rcsbuf_getid did not terminate the key, so copy it to new space. */
 	len = rcsbuf->ptr - keybuf;
-	key = (char *) xmalloc (sizeof(char) * (len + 1));
+	key = (char *) xmalloc (len + 1);
 	strncpy (key, keybuf, len);
 	key[len] = '\0';
 
@@ -7844,8 +7871,7 @@ unable to parse %s; `state' not in the expected place", rcsfile);
 
 		temp_value = rcsbuf_valcopy (rcsbuf, valbuf, 1, &valbuflen);
 		len = strlen (value);
-		value = (char *) xrealloc
-		    (value, sizeof(char) * (len + valbuflen + 2));
+		value = (char *) xrealloc (value, len + valbuflen + 2);
 		value[len] = ' ';
 		strcpy (value + len + 1, temp_value);
 		free (temp_value);
@@ -8212,7 +8238,26 @@ RCS_putdtree (rcs, rev, fp)
 
     /* Find the delta node for this revision. */
     p = findnode (rcs->versions, rev);
-    assert (p != NULL);
+    if(p == NULL){
+        /* This shouldn't happen if the repository is in good shape.
+            We need to clean up the lockfile, but we can't call 
+            rcs_internal_unlockfile, because that assumes that things 
+            are behaving normally.  rcs_internal_unlockfile copies the
+            lockfile back onto the repository (,v) file.  
+            Since the repository file is corrupt, this isn't a terribly 
+            destructive thing to do, but just in case the user isn't 
+            maintaining backups, and the ,v file does contain useful 
+            information, we'll just delete the lockfile and let the 
+            user sort out the problem. */
+ 
+        if (fclose(fp) == EOF)
+            error (1, 0, "error closing lock file %s", rcs_lockfile);
+        unlink_file(rcs_lockfile);
+        error (1, 0,
+               "error parsing repository file %s, file may be corrupt.", 
+               rcs->path);
+    }
+ 
     versp = (RCSVers *) p->data;
 
     /* Print the delta node and recurse on its `next' node.  This prints
