@@ -1,5 +1,3 @@
-/* JT thinks BeOS is worth the trouble. */
-
 /* CVS client-related stuff.
 
    This program is free software; you can redistribute it and/or modify
@@ -4479,16 +4477,6 @@ start_server ()
 	    else
 		error (1, 0,
 		       "This server does not support the global -t option.");
-	}
-	if (logoff)
-	{
-	    if (have_global)
-	    {
-		send_to_server ("Global_option -l\012", 0);
-	    }
-	    else
-		error (1, 0,
-		       "This server does not support the global -l option.");
 	}
     }
 

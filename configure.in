@@ -1,5 +1,5 @@
 dnl configure.in for cvs
-AC_INIT([Concurrent Versions System (CVS)],[1.11.6],[bug-cvs@gnu.org],[cvs])
+AC_INIT([Concurrent Versions System (CVS)],[1.11.7],[bug-cvs@gnu.org],[cvs])
 AC_CONFIG_SRCDIR(src/cvs.h)
 AM_INIT_AUTOMAKE([gnu 1.5 dist-bzip2 no-define])
 AC_PREREQ(2.57)
@@ -185,6 +185,26 @@ AC_REPLACE_FUNCS(\
 	valloc \
 	waitpid \
 )
+
+
+
+dnl
+dnl Begin GNULIB stuff.
+dnl
+
+dnl We always want to use the GNULIB getpass, so define its name to something
+dnl that won't conflict with system declarations.
+AC_DEFINE([getpass], [cvs_getpass],
+  [We want to always use the GNULIB version of getpass which we have in lib,
+   so define getpass to something that won't conflict with any existing system
+   declarations.])
+
+dnl
+dnl End GNULIB stuff.
+dnl
+
+
+
 AC_CHECK_FUNCS(\
 	fchdir \
 	fchmod \
@@ -194,7 +214,6 @@ AC_CHECK_FUNCS(\
 	getgroups \
 	getopt \
 	getpagesize \
-	getpassphrase \
 	gettimeofday \
 	initgroups \
 	login \
@@ -373,6 +392,7 @@ if test -n "$krb_h"; then
     test -n "${krb_libdir}" && LDFLAGS="$LDFLAGS -L${krb_libdir}"
     AC_CHECK_LIB(des,printf,[LIBS="${LIBS} -ldes"])
     AC_CHECK_LIB(krb,krb_recvauth)
+    AC_CHECK_LIB(krb4,krb_recvauth)
     LDFLAGS=$hold_ldflags
     if test -n "$krb_incdir"; then
       includeopt="${includeopt} -I$krb_incdir"

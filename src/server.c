@@ -2170,6 +2170,7 @@ serve_global_option (arg)
     {
 	case 'n':
 	    noexec = 1;
+	    logoff = 1;
 	    break;
 	case 'q':
 	    quiet = 1;
@@ -2179,9 +2180,6 @@ serve_global_option (arg)
 	    break;
 	case 'Q':
 	    really_quiet = 1;
-	    break;
-	case 'l':
-	    logoff = 1;
 	    break;
 	case 't':
 	    trace = 1;
@@ -2653,6 +2651,7 @@ do_cvs_command (cmd_name, command)
 error  \n");
 	goto free_args_and_return;
     }
+    command_name = cmd_name;
 
     (void) server_notify ();
 
@@ -3621,8 +3620,6 @@ static void
 serve_rlog (arg)
     char *arg;
 {
-    /* Tell cvslog() to behave like rlog not log.  */
-    command_name = "rlog";
     do_cvs_command ("rlog", cvslog);
 }
 
@@ -3665,8 +3662,6 @@ static void
 serve_rtag (arg)
     char *arg;
 {
-    /* Tell cvstag() to behave like rtag not tag.  */
-    command_name = "rtag";
     do_cvs_command ("rtag", cvstag);
 }
 
@@ -3832,8 +3827,6 @@ static void
 serve_rannotate (arg)
     char *arg;
 {
-    /* Tell annotate() to behave like rannotate not annotate.  */
-    command_name = "rannotate";
     do_cvs_command ("rannotate", annotate);
 }
 
@@ -4772,25 +4765,27 @@ server_cleanup (sig)
 	 * have generated any final output, we shut down BUF_TO_NET.
 	 */
 
-	status = buf_shutdown (buf_from_net);
-	if (status != 0)
-	    error (0, status, "shutting down buffer from client");
-	buf_free (buf_from_net);
-	buf_from_net = NULL;
-    }
+	if (buf_from_net != NULL)
+	{
+	    status = buf_shutdown (buf_from_net);
+	    if (status != 0)
+		error (0, status, "shutting down buffer from client");
+	    buf_free (buf_from_net);
+	    buf_from_net = NULL;
+	}
 
-    if (dont_delete_temp)
-    {
-	if (buf_to_net != NULL)
+	if (dont_delete_temp)
 	{
 	    (void) buf_flush (buf_to_net, 1);
 	    (void) buf_shutdown (buf_to_net);
 	    buf_free (buf_to_net);
 	    buf_to_net = NULL;
 	    error_use_protocol = 0;
+	    return;
 	}
-	return;
     }
+    else if (dont_delete_temp)
+	return;
 
     /* What a bogus kludge.  This disgusting code makes all kinds of
        assumptions about SunOS, and is only for a bug in that system.
@@ -5658,10 +5653,16 @@ pserver_authenticate_connection ()
     getline_safe (&username, &username_allocated, stdin, PATH_MAX);
     getline_safe (&password, &password_allocated, stdin, PATH_MAX);
 
-    /* Make them pure. */
-    strip_trailing_newlines (repository);
-    strip_trailing_newlines (username);
-    strip_trailing_newlines (password);
+    /* Make them pure.
+     *
+     * We check that none of the lines were truncated by getnline in order
+     * to be sure that we don't accidentally allow a blind DOS attack to
+     * authenticate, however slim the odds of that might be.
+     */
+    if (!strip_trailing_newlines (repository)
+	|| !strip_trailing_newlines (username)
+	|| !strip_trailing_newlines (password))
+	error (1, 0, "Maximum line length exceeded during authentication.");
 
     /* ... and make sure the protocol ends on the right foot. */
     /* See above comment about error handling.  */
