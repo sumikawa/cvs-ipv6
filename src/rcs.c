@@ -3276,7 +3276,7 @@ translate_symtag (rcs, tag)
     if (rcs->symbols_data != NULL)
     {
 	size_t len;
-	char *cp;
+	char *cp, *last;
 
 	/* Look through the RCS symbols information.  This is like
            do_symbols, but we don't add the information to a list.  In
@@ -3285,8 +3285,16 @@ translate_symtag (rcs, tag)
 
 	len = strlen (tag);
 	cp = rcs->symbols_data;
+	/* Keeping track of LAST below isn't strictly necessary, now that tags
+	 * should be parsed for validity before they are accepted, but tags
+	 * with spaces used to cause the code below to loop indefintely, so
+	 * I have corrected for that.  Now, in the event that I missed
+	 * something, the server cannot be hung.  -DRP
+	 */
+	last = NULL;
 	while ((cp = strchr (cp, tag[0])) != NULL)
 	{
+	    if (cp == last) break;
 	    if ((cp == rcs->symbols_data || whitespace (cp[-1]))
 		&& strncmp (cp, tag, len) == 0
 		&& cp[len] == ':')
@@ -3309,6 +3317,7 @@ translate_symtag (rcs, tag)
 		++cp;
 	    if (*cp == '\0')
 		break;
+	    last = cp;
 	}
     }
 
@@ -4136,7 +4145,11 @@ RCS_checkout (rcs, workfile, rev, nametag, options, sout, pfn, callerdat)
 
     assert (rev == NULL || isdigit ((unsigned char) *rev));
 
-    if (noexec && workfile != NULL)
+    if (noexec
+#ifdef SERVER_SUPPORT
+	&& !server_active
+#endif
+	&& workfile != NULL)
 	return 0;
 
     assert (sout == RUN_TTY || workfile == NULL);
@@ -4946,11 +4959,12 @@ RCS_addbranch (rcs, branch)
    or zero for success.  */
 
 int
-RCS_checkin (rcs, workfile_in, message, rev, flags)
+RCS_checkin (rcs, workfile_in, message, rev, citime, flags)
     RCSNode *rcs;
     const char *workfile_in;
     const char *message;
     const char *rev;
+    time_t citime;
     int flags;
 {
     RCSVers *delta, *commitpt;
@@ -5013,6 +5027,8 @@ RCS_checkin (rcs, workfile_in, message, rev, flags)
 	}
 	modtime = ws.st_mtime;
     }
+    else if (flags & RCS_FLAGS_USETIME)
+	modtime = citime;
     else
 	(void) time (&modtime);
     ftm = gmtime (&modtime);

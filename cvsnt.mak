@@ -77,6 +77,7 @@ CLEAN :
 	-@erase "$(INTDIR)\history.obj"
 	-@erase "$(INTDIR)\ignore.obj"
 	-@erase "$(INTDIR)\import.obj"
+	-@erase "$(INTDIR)\JmgStat.obj"
 	-@erase "$(INTDIR)\lock.obj"
 	-@erase "$(INTDIR)\log.obj"
 	-@erase "$(INTDIR)\login.obj"
@@ -153,6 +154,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\history.obj" \
 	"$(INTDIR)\ignore.obj" \
 	"$(INTDIR)\import.obj" \
+	"$(INTDIR)\JmgStat.obj" \
 	"$(INTDIR)\lock.obj" \
 	"$(INTDIR)\log.obj" \
 	"$(INTDIR)\login.obj" \
@@ -247,6 +249,7 @@ CLEAN :
 	-@erase "$(INTDIR)\history.obj"
 	-@erase "$(INTDIR)\ignore.obj"
 	-@erase "$(INTDIR)\import.obj"
+	-@erase "$(INTDIR)\JmgStat.obj"
 	-@erase "$(INTDIR)\lock.obj"
 	-@erase "$(INTDIR)\log.obj"
 	-@erase "$(INTDIR)\login.obj"
@@ -326,6 +329,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\history.obj" \
 	"$(INTDIR)\ignore.obj" \
 	"$(INTDIR)\import.obj" \
+	"$(INTDIR)\JmgStat.obj" \
 	"$(INTDIR)\lock.obj" \
 	"$(INTDIR)\log.obj" \
 	"$(INTDIR)\login.obj" \
@@ -552,6 +556,12 @@ SOURCE=.\src\ignore.c
 SOURCE=.\src\import.c
 
 "$(INTDIR)\import.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+SOURCE=".\windows-NT\JmgStat.c"
+
+"$(INTDIR)\JmgStat.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 

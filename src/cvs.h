@@ -270,7 +270,10 @@ extern int errno;
 #define	EDITOR3_ENV	"EDITOR"	/* which editor to use */
 
 #define	CVSROOT_ENV	"CVSROOT"	/* source directory root */
-#define	CVSROOT_DFLT	NULL		/* No dflt; must set for checkout */
+/* Define CVSROOT_DFLT to a fallback value for CVSROOT.
+ *
+#undef	CVSROOT_DFL
+ */
 
 #define	IGNORE_ENV	"CVSIGNORE"	/* More files to ignore */
 #define WRAPPER_ENV     "CVSWRAPPERS"   /* name of the wrapper file */
@@ -419,6 +422,7 @@ int RCS_merge PROTO((RCSNode *, const char *, const char *, const char *,
 #define RCS_FLAGS_QUIET 4
 #define RCS_FLAGS_MODTIME 8
 #define RCS_FLAGS_KEEPFILE 16
+#define RCS_FLAGS_USETIME 32
 
 extern int RCS_exec_rcsdiff PROTO ((RCSNode *rcsfile,
 				    const char *opts, const char *options,
@@ -450,15 +454,6 @@ void tm_to_internet PROTO ((char *, const struct tm *));
 char *Name_Repository PROTO((const char *dir, const char *update_dir));
 const char *Short_Repository PROTO((const char *repository));
 void Sanitize_Repository_Name PROTO((char *repository));
-
-char *Name_Root PROTO((char *dir, char *update_dir));
-void free_cvsroot_t PROTO((cvsroot_t *root_in));
-cvsroot_t *parse_cvsroot PROTO((const char *root));
-cvsroot_t *local_cvsroot PROTO((const char *dir));
-void Create_Root PROTO((const char *dir, const char *rootdir));
-void root_allow_add PROTO ((char *));
-void root_allow_free PROTO ((void));
-int root_allow_ok PROTO ((char *));
 
 char *previous_rev PROTO ((RCSNode *rcs, const char *rev));
 char *gca PROTO ((const char *rev1, const char *rev2));
