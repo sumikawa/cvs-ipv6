@@ -268,7 +268,7 @@ SHELL=${CONFIG_SHELL-/bin/sh}
 # Identity of this package.
 PACKAGE_NAME='Concurrent Versions System (CVS)'
 PACKAGE_TARNAME='cvs'
-PACKAGE_VERSION='1.11.7'
+PACKAGE_VERSION='1.11.7+IPv6'
 PACKAGE_STRING='Concurrent Versions System (CVS) 1.11.7'
 PACKAGE_BUGREPORT='bug-cvs@gnu.org'
 
