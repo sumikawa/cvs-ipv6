@@ -64,6 +64,8 @@ extern char *strerror ();
 #  endif
 #endif /* ! SOCK_STRERROR */
 
+#include "addrinfo.h"
+
 #if HAVE_KERBEROS
 #define CVS_PORT 1999
 
