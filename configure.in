@@ -1,11 +1,12 @@
 dnl configure.in for cvs
-AC_INIT([Concurrent Versions System (CVS)],[1.11.5],[bug-cvs@gnu.org],[cvs])
+AC_INIT([Concurrent Versions System (CVS)],[1.11.6],[bug-cvs@gnu.org],[cvs])
 AC_CONFIG_SRCDIR(src/cvs.h)
 AM_INIT_AUTOMAKE([gnu 1.5 dist-bzip2 no-define])
-AC_PREREQ(2.53)
+AC_PREREQ(2.57)
 
 AC_PREFIX_PROGRAM(cvs)
 AM_CONFIG_HEADER(config.h)
+AM_MAINTAINER_MODE
 
 AC_PROG_CC
 AM_PROG_CC_C_O
@@ -71,8 +72,18 @@ AC_EXEEXT
 
 AC_PATH_PROG(PERL, perl, no)
 AC_PATH_PROG(CSH, csh, no)
-AC_PATH_PROG(PR, pr, no)
+# for contrib/rcs2log.sh & src/cvsbug.in.
+AC_PATH_PROG(MKTEMP, mktemp, mktemp)
+if test x"$MKTEMP" = xmktemp; then
+	MKTEMP_SH_FUNCTION=mktemp.sh
+else
+	MKTEMP_SH_FUNCTION=/dev/null
+fi
+AC_SUBST_FILE(MKTEMP_SH_FUNCTION)
+# for src/cvsbug.in
+AC_PATH_PROG(SENDMAIL, sendmail, no, [$PATH:/usr/sbin:/usr/lib])
 # For diff/util.c
+AC_PATH_PROG(PR, pr, no)
 if test x"$PR" != xno; then
 	AC_DEFINE_UNQUOTED([PR_PROGRAM], ["$PR"], [Path to the pr utility])
 fi
@@ -349,18 +360,19 @@ if test -n "$krb_h"; then
        LDFLAGS=$hold_ldflags
   else
        AC_CHECK_LIB(krb,printf,[krb_lib=yes krb_libdir=])
+       AC_CHECK_FUNC(krb_recvauth,[krb_lib=yes krb_libdir=])
   fi
   if test -n "$krb_lib"; then
     AC_DEFINE([HAVE_KERBEROS], 1,
 	      [Define if you have MIT Kerberos version 4 available.])
     test -n "${krb_libdir}" && LIBS="${LIBS} -L${krb_libdir}"
-    LIBS="${LIBS} -lkrb"
     # Put -L${krb_libdir} in LDFLAGS temporarily so that it appears before
     # -ldes in the command line.  Don't do it permanently so that we honor
     # the user's setting for LDFLAGS
     hold_ldflags=$LDFLAGS
     test -n "${krb_libdir}" && LDFLAGS="$LDFLAGS -L${krb_libdir}"
     AC_CHECK_LIB(des,printf,[LIBS="${LIBS} -ldes"])
+    AC_CHECK_LIB(krb,krb_recvauth)
     LDFLAGS=$hold_ldflags
     if test -n "$krb_incdir"; then
       includeopt="${includeopt} -I$krb_incdir"
@@ -396,8 +408,21 @@ AC_ARG_WITH(
     [--with-editor],
     [The default text editor CVS should use for log messages
      (default autoselects)]), ,
-  [with_editor="vi emacs pico edit"])
+  [with_editor=yes])
 
+# If --with-editor was supplied with an argument, let it override $EDITOR from
+# the user's environment.  We need to unset EDITOR here because AC_CHECK_PROGS
+# will let the value of EDITOR ride when it is set rather than searching.  We
+# ignore the --without-editor case since it will be caught below.
+if test -n "$EDITOR" && test yes != $with_editor; then
+  AS_UNSET([EDITOR])
+fi
+
+# Set the default when --with-editor wasn't supplied or when it was supplied
+# without an argument.
+if test yes = $with_editor; then
+  with_editor="vim vi emacs nano pico edit"
+fi
 
 if echo $with_editor |grep ^/ >/dev/null; then
   # If $with_editor is an absolute path, issue a warning if the executable
@@ -409,31 +434,40 @@ if echo $with_editor |grep ^/ >/dev/null; then
   if ! test -f $with_editor \
       || ! test -x $with_editor; then
     # warn the user that they may encounter problems
-    AC_MSG_WARN([$with_editor is not a path to an executable file])
+    AC_MSG_WARN([\`$with_editor' is not a path to an executable file])
   fi
 elif test no != "${with_editor}"; then
   # Search for an editor
-  AC_CHECK_PROGS([EDITOR], [$with_editor])
+  AC_CHECK_PROGS([EDITOR], [$with_editor], [no])
+    if test no = "${EDITOR}"; then
+      AC_MSG_ERROR([
+    Failed to find a text file editor.  CVS cannot be compiled
+    without a default log message editor.  Searched for
+    \`$with_editor'.  Try \`configure --with-editor'.])
+    fi
 else
-  AC_MSG_CHECKING([for an editor])
-  AC_MSG_RESULT([no])
+  AC_MSG_ERROR([
+    CVS cannot be compiled without a default log message editor.
+    Try \`configure --with-editor'.])
 fi
 
-if test -n "${EDITOR}"; then
-  dnl FIXME - Using --without-editor will probably break a compile at
-  dnl the moment, but maybe it is reasonable for someone to want to
-  dnl compile a CVS executable that refuses to run if no $EDITOR,
-  dnl $CVS_EDITOR, or -e option is specified?  Making a preliminary
-  dnl design decision in this direction, subject to discussion.
-  AC_DEFINE_UNQUOTED(
-    [EDITOR_DFLT], ["$EDITOR"],
-    [The default editor to use, if one does not specify the "-e" option
-     to cvs, or does not have an EDITOR environment variable.  If this
-     is not set to an absolute path to an executable, use the shell to
-     find where the editor actually is.  This allows sites with
-     /usr/bin/vi or /usr/ucb/vi to work equally well (assuming that their
-     PATH is reasonable).])
-fi
+dnl FIXME - Using --without-editor will probably break a compile at
+dnl the moment, but maybe it is reasonable for someone to want to
+dnl compile a CVS executable that refuses to run if no $EDITOR,
+dnl $CVS_EDITOR, or -e option is specified?  Making a preliminary
+dnl design decision in this direction, subject to discussion.
+dnl
+dnl Still don't know if the above would be useful, but we shouldn't
+dnl be able to get here any longer without $EDITOR defined due to the
+dnl error checking above.
+AC_DEFINE_UNQUOTED(
+  [EDITOR_DFLT], ["$EDITOR"],
+  [The default editor to use, if one does not specify the "-e" option
+   to cvs, or does not have an EDITOR environment variable.  If this
+   is not set to an absolute path to an executable, use the shell to
+   find where the editor actually is.  This allows sites with
+   /usr/bin/vi or /usr/ucb/vi to work equally well (assuming that their
+   PATH is reasonable).])
 
 dnl
 dnl done finding an editor
@@ -1149,6 +1183,7 @@ AC_CONFIG_FILES(contrib/log, [chmod +x contrib/log])
 AC_CONFIG_FILES(contrib/log_accum, [chmod +x contrib/log_accum])
 AC_CONFIG_FILES(contrib/mfpipe, [chmod +x contrib/mfpipe])
 AC_CONFIG_FILES(contrib/pvcs2rcs, [chmod +x contrib/pvcs2rcs])
+AC_CONFIG_FILES(contrib/rcs2log:contrib/rcs2log.sh, [chmod +x contrib/rcs2log])
 AC_CONFIG_FILES(contrib/rcslock, [chmod +x contrib/rcslock])
 AC_CONFIG_FILES(contrib/sccs2rcs, [chmod +x contrib/sccs2rcs])
 AC_CONFIG_FILES(src/cvsbug, [chmod +x src/cvsbug])
@@ -1172,3 +1207,19 @@ AC_CONFIG_FILES([Makefile \
 
 dnl and we're done
 AC_OUTPUT
+
+
+
+# Report the state of this version of CVS if this is from dev.
+m4_bmatch(m4_defn([AC_PACKAGE_VERSION]),  [[0-9]*\.[0-9]*\.[0-9]*\.[0-9]],
+[    cat <<EOF
+
+You are about to use an unreleased version of CVS.  Be sure to
+read the relevant mailing lists, most importantly <info-cvs@gnu.org>.
+
+Below you will find information on the status of this version of CVS.
+
+
+EOF
+    sed -n '/^\* Status/,$p' $srcdir/BUGS
+])
