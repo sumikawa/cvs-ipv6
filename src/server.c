@@ -872,6 +872,73 @@ server_pathname_check (path)
     }
 }
 
+static int outside_root PROTO ((char *));
+
+/* Is file or directory REPOS an absolute pathname within the
+   CVSroot_directory?  If yes, return 0.  If no, set pending_error
+   and return 1.  */
+static int
+outside_root (repos)
+    char *repos;
+{
+    size_t repos_len = strlen (repos);
+    size_t root_len = strlen (CVSroot_directory);
+
+    /* I think isabsolute (repos) should always be true, and that
+       any RELATIVE_REPOS stuff should only be in CVS/Repository
+       files, not the protocol (for compatibility), but I'm putting
+       in the isabsolute check just in case.  */
+    if (!isabsolute (repos))
+    {
+	if (alloc_pending (repos_len + 80))
+	    sprintf (pending_error_text, "\
+E protocol error: %s is not absolute", repos);
+	return 1;
+    }
+
+    if (repos_len < root_len
+	|| strncmp (CVSroot_directory, repos, root_len) != 0)
+    {
+    not_within:
+	if (alloc_pending (strlen (CVSroot_directory)
+			   + strlen (repos)
+			   + 80))
+	    sprintf (pending_error_text, "\
+E protocol error: directory '%s' not within root '%s'",
+		     repos, CVSroot_directory);
+	return 1;
+    }
+    if (repos_len > root_len)
+    {
+	if (repos[root_len] != '/')
+	    goto not_within;
+	if (pathname_levels (repos + root_len + 1) > 0)
+	    goto not_within;
+    }
+    return 0;
+}
+
+static int outside_dir PROTO ((char *));
+
+/* Is file or directory FILE outside the current directory (that is, does
+   it contain '/')?  If no, return 0.  If yes, set pending_error
+   and return 1.  */
+static int
+outside_dir (file)
+    char *file;
+{
+    if (strchr (file, '/') != NULL)
+    {
+	if (alloc_pending (strlen (file)
+			   + 80))
+	    sprintf (pending_error_text, "\
+E protocol error: directory '%s' not within current directory",
+		     file);
+	return 1;
+    }
+    return 0;
+}
+	
 /*
  * Add as many directories to the temp directory as the client tells us it
  * will use "..", so we never try to access something outside the temp
@@ -1091,24 +1158,8 @@ serve_directory (arg)
     status = buf_read_line (buf_from_net, &repos, (int *) NULL);
     if (status == 0)
     {
-	/* I think isabsolute (repos) should always be true, and that
-	   any RELATIVE_REPOS stuff should only be in CVS/Repository
-	   files, not the protocol (for compatibility), but I'm putting
-	   in the in isabsolute check just in case.  */
-	if (isabsolute (repos)
-	    && strncmp (CVSroot_directory,
-			repos,
-			strlen (CVSroot_directory)) != 0)
-	{
-	    if (alloc_pending (strlen (CVSroot_directory)
-			       + strlen (repos)
-			       + 80))
-		sprintf (pending_error_text, "\
-E protocol error: directory '%s' not within root '%s'",
-			 repos, CVSroot_directory);
+	if (outside_root (repos))
 	    return;
-	}
-
 	dirswitch (arg, repos);
 	free (repos);
     }
@@ -1495,6 +1546,9 @@ serve_modified (arg)
 	return;
     }
 
+    if (outside_dir (arg))
+	return;
+
     if (size >= 0)
     {
 	receive_file (size, arg, gzipped);
@@ -1567,6 +1621,9 @@ serve_unchanged (arg)
     if (error_pending ())
 	return;
 
+    if (outside_dir (arg))
+	return;
+
     /* Rewrite entries file to have `=' in timestamp field.  */
     for (p = entries; p != NULL; p = p->next)
     {
@@ -1605,6 +1662,9 @@ serve_is_modified (arg)
     int found;
 
     if (error_pending ())
+	return;
+
+    if (outside_dir (arg))
 	return;
 
     /* Rewrite entries file to have `M' in timestamp field.  */
@@ -1856,6 +1916,9 @@ serve_notify (arg)
     int status;
 
     if (error_pending ()) return;
+
+    if (outside_dir (arg))
+	return;
 
     new = (struct notify_note *) malloc (sizeof (struct notify_note));
     if (new == NULL)
@@ -2257,6 +2320,9 @@ serve_questionable (arg)
 	buf_output0 (buf_to_net, "E Protocol error: 'Directory' missing");
 	return;
     }
+
+    if (outside_dir (arg))
+	return;
 
     if (!ign_name (arg))
     {
@@ -5041,7 +5107,7 @@ error 0 %s: no such user\n", username);
 	if (setgid (getegid ()) < 0)
 	{
 	    /* See comments at setuid call below for more discussion.  */
-	    printf ("error 0 setuid failed: %s\n", strerror (errno));
+	    printf ("error 0 setgid failed: %s\n", strerror (errno));
 	    /* Don't worry about server_cleanup;
 	       server_active isn't set yet.  */
 	    error_exit ();
@@ -5053,7 +5119,7 @@ error 0 %s: no such user\n", username);
 	if (setgid (pw->pw_gid) < 0)
 	{
 	    /* See comments at setuid call below for more discussion.  */
-	    printf ("error 0 setuid failed: %s\n", strerror (errno));
+	    printf ("error 0 setgid failed: %s\n", strerror (errno));
 	    /* Don't worry about server_cleanup;
 	       server_active isn't set yet.  */
 	    error_exit ();
@@ -5103,14 +5169,15 @@ extern char *crypt PROTO((const char *, const char *));
 
 /* 
  * 0 means no entry found for this user.
- * 1 means entry found and password matches.
+ * 1 means entry found and password matches (or found password is empty)
  * 2 means entry found, but password does not match.
  *
- * If success, host_user_ptr will be set to point at the system
+ * If 1, host_user_ptr will be set to point at the system
  * username (i.e., the "real" identity, which may or may not be the
  * CVS username) of this user; caller may free this.  Global
  * CVS_Username will point at an allocated copy of cvs username (i.e.,
  * the username argument below).
+ * kff todo: FIXME: last sentence is not true, it applies to caller.
  */
 static int
 check_repository_password (username, password, repository, host_user_ptr)
@@ -5163,18 +5230,72 @@ check_repository_password (username, password, repository, host_user_ptr)
     if (fclose (fp) < 0)
 	error (0, errno, "cannot close %s", filename);
 
-    /* If found_it != 0, then linebuf contains the information we need. */
+    /* If found_it, then linebuf contains the information we need. */
     if (found_it)
     {
 	char *found_password, *host_user_tmp;
+        char *non_cvsuser_portion;
 
-	strtok (linebuf, ":");
-	found_password = strtok (NULL, ": \n");
-	host_user_tmp = strtok (NULL, ": \n");
+        /* We need to make sure lines such as 
+         *
+         *    "username::sysuser\n"
+         *    "username:\n"
+         *    "username:  \n"
+         *
+         * all result in a found_password of NULL, but we also need to
+         * make sure that
+         *
+         *    "username:   :sysuser\n"
+         *    "username: <whatever>:sysuser\n"
+         *
+         * continues to result in an impossible password.  That way,
+         * an admin would be on safe ground by going in and tacking a
+         * space onto the front of a password to disable the account
+         * (a technique some people use to close accounts
+         * temporarily).
+         */
+
+        /* Make `non_cvsuser_portion' contain everything after the CVS
+           username, but null out any final newline. */
+	non_cvsuser_portion = linebuf + namelen;
+        strtok (non_cvsuser_portion, "\n");
+
+        /* If there's a colon now, we just want to inch past it. */
+        if (strchr (non_cvsuser_portion, ':') == non_cvsuser_portion)
+            non_cvsuser_portion++;
+
+        /* Okay, after this conditional chain, found_password and
+           host_user_tmp will have useful values: */
+
+        if ((non_cvsuser_portion == NULL)
+            || (strlen (non_cvsuser_portion) == 0)
+            || ((strspn (non_cvsuser_portion, " \t"))
+                == strlen (non_cvsuser_portion)))
+        {
+            found_password = NULL;
+            host_user_tmp = NULL;
+        }
+        else if (strncmp (non_cvsuser_portion, ":", 1) == 0)
+        {
+            found_password = NULL;
+            host_user_tmp = non_cvsuser_portion + 1;
+            if (strlen (host_user_tmp) == 0)
+                host_user_tmp = NULL;
+        }
+        else
+        {
+            found_password = strtok (non_cvsuser_portion, ":");
+            host_user_tmp = strtok (NULL, ":");
+        }
+
+        /* Of course, maybe there was no system user portion... */
 	if (host_user_tmp == NULL)
             host_user_tmp = username;
 
-	if (strcmp (found_password, crypt (password, found_password)) == 0)
+        /* Verify blank passwords directly, otherwise use crypt(). */
+        if ((found_password == NULL)
+            || ((strcmp (found_password, crypt (password, found_password))
+                 == 0)))
         {
             /* Give host_user_ptr permanent storage. */
             *host_user_ptr = xstrdup (host_user_tmp);
@@ -5186,7 +5307,7 @@ check_repository_password (username, password, repository, host_user_ptr)
 	    retval         = 2;
         }
     }
-    else
+    else     /* Didn't find this user, so deny access. */
     {
 	*host_user_ptr = NULL;
 	retval = 0;
@@ -5491,6 +5612,9 @@ pserver_authenticate_connection ()
     /* Don't go any farther if we're just responding to "cvs login". */
     if (verify_and_exit)
     {
+	printf ("I LOVE YOU\n");
+	fflush (stdout);
+
 #ifdef SYSTEM_CLEANUP
 	/* Hook for OS-specific behavior, for example socket subsystems on
 	   NT and OS2 or dealing with windows and arguments on Mac.  */

@@ -69,7 +69,6 @@ extern char *strerror ();
 #if HAVE_KERBEROS
 #define CVS_PORT 1999
 
-#if HAVE_KERBEROS
 #include <krb.h>
 
 extern char *krb_realmofhost ();
@@ -80,8 +79,6 @@ extern char *krb_realmofhost ();
 /* Information we need if we are going to use Kerberos encryption.  */
 static C_Block kblock;
 static Key_schedule sched;
-
-#endif /* HAVE_KERBEROS */
 
 #endif /* HAVE_KERBEROS */
 
@@ -1891,87 +1888,14 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	}
 	else if (data->contents == UPDATE_ENTRIES_PATCH)
 	{
-#ifdef DONT_USE_PATCH
-	    /* Hmm.  We support only Rcs-diff, and the server supports
-	       only Patched (or else it would have sent Rcs-diff instead).
+	    /* You might think we could just leave Patched out of
+	       Valid-responses and not get this response.  However, if
+	       memory serves, the CVS 1.9 server bases this on -u
+	       (update-patches), and there is no way for us to send -u
+	       or not based on whether the server supports "Rcs-diff".  
+
 	       Fall back to transmitting entire files.  */
 	    patch_failed = 1;
-#else /* Use patch.  */
-	    int retcode;
-	    char *backup;
-	    struct stat s;
-
-	    backup = xmalloc (strlen (filename) + 5);
-	    strcpy (backup, filename);
-	    strcat (backup, "~");
-	    if (unlink_file (backup) < 0
-		&& !existence_error (errno))
-	    {
-		error (0, errno, "cannot remove %s", backup);
-	    }
-	    if (!isfile (filename))
-	        error (1, 0, "patch original file %s does not exist",
-		       short_pathname);
-	    if ( CVS_STAT (temp_filename, &s) < 0)
-	        error (1, errno, "can't stat patch file %s", temp_filename);
-	    if (s.st_size == 0)
-	        retcode = 0;
-	    else
-	    {
-		/* This behavior (in which -b takes an argument) is
-		   supported by GNU patch 2.1.  Apparently POSIX.2
-		   specifies a -b option without an argument.  GNU
-		   patch 2.1.5 implements this and therefore won't
-		   work here.  GNU patch versions after 2.1.5 are said
-		   to have a kludge which checks if the last 4 args
-		   are `-b SUFFIX ORIGFILE PATCHFILE' and if so emit a
-		   warning (I think -s suppresses it), and then behave
-		   as CVS expects.
-
-		   Of course this is yet one more reason why in the long
-		   run we want Rcs-diff to replace Patched.  */
-
-	        run_setup (PATCH_PROGRAM);
-		run_arg ("-f");
-		run_arg ("-s");
-		run_arg ("-b");
-		run_arg ("~");
-		run_arg (filename);
-		run_arg (temp_filename);
-		retcode = run_exec (DEVNULL, RUN_TTY, RUN_TTY, RUN_NORMAL);
-	    }
-	    if (unlink_file (temp_filename) < 0)
-		error (0, errno, "cannot remove %s", temp_filename);
-	    if (retcode == 0)
-	    {
-		if (unlink_file (backup) < 0)
-		    error (0, errno, "cannot remove %s", backup);
-	    }
-	    else
-	    {
-	        int old_errno = errno;
-		char *path_tmp;
-
-	        if (isfile (backup))
-		    rename_file (backup, filename);
-       
-		/* Get rid of the patch reject file.  */
-		path_tmp = xmalloc (strlen (filename) + 10);
-		strcpy (path_tmp, filename);
-		strcat (path_tmp, ".rej");
-		if (unlink_file (path_tmp) < 0
-		    && !existence_error (errno))
-		    error (0, errno, "cannot remove %s", path_tmp);
-		free (path_tmp);
-
-		error (retcode == -1 ? 1 : 0, retcode == -1 ? old_errno : 0,
-		       "could not patch %s%s", filename,
-		       retcode == -1 ? "" : "; will refetch");
-
-		patch_failed = 1;
-	    }
-	    free (backup);
-#endif /* Use patch.  */
 	}
 	else
 	{
@@ -2765,7 +2689,7 @@ send_repository (dir, repos, update_dir)
     {
 	Node *n;
 	n = getnode ();
-	n->type = UNKNOWN;
+	n->type = NT_UNKNOWN;
 	n->key = xstrdup (update_dir);
 	n->data = NULL;
 
@@ -3678,17 +3602,11 @@ get_responses_and_close ()
 
     server_started = 0;
 
-    /* see if we need to sleep before returning */
+    /* see if we need to sleep before returning to avoid time-stamp races */
     if (last_register_time)
     {
-	time_t now;
-
-	for (;;)
-	{
-	    (void) time (&now);
-	    if (now != last_register_time) break;
-	    sleep (1);			/* to avoid time-stamp races */
-	}
+	while (time ((time_t *) NULL) == last_register_time)
+	    sleep (1);
     }
 
     return errs;
@@ -3854,6 +3772,7 @@ connect_to_pserver (tofdp, fromfdp, verify_only, do_gssapi)
     int tofd, fromfd;
 #endif
     int port_number;
+    char no_passwd = 0;   /* gets set if no password found */
     struct addrinfo hints, *res, *res0;
     char pbuf[10];
     int e;
@@ -3879,7 +3798,6 @@ connect_to_pserver (tofdp, fromfdp, verify_only, do_gssapi)
 	    sock = -1;
 	    continue;
 	}
-
 	break;
     }
     if (sock < 0)
@@ -3919,6 +3837,14 @@ connect_to_pserver (tofdp, fromfdp, verify_only, do_gssapi)
 
 	/* Get the password, probably from ~/.cvspass. */
 	password = get_cvs_password ();
+        
+        /* Send the empty string by default.  This is so anonymous CVS
+           access doesn't require client to have done "cvs login". */
+        if (password == NULL) 
+        {
+            no_passwd = 1;
+            password = scramble ("");
+        }
 
 	/* Announce that we're starting the authorization protocol. */
 	if (send (sock, begin, strlen (begin), 0) < 0)
@@ -3942,8 +3868,8 @@ connect_to_pserver (tofdp, fromfdp, verify_only, do_gssapi)
 	if (send (sock, end, strlen (end), 0) < 0)
 	    error (1, 0, "cannot send: %s", SOCK_STRERROR (SOCK_ERRNO));
 
-	/* Paranoia. */
-	memset (password, 0, strlen (password));
+        /* Paranoia. */
+        memset (password, 0, strlen (password));
     }
 
     {
@@ -4047,9 +3973,20 @@ connect_to_pserver (tofdp, fromfdp, verify_only, do_gssapi)
 	       SOCK_STRERROR (SOCK_ERRNO));
     }
 
-    error (1, 0, 
+    error (0, 0, 
 	   "authorization failed: server %s rejected access", 
 	   CVSroot_hostname);
+
+    /* Output a special error message if authentication was attempted
+       with no password -- the user should be made aware that they may
+       have missed a step. */
+    if (no_passwd)
+    {
+        error (0, 0,
+               "used empty password; try \"cvs login\" with a real password");
+    }
+
+    error_exit();
 }
 #endif /* AUTH_CLIENT_SUPPORT */
 
@@ -4212,9 +4149,16 @@ connect_to_gserver (sock, hostinfo)
 	if (stat_maj != GSS_S_COMPLETE && stat_maj != GSS_S_CONTINUE_NEEDED)
 	{
 	    OM_uint32 message_context;
+	    OM_uint32 new_stat_min;
 
 	    message_context = 0;
-	    gss_display_status (&stat_min, stat_maj, GSS_C_GSS_CODE,
+	    gss_display_status (&new_stat_min, stat_maj, GSS_C_GSS_CODE,
+                                GSS_C_NULL_OID, &message_context, &tok_out);
+	    error (0, 0, "GSSAPI authentication failed: %s",
+		   (char *) tok_out.value);
+
+	    message_context = 0;
+	    gss_display_status (&new_stat_min, stat_min, GSS_C_MECH_CODE,
 				GSS_C_NULL_OID, &message_context, &tok_out);
 	    error (1, 0, "GSSAPI authentication failed: %s",
 		   (char *) tok_out.value);
@@ -5065,6 +5009,7 @@ struct send_data
     int build_dirs;
     int force;
     int no_contents;
+    int backup_modified;
 };
 
 static int send_fileproc PROTO ((void *callerdat, struct file_info *finfo));
@@ -5186,6 +5131,18 @@ warning: ignoring -k options due to server limitations");
 	}
 	else
 	    send_modified (filename, finfo->fullname, vers);
+
+        if (args->backup_modified)
+        {
+            char *bakname;
+            bakname = backup_file (filename, vers->vn_user);
+            /* This behavior is sufficiently unexpected to
+               justify overinformativeness, I think. */
+            if (! really_quiet)
+                printf ("(Locally modified %s moved to %s)\n",
+                        filename, bakname);
+            free (bakname);
+        }
     }
     else
     {
@@ -5527,6 +5484,7 @@ send_files (argc, argv, local, aflag, flags)
     args.build_dirs = flags & SEND_BUILD_DIRS;
     args.force = flags & SEND_FORCE;
     args.no_contents = flags & SEND_NO_CONTENTS;
+    args.backup_modified = flags & BACKUP_MODIFIED_FILES;
     err = start_recursion
 	(send_fileproc, send_filesdoneproc,
 	 send_dirent_proc, (DIRLEAVEPROC)NULL, (void *) &args,
