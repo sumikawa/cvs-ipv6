@@ -761,19 +761,18 @@ void
 resolve_symlink (filename)
      char **filename;
 {
-    if ((! filename) || (! *filename))
+    if (filename == NULL || *filename == NULL)
 	return;
 
     while (islink (*filename))
     {
-	char *newname;
 #ifdef HAVE_READLINK
 	/* The clean thing to do is probably to have each filesubr.c
 	   implement this (with an error if not supported by the
 	   platform, in which case islink would presumably return 0).
 	   But that would require editing each filesubr.c and so the
 	   expedient hack seems to be looking at HAVE_READLINK.  */
-	newname = xreadlink (*filename);
+	char *newname = xreadlink (*filename);
 	
 	if (isabsolute (newname))
 	{
@@ -923,28 +922,3 @@ sleep_past (desttime)
 #endif
     }
 }
-
-
-
-/*
- * Set buffer FD to non-blocking I/O.  Returns 0 for success or errno
- * code.
- */
-int
-set_nonblock_fd (fd)
-     int fd;
-{
-    int flags;
-
-    flags = fcntl (fd, F_GETFL, 0);
-    if (flags < 0)
-	return errno;
-    if (fcntl (fd, F_SETFL, flags | O_NONBLOCK) < 0)
-	return errno;
-    return 0;
-}
-
-
-
-/* vim:tabstop=8:shiftwidth=4
- */

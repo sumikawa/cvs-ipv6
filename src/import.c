@@ -157,6 +157,21 @@ import (argc, argv)
 	use_file_modtime = 1;
 #endif
 
+    /* Don't allow "CVS" as any directory in module path.
+     *
+     * Could abstract this to valid_module_path, but I don't think we'll need
+     * to call it from anywhere else.
+     */
+    if ((cp = strstr(argv[0], "CVS")) &&   /* path contains "CVS" AND ... */
+        ((cp == argv[0]) || (*(cp-1) == '/')) && /* /^CVS/ OR m#/CVS# AND ... */
+        ((*(cp+3) == '\0') || (*(cp+3) == '/')) /* /CVS$/ OR m#CVS/# */
+       )
+    {
+        error (0, 0,
+               "The word `CVS' is reserved by CVS and may not be used");
+        error (1, 0, "as a directory in a path or as a file name.");
+    }
+
     for (i = 1; i < argc; i++)		/* check the tags for validity */
     {
 	int j;
@@ -379,7 +394,7 @@ import (argc, argv)
     li->type = T_TITLE;
     li->tag = xstrdup (vbranch);
     li->rev_old = li->rev_new = NULL;
-    p->data = (char *) li;
+    p->data = li;
     (void) addnode (ulist, p);
     Update_Logfile (repository, message, logfp, ulist);
     dellist (&ulist);
@@ -573,7 +588,8 @@ process_import_file (message, vfile, vtag, targc, targv)
 		node = findnode_fn (entries, vfile);
 		if (node != NULL)
 		{
-		    Entnode *entdata = (Entnode *) node->data;
+		    Entnode *entdata = node->data;
+
 		    if (entdata->type == ENT_FILE)
 		    {
 			assert (entdata->options[0] == '-'
@@ -1473,10 +1489,7 @@ expand_at_signs (buf, size, fp)
     cp = buf;
     while ((next = memchr (cp, '@', size)) != NULL)
     {
-	int len;
-
-	++next;
-	len = next - cp;
+	size_t len = ++next - cp;
 	if (fwrite (cp, 1, len, fp) != len)
 	    return EOF;
 	if (putc ('@', fp) == EOF)

@@ -564,7 +564,7 @@ get_linkinfo_proc (callerdat, finfo)
     hlinfo->status = (Ctype) 0;	/* is this dumb? */
     hlinfo->checked_out = 0;
 
-    linkp->data = (char *) hlinfo;
+    linkp->data = hlinfo;
 
     return 0;
 }
@@ -1078,7 +1078,7 @@ isremoved (node, closure)
     Node *node;
     void *closure;
 {
-    Entnode *entdata = (Entnode*) node->data;
+    Entnode *entdata = node->data;
 
     /* If the first character of the version is a '-', the file has been
        removed. */
@@ -1325,8 +1325,11 @@ VERS: ", 0);
 		   is here only because noexec doesn't write srcfile->path
 		   for us to stat.  */
 		if (stat (vers_ts->srcfile->path, &sb) < 0)
+		{
+		    buf_free (revbuf);
 		    error (1, errno, "cannot stat %s",
 			   vers_ts->srcfile->path);
+		}
 		mode = sb.st_mode &~ (S_IWRITE | S_IWGRP | S_IWOTH);
 	    }
 
@@ -1490,6 +1493,8 @@ VERS: ", 0);
 	free (backup);
     }
 
+    if (revbuf != NULL)
+	buf_free (revbuf);
     return (retval);
 }
 
@@ -2347,7 +2352,7 @@ join_file (finfo, vers)
      * revision.  i.e. we know that diff3(file2,file1,file2) will produce
      * file2.
      */
-    if (vers->ts_user
+    if (vers->vn_user != NULL && vers->ts_user != NULL
         && strcmp (vers->ts_user, vers->ts_rcs) == 0
         && strcmp (rev2, vers->vn_user) == 0)
     {
@@ -2355,7 +2360,7 @@ join_file (finfo, vers)
 	{
 	    cvs_output (finfo->fullname, 0);
 	    cvs_output (" already contains the differences between ", 0);
-	    cvs_output (rev1, 0);
+	    cvs_output (rev1 ? rev1 : "creation", 0);
 	    cvs_output (" and ", 0);
 	    cvs_output (rev2, 0);
 	    cvs_output ("\n", 1);
@@ -2738,7 +2743,7 @@ special_file_mismatch (finfo, rev1, rev2)
     else
     {
 	n = findnode (finfo->rcs->versions, rev1);
-	vp = (RCSVers *) n->data;
+	vp = n->data;
 
 	n = findnode (vp->other_delta, "symlink");
 	if (n != NULL)
@@ -2773,7 +2778,7 @@ special_file_mismatch (finfo, rev1, rev2)
 		if (sscanf (n->data, "%15s %lu", ftype,
 			    &dev_long) < 2)
 		    error (1, 0, "%s:%s has bad `special' newphrase %s",
-			   finfo->file, rev1, n->data);
+			   finfo->file, rev1, (char *)n->data);
 		rev1_dev = dev_long;
 		if (strcmp (ftype, "character") == 0)
 		    rev1_mode |= S_IFCHR;
@@ -2816,7 +2821,7 @@ special_file_mismatch (finfo, rev1, rev2)
     else
     {
 	n = findnode (finfo->rcs->versions, rev2);
-	vp = (RCSVers *) n->data;
+	vp = n->data;
 
 	n = findnode (vp->other_delta, "symlink");
 	if (n != NULL)
@@ -2851,7 +2856,7 @@ special_file_mismatch (finfo, rev1, rev2)
 		if (sscanf (n->data, "%15s %lu", ftype,
 			    &dev_long) < 2)
 		    error (1, 0, "%s:%s has bad `special' newphrase %s",
-			   finfo->file, rev2, n->data);
+			   finfo->file, rev2, (char *)n->data);
 		rev2_dev = dev_long;
 		if (strcmp (ftype, "character") == 0)
 		    rev2_mode |= S_IFCHR;
@@ -2975,5 +2980,3 @@ joining ()
 {
     return (join_rev1 != NULL);
 }
-/* vim:tabstop=8:shiftwidth=4
- */

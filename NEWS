@@ -1,5 +1,30 @@
-Changes since 1.11.12:
+Changes since 1.11.13:
 **********************
+
+GENERAL USER ISSUES
+
+* Imports will now always ignore directories and files named `CVS' to avoid
+  violating assumptions made by other parts of CVS.
+
+* A problem with `cvs release' of subdirs that could corrupt CVS/Entries files
+  has been fixed (client/server).
+
+* The CVS server's protocol check for unused data from the client is no longer
+  called automatically at program exit in order to avoid potential recursive
+  calls to error when the first close is due to memory allocation or similar
+  problems that cause calls to error() to fail.  The check is still made when
+  the server program exits normally.
+
+* The spec file has been updated to work with more recent versions of RPM.
+
+* Several memory leaks have been plugged (client/server).
+
+DEVELOPER ISSUES
+
+* Misc cosmetic, readability, and commenting fixes.
+
+Changes from 1.11.12 to 1.11.13:
+********************************
 
 GENERAL USER ISSUES
 
@@ -11,8 +36,6 @@ GENERAL USER ISSUES
 * An unlikely potential segfault when using the :fork: connection method has
   been fixed.
 
-* Misc cosmetic, readability, and commenting fixes.
-
 * The CVS server has had the protocol check for unused data from the client
   partially restored.
 
@@ -23,6 +46,10 @@ GENERAL USER ISSUES
   compiling under Windows has been fixed.
 
 * Tests have been added to the test suite.
+
+DEVELOPER ISSUES
+
+* Misc cosmetic, readability, and commenting fixes.
 
 Changes from 1.11.11 to 1.11.12:
 ********************************

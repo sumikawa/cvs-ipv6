@@ -142,8 +142,23 @@ get_buffer_data ()
     return ret;
 }
 
-/* See whether a buffer is empty.  */
 
+
+/* See whether a buffer and its file descriptor is empty.  */
+int
+buf_empty (buf)
+    struct buffer *buf;
+{
+	/* Try and read any data on the file descriptor first.
+	 * We already know the descriptor is non-blocking.
+	 */
+	buf_input_data (buf, NULL);
+	return buf_empty_p (buf);
+}
+
+
+
+/* See whether a buffer is empty.  */
 int
 buf_empty_p (buf)
     struct buffer *buf;
@@ -155,6 +170,8 @@ buf_empty_p (buf)
 	    return 0;
     return 1;
 }
+
+
 
 #ifdef SERVER_FLOWCONTROL
 /*
@@ -1398,51 +1415,11 @@ stdio_buffer_shutdown (buf)
 
     if (buf->input)
     {
-	/* This used to check for getc (bc->fp) != EOF too, but there was an
-	 * odd race condition that would sometimes cause a dead server child
-	 * process to cause a SIGPIPE to be delivered to the server parent
-	 * before the SIGCHILD while the client was in a read state and the
-	 * buffer was empty.  The previous server assumption was that a
-	 * SIGPIPE meant that the _network_ pipe, to the client, broke, so it
-	 * was okay to assume that the blocking getc() would return a char or
-	 * EOF.  When the SIGPIPE is received due to a problem writing to a
-	 * server child, however, and the client pipe still exists, and the
-	 * client is reading, this call to getc() would block indefinitely
-	 * waiting for info from the client while the client blocked waiting
-	 * for a read from the server...  in other words, deadlock occurred.
-	 *
-	 * Anyhow, that old getc() has been replaced with the mess below.
+	/* There used to be a check here for unread data in the buffer of on
+	 * the pipe, but it was deemed unnecessary and possibly dangerous.  In
+	 * some sense it could be second-guessing the caller who requested it
+	 * closed, as well.
 	 */
-	char junk;
-	if (!buf_empty_p (buf)
-	    || (!feof (bc->fp)
-	        && set_nonblock_fd (fileno (bc->fp)) == 0
-	        && fread (&junk, 1, 1, bc->fp) != 0))
-	{
-# ifdef SERVER_SUPPORT
-	    if (server_active)
-		/* FIXME: This should probably be sysloged since it doesn't
-		 * have anywhere else to go at this point.
-		 */
-		error (0, 0, "dying gasps from client unexpected");
-	    else
-#endif
-		error (0, 0, "dying gasps from %s unexpected",
-		       current_parsed_root->hostname);
-	}
-	else if (ferror (bc->fp) && errno != EAGAIN)
-	{
-# ifdef SERVER_SUPPORT
-	    if (server_active)
-		/* FIXME: This should probably be sysloged since it doesn't
-		 * have anywhere else to go at this point.
-		 */
-		error (0, errno, "reading from client");
-	    else
-#endif
-		error (0, errno, "reading from %s",
-		       current_parsed_root->hostname);
-	}
 
 # ifdef SHUTDOWN_SERVER
 	if (current_parsed_root->method != server_method)

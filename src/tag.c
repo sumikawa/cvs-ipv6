@@ -460,7 +460,7 @@ check_fileproc (callerdat, finfo)
 	ml = (struct master_lists *)
 	    xmalloc (sizeof (struct master_lists));
 	ml->tlist = tlist;
-	p->data = (char *) ml;
+	p->data = ml;
 	p->delproc = masterlist_delproc;
 	(void) addnode (mtlist, p);
     }
@@ -602,9 +602,8 @@ static void
 masterlist_delproc(p)
     Node *p;
 {
-    struct master_lists *ml;
+    struct master_lists *ml = p->data;
 
-    ml = (struct master_lists *)p->data;
     dellist(&ml->tlist);
     free(ml);
     return;
@@ -866,6 +865,7 @@ tag_fileproc (callerdat, finfo)
     char *rev;
     Vers_TS *vers;
     int retcode = 0;
+    int retval = 0;
 
     vers = Version_TS (finfo, NULL, NULL, NULL, 0, 0);
 
@@ -877,10 +877,7 @@ tag_fileproc (callerdat, finfo)
                                   force_tag_match,
 				  (int *) NULL);
         if (nversion == NULL)
-        {
-	    freevers_ts (&vers);
-            return (0);
-        }
+	    goto free_vars_and_return;
     }
     if (delete_flag)
     {
@@ -898,10 +895,8 @@ tag_fileproc (callerdat, finfo)
 	version = RCS_getversion (vers->srcfile, symtag, (char *) NULL, 1,
 				  (int *) NULL);
 	if (version == NULL || vers->srcfile == NULL)
-	{
-	    freevers_ts (&vers);
-	    return (0);
-	}
+	    goto free_vars_and_return;
+
 	free (version);
 
 	isbranch = RCS_nodeisbranch (finfo->rcs, symtag);
@@ -914,8 +909,8 @@ tag_fileproc (callerdat, finfo)
 			isbranch ? "branch" : "non-branch",
 			symtag, vers->srcfile->path,
 			isbranch ? "" : " due to `-B' option"); 
-	    freevers_ts (&vers);
-	    return (1);
+	    retval = 1;
+	    goto free_vars_and_return;
 	}
 
 	if ((retcode = RCS_deltag(vers->srcfile, symtag)) != 0) 
@@ -924,8 +919,8 @@ tag_fileproc (callerdat, finfo)
 		error (0, retcode == -1 ? errno : 0,
 		       "failed to remove tag %s from %s", symtag,
 		       vers->srcfile->path);
-	    freevers_ts (&vers);
-	    return (1);
+	    retval = 1;
+	    goto free_vars_and_return;
 	}
 	RCS_rewrite (vers->srcfile, NULL, NULL);
 
@@ -937,8 +932,7 @@ tag_fileproc (callerdat, finfo)
 	    cvs_output ("\n", 1);
 	}
 
-	freevers_ts (&vers);
-	return (0);
+	goto free_vars_and_return;
     }
 
     /*
@@ -955,29 +949,25 @@ tag_fileproc (callerdat, finfo)
     }
     if (version == NULL)
     {
-	freevers_ts (&vers);
-	return (0);
+	goto free_vars_and_return;
     }
     else if (strcmp (version, "0") == 0)
     {
 	if (!quiet)
 	    error (0, 0, "couldn't tag added but un-commited file `%s'", finfo->file);
-	freevers_ts (&vers);
-	return (0);
+	goto free_vars_and_return;
     }
     else if (version[0] == '-')
     {
 	if (!quiet)
 	    error (0, 0, "skipping removed but un-commited file `%s'", finfo->file);
-	freevers_ts (&vers);
-	return (0);
+	goto free_vars_and_return;
     }
     else if (vers->srcfile == NULL)
     {
 	if (!quiet)
 	    error (0, 0, "cannot find revision control file for `%s'", finfo->file);
-	freevers_ts (&vers);
-	return (0);
+	goto free_vars_and_return;
     }
 
     /*
@@ -1004,8 +994,7 @@ tag_fileproc (callerdat, finfo)
 	    free (oversion);
 	    if (branch_mode)
 		free (rev);
-	    freevers_ts (&vers);
-	    return (0);
+	    goto free_vars_and_return;
 	}
 
 	if (!force_tag_move)
@@ -1027,8 +1016,7 @@ tag_fileproc (callerdat, finfo)
 	    free (oversion);
 	    if (branch_mode)
 		free (rev);
-	    freevers_ts (&vers);
-	    return (0);
+	    goto free_vars_and_return;
 	}
 	else 	/* force_tag_move == 1 and... */
 		if ((isbranch && !disturb_branch_tags) ||
@@ -1040,9 +1028,9 @@ tag_fileproc (callerdat, finfo)
 		    symtag, oversion, rev,
 		    isbranch ? "" : " due to `-B' option"); 
 	    free (oversion);
-	    if (branch_mode) free(rev);
-	    freevers_ts (&vers);
-	    return (0);
+	    if (branch_mode)
+		free (rev);
+	    goto free_vars_and_return;
 	}
 	free (oversion);
     }
@@ -1054,8 +1042,8 @@ tag_fileproc (callerdat, finfo)
 	       symtag, rev, vers->srcfile->path);
 	if (branch_mode)
 	    free (rev);
-	freevers_ts (&vers);
-	return (1);
+	retval = 1;
+	goto free_vars_and_return;
     }
     if (branch_mode)
 	free (rev);
@@ -1069,12 +1057,11 @@ tag_fileproc (callerdat, finfo)
 	cvs_output ("\n", 1);
     }
 
+ free_vars_and_return:
     if (nversion != NULL)
-    {
         free (nversion);
-    }
     freevers_ts (&vers);
-    return (0);
+    return (retval);
 }
 
 /*

@@ -1,3 +1,149 @@
+2004-03-03  Derek Price  <derek@ximbiot.com>
+
+	* import.c (import): Check that the module name specified by the user
+	does not contain `CVS' as a directory name.
+	* ignore.c (ign_add): Never cease ignoring "CVS" - it is a reserved
+	name.
+	(Original patch from Dan Peterson <dbpete@aol.com>.)
+
+	* sanity.sh (import-CVS): New tests for the above.
+
+2004-02-29  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* import.c (expand_at_signs): Change type of len to size_t.
+	* subr.c (resolve_symlink): Move declaration of newname inside
+	#ifdef, clean up coding style.
+	* zlib.c (gunzip_and_write): Fix up potential overlow problems.
+	(read_and_gzip): Add explicit casts to placate paranoid compilers.
+
+2004-02-28  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* sanity.sh (join6): New tests for previous fix.
+
+	* update.c (join_file): One more fix to avoid dereferencing NULL.
+	(Reported by Steve McIntyre <steve@einval.com>.)
+	* sanity.sh (join6): New tests for above.
+
+2004-02-25  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* update.c (join_file): Fix optimization to avoid dereferencing NULL.
+	(Reported by Steve McIntyre <steve@einval.com>.)
+
+2004-02-25  Derek Price  <derek@ximbiot.com>
+
+	* buffer.c (buf_empty): New function.
+	* server.c (server): Check for unread data in buffer before closing.
+
+2004-02-25  Derek Price  <derek@ximbiot.com>
+
+	* release.c (release): Restore the initial directory before and after
+	calling various sections of code that expect it to prevent corruption
+	of CVS/Entries files on release of a subdir and tell unedit() what to
+	release.
+	* sanity.sh: Add test case for release.c fix.
+	(Original patch from Matthew Ogilvie  <mmo9317bd@mailcan.com>.)
+
+	* client.c (last_entries): Move global variable...
+	(call_in_directory): ...here (now a local variable).  Remove test that
+	always evaluates to true.
+	(last_dir_name): Remove unused global variable.
+
+2004-02-24  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* filesubr.c (xresolvepath): Fix crash in error case.
+	(Reported by Reinhard Zierke <zierke@informatik.uni-hamburg.de>.)
+
+2004-02-24  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (crerepos): Minor stylistic changes to previous change.
+
+2004-02-24  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (crerepos): Fix it so that it ignores the user's
+	.cvsrc file (.cvsrc "checkout -r" used to cause the "rm -r 1"
+	command to print warnings and wait for input).
+	(Original patch from Matthew Ogilvie  <mmo9317bd@mailcan.com>.)
+
+	* sanity.sh (reposmv, parseroot, devcom3, binwrap3):
+	s/_SAVED\>/_save/ for consistency.
+
+2004-02-20  Derek Price  <derek@ximbiot.com>
+
+	* subr.c (set_nonblock_fd): Move back to...
+	* server.c: ...here.
+	* cvs.h: Remove protos for the above two functions.
+	* buffer.c (stdio_buffer_shutdown): Remove unexessary and possibly
+	dangerous check for unread data on a pipe with a nonblock read.
+
+2004-02-20  Derek Price  <derek@ximbiot.com>
+
+	* ChangeLog, commit.c, filesubr.c, rcs.c, root.c, sanity.sh, subr.c,
+	update.c: Remove VIM editor commands.
+
+2004-02-20  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* hash.h (struct node): Change data from char * to void *, change
+	all callers.
+
+2004-02-19  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* login.c (password_entry_operation): Initialize line.
+
+2004-02-19  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (crerepos): Correct comment.
+
+2004-02-19  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (crerepos): Don't create directories named `tmp' in
+	$TESTDIR to avoid conflicts with the default value of $TMPDIR.
+
+2004-02-19  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (directory_cmp): Use $TESTDIR for temporary files, like the
+	dotest functions.
+
+2004-02-19  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh: No longer allow user override of $tmp.  Set $TMPDIR to a
+	directory under $TESTDIR, as for $HOME, but still allowing for user
+	override.  Check for cvs-serv* directories under $TMPDIR rather than
+	$tmp at the end of the script.
+
+2004-02-17  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh: Check for $PWD != $TESTDIR after each set of tests rather
+	than once at the end.  Check that there are no cvs-serv* directories in
+	$tmp after each set of remote tests.
+
+2004-02-17  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh: Don't check for an empty $TESTDIR - if $TESTDIR was empty
+	then the preceding call to mkdir would have failed anyhow.
+
+2004-02-17  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* log.c (rlog_proc): Fix (harmless) uninitialized variable.
+
+	* sanity.sh (basicc): Add tests pointing out defective handling
+	of the Entries file.
+
+2004-02-17  Derek Price  <derek@ximbiot.com>
+
+	* checkout.c (build_dir_and_chdir): Expand header comment.
+
+2004-02-15  Mark D. Baushke  <mdb@cvshome.org>
+
+	* annotate.c (rannotate_proc): Plug a memory leak.
+	* log.c (log_fileproc): Ditto.
+	* tag.c (tag_fileproc): Ditto.
+	* update.c (checkout_file): Ditto.
+	* server.c (server_updated): Do not buf_free (filebuf) here.
+	
+2004-02-13  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* rcs.c (locate_rcs): Remove unused variables.
+
 2004-02-12  Mark D. Baushke  <mdb@cvshome.org>
 
 	* lock.c (readers_exist): Plug a memory leak.

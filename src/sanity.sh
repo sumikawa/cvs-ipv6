@@ -272,8 +272,6 @@ if test -n "$remotehost"; then
 else
 	tmp=`(cd /tmp; /bin/pwd || pwd) 2>/dev/null`
 fi
-: ${TMPDIR=$tmp}
-export TMPDIR
 
 # Now:
 #	1) Set TESTDIR if it's not set already
@@ -294,7 +292,7 @@ fi
 mkdir ${TESTDIR} || exit 1
 cd ${TESTDIR} || exit 1
 # Ensure $TESTDIR is absolute
-if test -z "${TESTDIR}" || echo "${TESTDIR}" |grep '^[^/]'; then
+if echo "${TESTDIR}" |grep '^[^/]'; then
     # Don't resolve this unless we have to.  This keeps symlinks intact.  This
     # is important at least when testing using -h $remotehost, because the same
     # value for $TESTDIR must resolve to the same directory on the client and
@@ -307,6 +305,18 @@ if test -z "${TESTDIR}" || echo "${TESTDIR}" |grep '^[^/]'; then
     exit 1
 fi
 cd ${TESTDIR}
+
+# Now set $TMPDIR if the user hasn't overridden it.
+#
+# We use a $TMPDIR under $TESTDIR by default so that two tests may be run at
+# the same time without bumping heads without requiring the user to specify
+# more than $TESTDIR.  See the test for leftover cvs-serv* directories near the
+# end of this script at the end of "The big loop".
+: ${TMPDIR=$TESTDIR/tmp}
+export TMPDIR
+if test -d $TMPDIR; then :; else
+    mkdir $TMPDIR
+fi
 
 # Make sure various tools work the way we expect, or try to find
 # versions that do.
@@ -770,7 +780,7 @@ if test x"$*" = x; then
 	tests="${tests} rdiff2 diff diffnl death death2"
 	tests="${tests} rm-update-message rmadd rmadd2 rmadd3"
 	tests="${tests} dirs dirs2 branches branches2 tagc tagf"
-	tests="${tests} rcslib multibranch import importb importc"
+	tests="${tests} rcslib multibranch import importb importc import-CVS"
 	tests="${tests} update-p import-after-initial branch-after-import"
 	tests="${tests} join join2 join3 join4 join5 join6"
 	tests="${tests} join-readonly-conflict join-admin join-admin-2"
@@ -828,14 +838,14 @@ directory_cmp ()
 	DIR_2=$2
 
 	cd $DIR_1
-	find . -print | fgrep -v /CVS | sort > /tmp/dc$$d1
+	find . -print | fgrep -v /CVS | sort > $TESTDIR/dc$$d1
 
 	# go back where we were to avoid symlink hell...
 	cd $OLDPWD
 	cd $DIR_2
-	find . -print | fgrep -v /CVS | sort > /tmp/dc$$d2
+	find . -print | fgrep -v /CVS | sort > $TESTDIR/dc$$d2
 
-	if diff /tmp/dc$$d1 /tmp/dc$$d2 >/dev/null 2>&1
+	if diff $TESTDIR/dc$$d1 $TESTDIR/dc$$d2 >/dev/null 2>&1
 	then
 		:
 	else
@@ -850,8 +860,8 @@ directory_cmp ()
 				return 1
 			fi
 		fi
-	done < /tmp/dc$$d1
-	rm -f /tmp/dc$$*
+	done < $TESTDIR/dc$$d1
+	rm -f $TESTDIR/dc$$*
 	return 0
 }
 
@@ -2315,10 +2325,34 @@ ${PROG} update: Updating second-dir"
 
 	  mkdir 2; cd 2
 	  dotest basicc-12 "${testcvs} -Q co ." ""
+	  # actual entries can be in either Entries or Entries.log, do
+	  # an update to get them consolidated into Entries
+	  dotest basicc-12a "${testcvs} -Q up" ""
+	  dotest basicc-12b "cat CVS/Entries" \
+"D/CVSROOT////
+D/first-dir////
+D/second-dir////"
 	  dotest basicc-13 "echo *" "CVS CVSROOT first-dir second-dir"
 	  dotest basicc-14 "${testcvs} -Q release first-dir second-dir" ""
+	  # a normal release shouldn't affect the Entries file
+	  dotest basicc-14b "cat CVS/Entries" \
+"D/CVSROOT////
+D/first-dir////
+D/second-dir////"
+	  # FIXCVS: but release -d probably should
 	  dotest basicc-15 "${testcvs} -Q release -d first-dir second-dir" ""
 	  dotest basicc-16 "echo *" "CVS CVSROOT"
+	  dotest basicc-17 "cat CVS/Entries" \
+"D/CVSROOT////
+D/first-dir////
+D/second-dir////"
+	  # FIXCVS: if not, update should notice the missing directories
+	  # and update Entries accordingly
+	  dotest basicc-18 "${testcvs} -Q up" ""
+	  dotest basicc-19 "cat CVS/Entries" \
+"D/CVSROOT////
+D/first-dir////
+D/second-dir////"
 
 	  cd ..
 	  rm -r 1 2
@@ -3634,7 +3668,7 @@ W [0-9-]* [0-9:]* ${PLUS}0000 ${username}     file7     first-dir           == <
 	  mkdir 1; cd 1
 	  # Test odd cases involving CVSROOT.  At the moment, that means we
 	  # are testing roots with '/'s on the end, which CVS should parse off.
-	  CVSROOT_SAVED=${CVSROOT}
+	  CVSROOT_save=${CVSROOT}
 	  CVSROOT="${CVSROOT}/////"
 	  dotest parseroot-1 "${testcvs} -q co CVSROOT/modules" \
 "U CVSROOT/modules"
@@ -3644,7 +3678,7 @@ ${CVSROOT_DIRNAME}/CVSROOT/modules,v  <--  modules
 new revision: 1\.2; previous revision: 1\.1
 done
 ${PROG} commit: Rebuilding administrative file database"
-	  CVSROOT=${CVSROOT_SAVED}
+	  CVSROOT=${CVSROOT_save}
 
 	  if $keep; then
 		echo Keeping ${TESTDIR} and exiting due to --keep
@@ -7204,6 +7238,7 @@ modify-on-br1
 		# info -- imports which are rejected by verifymsg
 		# head -- intended to test vendor branches and HEAD,
 		#   although it doesn't really do it yet.
+		# import-CVS -- refuse to import directories named "CVS".
 
 		# import
 		mkdir import-dir ; cd import-dir
@@ -7644,6 +7679,42 @@ import-it
 
 	  rm -r 1 2
 	  rm -rf ${CVSROOT_DIRNAME}/first-dir
+	  ;;
+
+	import-CVS)
+	  mkdir import-CVS
+	  cd import-CVS
+	  touch file1 file2 file3
+	  dotest_fail import-CVS-1 "$testcvs import CVS vtag rtag" \
+"$PROG import: The word \`CVS' is reserved by CVS and may not be used
+$PROG \[import aborted\]: as a directory in a path or as a file name\."
+	  mkdir sdir
+	  mkdir sdir/CVS
+	  touch sdir/CVS/file4 sdir/CVS/file5 sdir/file6 sdir/file7
+	  # Calling the imported directory import-CVS is dual purpose in the
+	  # following test.  It makes sure the path test which matched above
+	  # wasn't too strict.
+	  dotest_sort import-CVS-2 \
+"$testcvs import -I! -mimport import-CVS vtag rtag" \
+"
+
+I import-CVS/sdir/CVS
+N import-CVS/file1
+N import-CVS/file2
+N import-CVS/file3
+N import-CVS/sdir/file6
+N import-CVS/sdir/file7
+No conflicts created by this import
+$PROG import: Importing $CVSROOT_DIRNAME/import-CVS/sdir"
+
+	  if $keep; then
+	    echo Keeping ${TESTDIR} and exiting due to --keep
+	    exit 0
+	  fi
+
+	  cd ..
+	  rm -r import-CVS
+	  rm -rf $CVSROOT_DIRNAME/import-CVS
 	  ;;
 
 	import-after-initial)
@@ -8969,6 +9040,71 @@ retrieving revision 1\.2
 retrieving revision 1\.3
 Merging differences between 1\.2 and 1\.3 into temp\.txt"
 	  dotest join6-13 "${testcvs} diff temp.txt" ""
+
+	  # The case where the merge target wasn't created until after the
+	  # first tag was applied
+	  rm temp2.txt temp3.txt
+	  dotest join6-20 "${testcvs} -q tag -r1.1 t1" \
+"T temp.txt"
+	  echo xxx >temp2.txt
+	  dotest join6-21 "${testcvs} -Q add temp2.txt"
+	  dotest join6-22 "${testcvs} -q ci -m." \
+"RCS file: ${CVSROOT_DIRNAME}/join6/temp2.txt,v
+done
+Checking in temp2\.txt;
+${CVSROOT_DIRNAME}/join6/temp2\.txt,v  <--  temp2\.txt
+initial revision: 1\.1
+done"
+	  dotest join6-23 "${testcvs} -q tag t2" \
+"T temp.txt
+T temp2.txt"
+	  echo xxx >>temp.txt
+	  dotest join6-24 "${testcvs} -q ci -m." \
+"Checking in temp\.txt;
+${CVSROOT_DIRNAME}/join6/temp.txt,v  <--  temp\.txt
+new revision: 1\.4; previous revision: 1\.3
+done"
+	  dotest join6-25 "${testcvs} -q up -jt1 -jt2" \
+"RCS file: ${CVSROOT_DIRNAME}/join6/temp.txt,v
+retrieving revision 1\.1
+retrieving revision 1\.3
+Merging differences between 1\.1 and 1\.3 into temp.txt
+temp.txt already contains the differences between 1\.1 and 1\.3
+temp2.txt already contains the differences between creation and 1\.1"
+
+	  # Now for my next trick: delete the file, recreate it, and
+	  # try to merge
+	  dotest join6-30 "${testcvs} -q rm -f temp2.txt" \
+"${PROG} remove: use .${PROG} commit. to remove this file permanently"
+	  dotest join6-31 "${testcvs} -q ci -m. temp2.txt" \
+"Removing temp2\.txt;
+${CVSROOT_DIRNAME}/join6/temp2\.txt,v  <--  temp2\.txt
+new revision: delete; previous revision: 1\.1
+done"
+	  echo new >temp2.txt
+	  # FIXCVS: Local and remote really shouldn't be different and there
+	  # really shouldn't be two different status lines for temp2.txt
+	  if $remote; then
+	    dotest_fail join6-32 "${testcvs} -q up -jt1 -jt2" \
+"? temp2\.txt
+RCS file: ${CVSROOT_DIRNAME}/join6/temp.txt,v
+retrieving revision 1\.1
+retrieving revision 1\.3
+Merging differences between 1\.1 and 1\.3 into temp.txt
+temp.txt already contains the differences between 1\.1 and 1\.3
+${PROG} update: move away \./temp2\.txt; it is in the way
+C temp2\.txt"
+	  else
+	    dotest join6-32 "${testcvs} -q up -jt1 -jt2" \
+"RCS file: ${CVSROOT_DIRNAME}/join6/temp.txt,v
+retrieving revision 1\.1
+retrieving revision 1\.3
+Merging differences between 1\.1 and 1\.3 into temp.txt
+temp.txt already contains the differences between 1\.1 and 1\.3
+${PROG} update: use .${PROG} add. to create an entry for temp2\.txt
+U temp2\.txt
+? temp2\.txt"
+	  fi
 
 	  cd ../../..
 
@@ -14568,7 +14704,7 @@ G@#..!@#=&"
 	  # Now test disconnected "cvs edit" and the format of the 
 	  # CVS/Notify file.
 	  if $remote; then
-	    CVS_SERVER_SAVED=${CVS_SERVER}
+	    CVS_SERVER_save=${CVS_SERVER}
 	    CVS_SERVER=${TESTDIR}/cvs-none; export CVS_SERVER
 
 	    # The ${DOTSTAR} below matches the exact CVS server error message,
@@ -14588,7 +14724,7 @@ G@#..!@#=&"
 	    dotest devcom3-9br "test -w w1" ""
 	    dotest devcom3-9cr "cat CVS/Notify" \
 "Ew1	[SMTWF][uoehra][neduit] [JFAMSOND][aepuco][nbrylgptvc] [0-9 ][0-9] [0-9:]* [0-9][0-9][0-9][0-9] GMT	[-a-zA-Z_.0-9]*	${TESTDIR}/1/first-dir	EUC"
-	    CVS_SERVER=${CVS_SERVER_SAVED}; export CVS_SERVER
+	    CVS_SERVER=${CVS_SERVER_save}; export CVS_SERVER
 	    dotest devcom3-9dr "${testcvs} -q update" ""
 	    dotest_fail devcom3-9er "test -f CVS/Notify" ""
 	    dotest devcom3-9fr "${testcvs} watchers w1" \
@@ -15967,7 +16103,7 @@ ${PROG} commit: Rebuilding administrative file database"
           cd ..
 
           # Avoid environmental interference
-          CVSWRAPPERS_SAVED=${CVSWRAPPERS}
+          CVSWRAPPERS_save=${CVSWRAPPERS}
           unset CVSWRAPPERS
 
           # Do the import
@@ -16113,7 +16249,7 @@ done"
 	  cd ..
 	  rm -r wnt
 	  rm -rf ${CVSROOT_DIRNAME}/binwrap3
-          CVSWRAPPERS=${CVSWRAPPERS_SAVED}
+          CVSWRAPPERS=${CVSWRAPPERS_save}
           ;; 
 
 	mwrap)
@@ -18166,6 +18302,8 @@ Annotations for $file
 	  # Various tests relating to creating repositories, operating
 	  # on repositories created with old versions of CVS, etc.
 
+	  CVS_SERVER_save=$CVS_SERVER
+
 	  # Because this test is all about -d options and such, it
 	  # at least to some extent needs to be different for remote vs.
 	  # local.
@@ -18188,7 +18326,18 @@ Annotations for $file
 	    # with our own CVS_RSH rather than worrying about a system one
 	    # would do the trick.
 
+               # Make sure server ignores real ${HOME}/.cvsrc:
+            cat >$TESTDIR/cvs-setHome <<EOF
+#!/bin/sh
+HOME=$HOME
+export HOME
+exec $CVS_SERVER_save "\$@"
+EOF
+            chmod a+x $TESTDIR/cvs-setHome
+
 	    # Note that we set CVS_SERVER at the beginning.
+	    CVS_SERVER=$TESTDIR/cvs-setHome; export CVS_SERVER
+
 	    if test -n "$remotehost"; then
 		CREREPOS_ROOT=:ext:$remotehost${TESTDIR}/crerepos
 	    else
@@ -18226,7 +18375,7 @@ Annotations for $file
 	    # function if administrative files added to CVS recently (since
 	    # CVS 1.3) do not exist, because the repository might have
 	    # been created with an old version of CVS.
-	    mkdir tmp; cd tmp
+	    mkdir 1; cd 1
 	    dotest crerepos-4 \
 "${testcvs} -q -d ${TESTDIR}/crerepos co CVSROOT" \
 ''
@@ -18238,8 +18387,8 @@ ${testcvs} -d ${TESTDIR}/crerepos release -d CVSROOT >>${LOGFILE}; then
 	    fi
 	    rm -rf CVS
 	    cd ..
-	    # The directory tmp should be empty
-	    dotest crerepos-6 "rmdir tmp" ''
+	    # The directory 1 should be empty
+	    dotest crerepos-6 "rmdir 1"
 
 	    CREREPOS_ROOT=${TESTDIR}/crerepos
 
@@ -18354,14 +18503,19 @@ ${PROG} update: Updating crerepos-dir"
 
 	  cd ..
 
+          CVS_SERVER=$CVS_SERVER_save; export CVS_SERVER
+
 	  if $keep; then
 	    echo Keeping ${TESTDIR} and exiting due to --keep
 	    exit 0
 	  fi
 
+          rm -f $TESTDIR/cvs-setHome
 	  rm -r 1
 	  rm -rf ${CVSROOT_DIRNAME}/first-dir ${TESTDIR}/crerepos
 	  ;;
+
+
 
 	rcs)
 	  # Test ability to import an RCS file.  Note that this format
@@ -23777,7 +23931,40 @@ EOF
 	  dotest release-16 "${testcvs} update" \
 "${PROG} update: Updating \.
 ${PROG} update: Updating first-dir"
+
+	  # Check to make sure release isn't overwriting a
+	  # CVS/Entries file in the current directory (using data
+	  # from the released directory).
+
+	  # cvs 1.11 (remote) fails on release-21 (a message about
+          # chdir into the removed directory), although it seemingly
+	  # unedits and removes the directory correctly.  If
+	  # you manually continue, it then fails on release-22 do
+	  # to the messed up CVS/Entries file from release-21.
+          cd first-dir
+	  mkdir second-dir
+	  dotest release-18 "$testcvs add second-dir" \
+"Directory $CVSROOT_DIRNAME/first-dir/second-dir added to the repository"
+
+	  cd second-dir
+	  touch file1
+	  dotest release-19 "$testcvs -Q add file1"
+	  dotest release-20 '$testcvs -q ci -m add' \
+"RCS file: $CVSROOT_DIRNAME/first-dir/second-dir/file1,v
+done
+Checking in file1;
+$CVSROOT_DIRNAME/first-dir/second-dir/file1,v  <--  file1
+initial revision: 1\.1
+done"
+	  dotest release-21 "$testcvs edit file1"
 	  cd ..
+	  dotest release-22 "echo yes | $testcvs release -d second-dir" \
+"You have \[0\] altered files in this repository.
+Are you sure you want to release (and delete) directory \`second-dir': "
+	  dotest release-23 "$testcvs -q update -d" "U second-dir/file1"
+	  dotest release-24 "$testcvs edit"
+
+	  cd ../..
 	  rm -rf 1 $CVSROOT_DIRNAME/first-dir
 	  ;;
 
@@ -25904,41 +26091,41 @@ ${PROG} update: skipping directory "
 
 	  # CVS/Root overrides $CVSROOT
 	  if $remote; then
-	    CVSROOT_SAVED=${CVSROOT}
+	    CVSROOT_save=${CVSROOT}
 	    CVSROOT=:fork:${TESTDIR}/root-moved; export CVSROOT
 	    dotest_fail reposmv-3r "${testcvs} update" \
 "Cannot access ${TESTDIR}/root1/CVSROOT
 No such file or directory"
-	    CVSROOT=${CVSROOT_SAVED}; export CVSROOT
+	    CVSROOT=${CVSROOT_save}; export CVSROOT
 	  else
-	    CVSROOT_SAVED=${CVSROOT}
+	    CVSROOT_save=${CVSROOT}
 	    CVSROOT=${TESTDIR}/root-moved; export CVSROOT
 	    dotest reposmv-3 "${testcvs} update" \
 "${DOTSTAR}
 ${PROG} update: ignoring CVS/Root because it specifies a non-existent repository ${TESTDIR}/root1
 ${PROG} update: Updating \.
 ${DOTSTAR}"
-	    CVSROOT=${CVSROOT_SAVED}; export CVSROOT
+	    CVSROOT=${CVSROOT_save}; export CVSROOT
 	  fi
 
 	  if $remote; then
-	    CVSROOT_SAVED=${CVSROOT}
+	    CVSROOT_save=${CVSROOT}
 	    CVSROOT=:fork:${TESTDIR}/root-none; export CVSROOT
 	    dotest_fail reposmv-4 "${testcvs} update" \
 "Cannot access ${TESTDIR}/root1/CVSROOT
 No such file or directory"
-	    CVSROOT=${CVSROOT_SAVED}; export CVSROOT
+	    CVSROOT=${CVSROOT_save}; export CVSROOT
 	  else
 	    # CVS/Root doesn't seem to quite completely override $CVSROOT
 	    # Bug?  Not necessarily a big deal if it only affects error
 	    # messages.
-	    CVSROOT_SAVED=${CVSROOT}
+	    CVSROOT_save=${CVSROOT}
 	    CVSROOT=${TESTDIR}/root-none; export CVSROOT
 	    dotest_fail reposmv-4 "${testcvs} update" \
 "${PROG} update: in directory \.:
 ${PROG} update: ignoring CVS/Root because it specifies a non-existent repository ${TESTDIR}/root1
 ${PROG} \[update aborted\]: ${TESTDIR}/root-none/CVSROOT: No such file or directory"
-	    CVSROOT=${CVSROOT_SAVED}; export CVSROOT
+	    CVSROOT=${CVSROOT_save}; export CVSROOT
 	  fi
 
 	  # -d overrides CVS/Root
@@ -26909,15 +27096,23 @@ done"
 	   echo $what is not the name of a test -- ignored
 	   ;;
 	esac
-done
 
-# Sanity check sanity.sh.  :)
-#
-# Test our exit directory so that tests that exit in an incorrect directory are
-# noticed during single test runs.
-if test "x$TESTDIR" != "x`pwd`"; then
-	fail "cleanup: PWD != TESTDIR (\``pwd`' != \`$TESTDIR')"
-fi
+    # Sanity check sanity.sh.  :)
+    #
+    # Test our exit directory so that tests that exit in an incorrect directory
+    # are noticed during single test runs.
+    if test "x$TESTDIR" != "x`pwd`"; then
+	    fail "cleanup: PWD != TESTDIR (\``pwd`' != \`$TESTDIR')"
+    fi
+
+    # Test our temp directory for cvs-serv* directories.  We would like to not
+    # leave any behind.
+    if $remote && ls $TMPDIR/cvs-serv* >/dev/null 2>&1; then
+	# A true value means ls found files/directories with these names.
+	fail "Found cvs-serv* directories in $TMPDIR."
+    fi
+
+done # The big loop
 
 echo "OK, all tests completed."
 
@@ -26977,4 +27172,3 @@ cd `dirname ${TESTDIR}`
 rm -rf ${TESTDIR}
 
 # end of sanity.sh
-# vim:tabstop=8:shiftwidth=4
