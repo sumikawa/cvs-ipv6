@@ -328,6 +328,7 @@ fd_buffer_shutdown (buf)
      struct buffer *buf;
 {
     free (buf->closure);
+    buf->closure = NULL;
     return 0;
 }
 
@@ -2282,7 +2283,9 @@ serve_gssapi_authenticate (arg)
 }
 
 #endif /* HAVE_GSSAPI */
-
+
+
+
 #ifdef SERVER_FLOWCONTROL
 /* The maximum we'll queue to the remote client before blocking.  */
 # ifndef SERVER_HI_WATER
@@ -2292,30 +2295,10 @@ serve_gssapi_authenticate (arg)
 # ifndef SERVER_LO_WATER
 #  define SERVER_LO_WATER (1 * 1024 * 1024)
 # endif /* SERVER_LO_WATER */
-
-static int set_nonblock_fd PROTO((int));
-
-/*
- * Set buffer BUF to non-blocking I/O.  Returns 0 for success or errno
- * code.
- */
-
-static int
-set_nonblock_fd (fd)
-     int fd;
-{
-    int flags;
-
-    flags = fcntl (fd, F_GETFL, 0);
-    if (flags < 0)
-	return errno;
-    if (fcntl (fd, F_SETFL, flags | O_NONBLOCK) < 0)
-	return errno;
-    return 0;
-}
-
 #endif /* SERVER_FLOWCONTROL */
-
+
+
+
 static void serve_questionable PROTO((char *));
 
 static void
@@ -2740,8 +2723,16 @@ error  \n");
 	/* At this point we should no longer be using buf_to_net and
 	   buf_from_net.  Instead, everything should go through
 	   protocol.  */
-	buf_to_net = NULL;
-	buf_from_net = NULL;
+	if (buf_to_net != NULL)
+	{
+	    buf_free (buf_to_net);
+	    buf_to_net = NULL;
+	}
+	if (buf_from_net != NULL)
+	{
+	    buf_free (buf_from_net);
+	    buf_from_net = NULL;
+	}
 
 	/* These were originally set up to use outbuf_memory_error.
 	   Since we're now in the child, we should use the simpler
@@ -2792,11 +2783,34 @@ error  \n");
 	/* For now we just discard partial lines on stderr.  I suspect
 	   that CVS can't write such lines unless there is a bug.  */
 
-	/*
-	 * When we exit, that will close the pipes, giving an EOF to
-	 * the parent.
-	 */
 	buf_free (protocol);
+
+	/* Close the pipes explicitly in order to send an EOF to the parent,
+	 * then wait for the parent to close the flow control pipe.  This
+	 * avoids a race condition where a child which dumped more than the
+	 * high water mark into the pipes could complete its job and exit,
+	 * leaving the parent process to attempt to write a stop byte to the
+	 * closed flow control pipe, which earned the parent a SIGPIPE, which
+	 * it normally only expects on the network pipe and that causes it to
+	 * exit with an error message, rather than the SIGCHILD that it knows
+	 * how to handle correctly.
+	 */
+	/* Let exit() close STDIN - it's from /dev/null anyhow.  */
+	fclose (stderr);
+	fclose (stdout);
+	close (protocol_pipe[1]);
+#ifdef SERVER_FLOWCONTROL
+	{
+	    char junk;
+	    ssize_t status;
+	    while ((status = read (flowcontrol_pipe[0], &junk, 1)) > 0
+	           || (status == -1 && errno == EAGAIN));
+	}
+	/* FIXME: No point in printing an error message with error(),
+	 * as STDERR is already closed, but perhaps this could be syslogged?
+	 */
+#endif
+
 	exit (exitstatus);
     }
 

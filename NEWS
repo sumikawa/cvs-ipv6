@@ -1,5 +1,31 @@
-Changes since 1.11.11:
+Changes since 1.11.12:
 **********************
+
+GENERAL USER ISSUES
+
+* Several memory leaks have been plugged.
+
+* Thanks to Ville Skyttä the man page has a few less spelling errors and is
+  slightly more accurate.
+
+* An unlikely potential segfault when using the :fork: connection method has
+  been fixed.
+
+* Misc cosmetic, readability, and commenting fixes.
+
+* The CVS server has had the protocol check for unused data from the client
+  partially restored.
+
+* A fix has been included that should avoid a very rare race condition that
+  could cause a CVS server to exit with a "broken pipe" message.
+
+* A minor problem with the nmake build file that was preventing the source from
+  compiling under Windows has been fixed.
+
+* Tests have been added to the test suite.
+
+Changes from 1.11.11 to 1.11.12:
+********************************
 
 GENERAL USER ISSUES
 
