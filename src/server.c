@@ -2640,7 +2640,7 @@ do_cvs_command (cmd_name, command)
     if (print_pending_error ())
 	goto free_args_and_return;
 
-    /* Global `command_name' is probably "server" right now -- only
+    /* Global `cvs_cmd_name' is probably "server" right now -- only
        serve_export() sets it to anything else.  So we will use local
        parameter `cmd_name' to determine if this command is legal for
        this user.  */
@@ -2654,7 +2654,7 @@ do_cvs_command (cmd_name, command)
 error  \n");
 	goto free_args_and_return;
     }
-    command_name = cmd_name;
+    cvs_cmd_name = cmd_name;
 
     (void) server_notify ();
 
@@ -3363,16 +3363,18 @@ server_pause_check()
     }
 }
 #endif /* SERVER_FLOWCONTROL */
-
+
 /* This variable commented in server.h.  */
 char *server_dir = NULL;
 
-static void output_dir PROTO((char *, char *));
+
+
+static void output_dir PROTO((const char *, const char *));
 
 static void
 output_dir (update_dir, repository)
-    char *update_dir;
-    char *repository;
+    const char *update_dir;
+    const char *repository;
 {
     if (server_dir != NULL)
     {
@@ -3387,7 +3389,9 @@ output_dir (update_dir, repository)
     buf_output0 (protocol, repository);
     buf_output0 (protocol, "/");
 }
-
+
+
+
 /*
  * Entries line that we are squirreling away to send to the client when
  * we are ready.
@@ -3406,15 +3410,17 @@ static char *scratched_file;
  */
 static int kill_scratched_file;
 
+
+
 void
 server_register (name, version, timestamp, options, tag, date, conflict)
-    char *name;
-    char *version;
-    char *timestamp;
-    char *options;
-    char *tag;
-    char *date;
-    char *conflict;
+    const char *name;
+    const char *version;
+    const char *timestamp;
+    const char *options;
+    const char *tag;
+    const char *date;
+    const char *conflict;
 {
     int len;
 
@@ -3480,9 +3486,11 @@ server_register (name, version, timestamp, options, tag, date, conflict)
     }
 }
 
+
+
 void
 server_scratch (fname)
-    char *fname;
+    const char *fname;
 {
     /*
      * I have reports of Scratch_Entry and Register both happening, in
@@ -3580,9 +3588,9 @@ checked_in_response (file, update_dir, repository)
 
 void
 server_checked_in (file, update_dir, repository)
-    char *file;
-    char *update_dir;
-    char *repository;
+    const char *file;
+    const char *update_dir;
+    const char *repository;
 {
     if (noexec)
 	return;
@@ -3608,9 +3616,9 @@ server_checked_in (file, update_dir, repository)
 
 void
 server_update_entries (file, update_dir, repository, updated)
-    char *file;
-    char *update_dir;
-    char *repository;
+    const char *file;
+    const char *update_dir;
+    const char *repository;
     enum server_updated_arg4 updated;
 {
     if (noexec)
@@ -3913,12 +3921,12 @@ serve_co (arg)
 	free (tempdir);
     }
 
-    /* Compensate for server_export()'s setting of command_name.
+    /* Compensate for server_export()'s setting of cvs_cmd_name.
      *
      * [It probably doesn't matter if do_cvs_command() gets "export"
      *  or "checkout", but we ought to be accurate where possible.]
      */
-    do_cvs_command ((strcmp (command_name, "export") == 0) ?
+    do_cvs_command ((strcmp (cvs_cmd_name, "export") == 0) ?
 		    "export" : "checkout",
 		    checkout);
 }
@@ -3928,16 +3936,18 @@ serve_export (arg)
     char *arg;
 {
     /* Tell checkout() to behave like export not checkout.  */
-    command_name = "export";
+    cvs_cmd_name = "export";
     serve_co (arg);
 }
-
+
+
+
 void
 server_copy_file (file, update_dir, repository, newfile)
-    char *file;
-    char *update_dir;
-    char *repository;
-    char *newfile;
+    const char *file;
+    const char *update_dir;
+    const char *repository;
+    const char *newfile;
 {
     /* At least for now, our practice is to have the server enforce
        noexec for the repository and the client enforce it for the
@@ -4301,10 +4311,12 @@ server_use_rcs_diff ()
     return supported_response ("Rcs-diff");
 }
 
+
+
 void
 server_set_entstat (update_dir, repository)
-    char *update_dir;
-    char *repository;
+    const char *update_dir;
+    const char *repository;
 {
     static int set_static_supported = -1;
     if (set_static_supported == -1)
@@ -4317,10 +4329,12 @@ server_set_entstat (update_dir, repository)
     buf_send_counted (protocol);
 }
 
+
+
 void
 server_clear_entstat (update_dir, repository)
-     char *update_dir;
-     char *repository;
+     const char *update_dir;
+     const char *repository;
 {
     static int clear_static_supported = -1;
     if (clear_static_supported == -1)
@@ -4335,13 +4349,15 @@ server_clear_entstat (update_dir, repository)
     buf_output0 (protocol, "\n");
     buf_send_counted (protocol);
 }
-
+
+
+
 void
 server_set_sticky (update_dir, repository, tag, date, nonbranch)
-    char *update_dir;
-    char *repository;
-    char *tag;
-    char *date;
+    const char *update_dir;
+    const char *repository;
+    const char *tag;
+    const char *date;
     int nonbranch;
 {
     static int set_sticky_supported = -1;
@@ -4386,8 +4402,8 @@ server_set_sticky (update_dir, repository, tag, date, nonbranch)
 
 struct template_proc_data
 {
-    char *update_dir;
-    char *repository;
+    const char *update_dir;
+    const char *repository;
 };
 
 /* Here as a static until we get around to fixing Parse_Info to pass along
@@ -4442,10 +4458,12 @@ template_proc (repository, template)
     return 0;
 }
 
+
+
 void
 server_template (update_dir, repository)
-    char *update_dir;
-    char *repository;
+    const char *update_dir;
+    const char *repository;
 {
     struct template_proc_data data;
     data.update_dir = update_dir;
@@ -4453,7 +4471,9 @@ server_template (update_dir, repository)
     tpd = &data;
     (void) Parse_Info (CVSROOTADM_RCSINFO, repository, template_proc, 1);
 }
-
+
+
+
 static void
 serve_gzip_contents (arg)
      char *arg;
@@ -5058,8 +5078,7 @@ error ENOMEM Virtual memory exhausted.\n");
 
     /* Small for testing.  */
     argument_vector_size = 1;
-    argument_vector =
-	(char **) xmalloc (argument_vector_size * sizeof (char *));
+    argument_vector = xmalloc (argument_vector_size * sizeof (char *));
     argument_count = 1;
     /* This gets printed if the client supports an option which the
        server doesn't, causing the server to print a usage message.
@@ -5068,7 +5087,7 @@ error ENOMEM Virtual memory exhausted.\n");
        by options which are for a particular command.  Might be nice to
        say something like "client apparently supports an option not supported
        by this server" or something like that instead of usage message.  */
-    error_prog_name = xmalloc( strlen(program_name) + 8 );
+    error_prog_name = xmalloc (strlen (program_name) + 8);
     sprintf(error_prog_name, "%s server", program_name);
     argument_vector[0] = error_prog_name;
 
@@ -5078,7 +5097,7 @@ error ENOMEM Virtual memory exhausted.\n");
 	struct request *rq;
 	int status;
 
-	status = buf_read_line (buf_from_net, &cmd, (int *) NULL);
+	status = buf_read_line (buf_from_net, &cmd, NULL);
 	if (status == -2)
 	{
 	    buf_output0 (buf_to_net, "E Fatal server error, aborting.\n\
@@ -5472,6 +5491,7 @@ check_repository_password (username, password, repository, host_user_ptr)
 
     return retval;
 }
+
 
 
 /* Return a hosting username if password matches, else NULL. */
@@ -5906,6 +5926,8 @@ gserver_authenticate_connection ()
     struct hostent *hp;
     gss_buffer_desc tok_in, tok_out;
     char buf[1024];
+    char *credbuf;
+    size_t credbuflen;
     OM_uint32 stat_min, ret;
     gss_name_t server_name, client_name;
     gss_cred_id_t server_creds;
@@ -5940,14 +5962,23 @@ gserver_authenticate_connection ()
 	error (1, errno, "read of length failed");
 
     nbytes = ((buf[0] & 0xff) << 8) | (buf[1] & 0xff);
-    assert (nbytes <= sizeof buf);
-
-    if (fread (buf, 1, nbytes, stdin) != nbytes)
+    if (nbytes <= sizeof buf)
+    {
+        credbuf = buf;
+        credbuflen = sizeof buf;
+    }
+    else
+    {
+        credbuflen = nbytes;
+        credbuf = xmalloc (credbuflen);
+    }
+    
+    if (fread (credbuf, 1, nbytes, stdin) != nbytes)
 	error (1, errno, "read of data failed");
 
     gcontext = GSS_C_NO_CONTEXT;
     tok_in.length = nbytes;
-    tok_in.value = buf;
+    tok_in.value = credbuf;
 
     if (gss_accept_sec_context (&stat_min,
 				&gcontext,	/* context_handle */
@@ -5998,6 +6029,9 @@ gserver_authenticate_connection ()
     }
 
     switch_to_user ("GSSAPI", buf);
+
+    if (credbuf != buf)
+        free (credbuf);
 
     printf ("I LOVE YOU\n");
     fflush (stdout);
@@ -6390,8 +6424,9 @@ this client does not support writing binary files to stdout");
     }
 }
 
-/* Like CVS_OUTPUT but output is for stderr not stdout.  */
 
+
+/* Like CVS_OUTPUT but output is for stderr not stdout.  */
 void
 cvs_outerr (str, len)
     const char *str;
@@ -6435,10 +6470,11 @@ cvs_outerr (str, len)
     }
 }
 
+
+
 /* Flush stderr.  stderr is normally flushed automatically, of course,
    but this function is used to flush information from the server back
    to the client.  */
-
 void
 cvs_flusherr ()
 {
@@ -6465,10 +6501,11 @@ cvs_flusherr ()
 	fflush (stderr);
 }
 
+
+
 /* Make it possible for the user to see what has been written to
    stdout (it is up to the implementation to decide exactly how far it
    should go to ensure this).  */
-
 void
 cvs_flushout ()
 {
@@ -6507,8 +6544,8 @@ cvs_flushout ()
 
 void
 cvs_output_tagged (tag, text)
-    char *tag;
-    char *text;
+    const char *tag;
+    const char *text;
 {
     if (text != NULL && strchr (text, '\n') != NULL)
 	/* Uh oh.  The protocol has no way to cope with this.  For now

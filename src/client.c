@@ -91,7 +91,20 @@ static int connect_to_gserver PROTO((cvsroot_t *, int, const char *));
 
 # endif /* HAVE_GSSAPI */
 
-static void add_prune_candidate PROTO((char *));
+
+
+/* Keep track of any paths we are sending for Max-dotdot so that we can verify
+ * that uplevel paths coming back form the server are valid.
+ *
+ * FIXME: The correct way to do this is probably provide some sort of virtual
+ * path map on the client side.  This would be generic enough to be applied to
+ * absolute paths supplied by the user too.
+ */
+static List *uppaths = NULL;
+
+
+
+static void add_prune_candidate PROTO((const char *));
 
 /* All the commands.  */
 int add PROTO((int argc, char **argv));
@@ -1001,6 +1014,61 @@ handle_valid_requests (args, len)
 
 
 /*
+ * This is a proc for walklist().  It inverts the error return premise of
+ * walklist.
+ *
+ * RETURNS
+ *   True       If this path is prefixed by one of the paths in walklist and
+ *              does not step above the prefix path.
+ *   False      Otherwise.
+ */
+static
+int path_list_prefixed (p, closure)
+    Node *p;
+    void *closure;
+{
+    const char *questionable = closure;
+    const char *prefix = p->key;
+    if (strncmp (prefix, questionable, strlen (prefix))) return 0;
+    questionable += strlen (prefix);
+    while (ISDIRSEP (*questionable)) questionable++;
+    if (*questionable == '\0') return 1;
+    return pathname_levels (questionable);
+}
+
+
+
+/*
+ * Need to validate the client pathname.  Disallowed paths include:
+ *
+ *   1. Absolute paths.
+ *   2. Pathnames that do not reference a specifically requested update
+ *      directory.
+ *
+ * In case 2, we actually only check that the directory is under the uppermost
+ * directories mentioned on the command line.
+ *
+ * RETURNS
+ *   True       If the path is valid.
+ *   False      Otherwise.
+ */
+static
+int is_valid_client_path (pathname)
+    const char *pathname;
+{
+    /* 1. Absolute paths. */
+    if (isabsolute (pathname)) return 0;
+    /* 2. No up-references in path.  */
+    if (pathname_levels (pathname) == 0) return 1;
+    /* 2. No Max-dotdot paths registered.  */
+    if (uppaths == NULL) return 0;
+
+    return walklist (uppaths, path_list_prefixed, (void *)pathname);
+}
+
+
+
+/*
  * Do all the processing for PATHNAME, where pathname consists of the
  * repository and the filename.  The parameters we pass to FUNC are:
  * DATA is just the DATA parameter which was passed to
@@ -1070,6 +1138,36 @@ call_in_directory (pathname, func, data)
 	    short_repos = reposname;
 	}
     }
+
+   /* Now that we have SHORT_REPOS, we can calculate the path to the file we
+    * are being requested to operate on.
+    */
+    filename = strrchr (short_repos, '/');
+    if (filename == NULL)
+	filename = short_repos;
+    else
+	++filename;
+
+    short_pathname = xmalloc (strlen (pathname) + strlen (filename) + 5);
+    strcpy (short_pathname, pathname);
+    strcat (short_pathname, filename);
+
+    /* Now that we know the path to the file we were requested to operate on,
+     * we can verify that it is valid.
+     *
+     * For security reasons, if SHORT_PATHNAME is absolute or attempts to
+     * ascend outside of the current sanbbox, we abort.  The server should not
+     * send us anything but relative paths which remain inside the sandbox
+     * here.  Anything less means a trojan CVS server could create and edit
+     * arbitrary files on the client.
+     */
+    if (!is_valid_client_path (short_pathname))
+    {
+	error (0, 0,
+               "Server attempted to update a file via an invalid pathname:");
+        error (1, 0, "`%s'.", short_pathname);
+    }
+
     reposdirname = xstrdup (short_repos);
     p = strrchr (reposdirname, '/');
     if (p == NULL)
@@ -1091,16 +1189,6 @@ call_in_directory (pathname, func, data)
 	*p = '\0';
     if (client_prune_dirs)
 	add_prune_candidate (dir_name);
-
-    filename = strrchr (short_repos, '/');
-    if (filename == NULL)
-	filename = short_repos;
-    else
-	++filename;
-
-    short_pathname = xmalloc (strlen (pathname) + strlen (filename) + 5);
-    strcpy (short_pathname, pathname);
-    strcat (short_pathname, filename);
 
     if (toplevel_wd == NULL)
     {
@@ -1240,7 +1328,7 @@ call_in_directory (pathname, func, data)
 	    {
 		/* It already existed, fine.  Just keep going.  */
 	    }
-	    else if (strcmp (command_name, "export") == 0)
+	    else if (strcmp (cvs_cmd_name, "export") == 0)
 		/* Don't create CVSADM directories if this is export.  */
 		;
 	    else
@@ -1308,7 +1396,7 @@ warning: server is not creating directories one at a time");
 	if ( CVS_CHDIR (dir_name) < 0)
 	    error (1, errno, "could not chdir to %s", dir_name);
     }
-    else if (strcmp (command_name, "export") == 0)
+    else if (strcmp (cvs_cmd_name, "export") == 0)
 	/* Don't create CVSADM directories if this is export.  */
 	;
     else if (!isdir (CVSADM))
@@ -1338,7 +1426,7 @@ warning: server is not creating directories one at a time");
 	    free (repo);
     }
 
-    if (strcmp (command_name, "export") != 0)
+    if (strcmp (cvs_cmd_name, "export") != 0)
     {
 	last_entries = Entries_Open (0, dir_name);
 
@@ -2144,7 +2232,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
      * Process the entries line.  Do this after we've written the file,
      * since we need the timestamp.
      */
-    if (strcmp (command_name, "export") != 0)
+    if (strcmp (cvs_cmd_name, "export") != 0)
     {
 	char *local_timestamp;
 	char *file_timestamp;
@@ -2168,7 +2256,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	{
 	    local_timestamp = file_timestamp;
 
-	    /* Checking for command_name of "commit" doesn't seem like
+	    /* Checking for cvs_cmd_name of "commit" doesn't seem like
 	       the cleanest way to handle this, but it seem to roughly
 	       parallel what the :local: code which calls
 	       mark_up_to_date ends up amounting to.  Some day, should
@@ -2176,7 +2264,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	       vis-a-vis both Entries and Base and clarify
 	       cvsclient.texi accordingly.  */
 
-	    if (!strcmp (command_name, "commit"))
+	    if (!strcmp (cvs_cmd_name, "commit"))
 		mark_up_to_date (filename);
 	}
 
@@ -2366,7 +2454,7 @@ handle_set_static_directory (args, len)
     char *args;
     int len;
 {
-    if (strcmp (command_name, "export") == 0)
+    if (strcmp (cvs_cmd_name, "export") == 0)
     {
 	/* Swallow the repository.  */
 	read_line (NULL);
@@ -2391,7 +2479,7 @@ handle_clear_static_directory (pathname, len)
     char *pathname;
     int len;
 {
-    if (strcmp (command_name, "export") == 0)
+    if (strcmp (cvs_cmd_name, "export") == 0)
     {
 	/* Swallow the repository.  */
 	read_line (NULL);
@@ -2446,7 +2534,7 @@ handle_set_sticky (pathname, len)
     char *pathname;
     int len;
 {
-    if (strcmp (command_name, "export") == 0)
+    if (strcmp (cvs_cmd_name, "export") == 0)
     {
 	/* Swallow the repository.  */
 	read_line (NULL);
@@ -2487,7 +2575,7 @@ handle_clear_sticky (pathname, len)
     char *pathname;
     int len;
 {
-    if (strcmp (command_name, "export") == 0)
+    if (strcmp (cvs_cmd_name, "export") == 0)
     {
 	/* Swallow the repository.  */
 	read_line (NULL);
@@ -2545,7 +2633,7 @@ struct save_dir *prune_candidates;
 
 static void
 add_prune_candidate (dir)
-    char *dir;
+    const char *dir;
 {
     struct save_dir *p;
 
@@ -2602,13 +2690,13 @@ process_prune_candidates ()
 static char *last_repos;
 static char *last_update_dir;
 
-static void send_repository PROTO((char *, char *, char *));
+static void send_repository PROTO((const char *, const char *, const char *));
 
 static void
 send_repository (dir, repos, update_dir)
-    char *dir;
-    char *repos;
-    char *update_dir;
+    const char *dir;
+    const char *repos;
+    const char *update_dir;
 {
     char *adm_name;
 
@@ -2671,7 +2759,7 @@ send_repository (dir, repos, update_dir)
 	   sort of duplicates code elsewhere, but each
 	   case seems slightly different...  */
 	char buf[1];
-	char *p = update_dir;
+	const char *p = update_dir;
 	while (*p != '\0')
 	{
 	    assert (*p != '\012');
@@ -2750,11 +2838,13 @@ send_repository (dir, repos, update_dir)
 /* Send a Repository line and set toplevel_repos.  */
 
 void
-send_a_repository (dir, repository, update_dir)
-    char *dir;
-    char *repository;
-    char *update_dir;
+send_a_repository (dir, repository, update_dir_in)
+    const char *dir;
+    const char *repository;
+    const char *update_dir_in;
 {
+    char *update_dir = xstrdup (update_dir_in);
+
     if (toplevel_repos == NULL && repository != NULL)
     {
 	if (update_dir[0] == '\0'
@@ -2840,8 +2930,11 @@ send_a_repository (dir, repository, update_dir)
     }
 
     send_repository (dir, repository, update_dir);
+    free (update_dir);
 }
-
+
+
+
 /* The "expanded" modules.  */
 static int modules_count;
 static int modules_allocated;
@@ -3251,7 +3344,7 @@ struct response responses[] =
  */
 void
 send_to_server (str, len)
-     char *str;
+     const char *str;
      size_t len;
 {
     static int nbytes;
@@ -3951,7 +4044,7 @@ connect_to_forked_server (to_server, from_server)
     /* This is pretty simple.  All we need to do is choose the correct
        cvs binary and call piped_child. */
 
-    char *command[3];
+     const char *command[3];
 
     command[0] = getenv ("CVS_SERVER");
     if (! command[0])
@@ -4002,8 +4095,7 @@ start_tcp_server (root, to_server, from_server)
 
     hp = init_sockaddr (&sin, root->hostname, port);
 
-    hname = xmalloc (strlen (hp->h_name) + 1);
-    strcpy (hname, hp->h_name);
+    hname = xstrdup (hp->h_name);
   
     if (trace)
     {
@@ -4204,6 +4296,8 @@ connect_to_gserver (root, sock, hostname)
 
 #endif /* HAVE_GSSAPI */
 
+
+
 static int send_variable_proc PROTO ((Node *, void *));
 
 static int
@@ -4219,6 +4313,8 @@ send_variable_proc (node, closure)
     return 0;
 }
 
+
+
 /* Contact the server.  */
 void
 start_server ()
@@ -4230,7 +4326,6 @@ start_server ()
     if (toplevel_repos != NULL)
 	free (toplevel_repos);
     toplevel_repos = NULL;
-
 
     /* Note that generally speaking we do *not* fall back to a different
        way of connecting if the first one does not work.  This is slow
@@ -4364,7 +4459,7 @@ start_server ()
 	stored_mode = NULL;
     }
 
-    rootless = (strcmp (command_name, "init") == 0);
+    rootless = (strcmp (cvs_cmd_name, "init") == 0);
     if (!rootless)
     {
 	send_to_server ("Root ", 0);
@@ -4466,8 +4561,8 @@ start_server ()
        reason to bother would be so we could make add work without
        contacting the server, I suspect).  */
 
-    if ((strcmp (command_name, "import") == 0)
-        || (strcmp (command_name, "add") == 0))
+    if ((strcmp (cvs_cmd_name, "import") == 0)
+        || (strcmp (cvs_cmd_name, "add") == 0))
     {
 	if (supported_request ("wrapper-sendme-rcsOptions"))
 	{
@@ -4607,6 +4702,8 @@ start_server ()
 	walklist (variable_list, send_variable_proc, NULL);
 }
 
+
+
 #ifndef NO_EXT_METHOD
 
 /* Contact the server by starting it with rsh.  */
@@ -4743,8 +4840,8 @@ start_rsh_server (root, to_server, from_server)
     sprintf (command, "%s server", cvs_server);
 
     {
-        char *argv[10];
-	char **p = argv;
+        const char *argv[10];
+	const char **p = argv;
 
 	*p++ = cvs_rsh;
 	*p++ = root->hostname;
@@ -4811,8 +4908,10 @@ send_arg (string)
     }
     send_to_server ("\012", 1);
 }
-
-static void send_modified PROTO ((char *, char *, Vers_TS *));
+
+
+
+static void send_modified PROTO ((const char *, const char *, Vers_TS *));
 
 /* VERS->OPTIONS specifies whether the file is binary or not.  NOTE: BEFORE
    using any other fields of the struct vers, we would need to fix
@@ -4820,8 +4919,8 @@ static void send_modified PROTO ((char *, char *, Vers_TS *));
 
 static void
 send_modified (file, short_pathname, vers)
-    char *file;
-    char *short_pathname;
+    const char *file;
+    const char *short_pathname;
     Vers_TS *vers;
 {
     /* File was modified, send it.  */
@@ -4987,7 +5086,7 @@ send_fileproc (callerdat, finfo)
     struct file_info xfinfo;
     /* File name to actually use.  Might differ in case from
        finfo->file.  */
-    char *filename;
+    const char *filename;
 
     send_a_repository ("", finfo->repository, finfo->update_dir);
 
@@ -5128,12 +5227,14 @@ warning: ignoring -k options due to server limitations");
     return 0;
 }
 
-static void send_ignproc PROTO ((char *, char *));
+
+
+static void send_ignproc PROTO ((const char *, const char *));
 
 static void
 send_ignproc (file, dir)
-    char *file;
-    char *dir;
+    const char *file;
+    const char *dir;
 {
     if (ign_inhibit_server || !supported_request ("Questionable"))
     {
@@ -5150,14 +5251,17 @@ send_ignproc (file, dir)
     }
 }
 
-static int send_filesdoneproc PROTO ((void *, int, char *, char *, List *));
+
+
+static int send_filesdoneproc PROTO ((void *, int, const char *, const char *,
+                                      List *));
 
 static int
 send_filesdoneproc (callerdat, err, repository, update_dir, entries)
     void *callerdat;
     int err;
-    char *repository;
-    char *update_dir;
+    const char *repository;
+    const char *update_dir;
     List *entries;
 {
     /* if this directory has an ignore list, process it then free it */
@@ -5170,7 +5274,8 @@ send_filesdoneproc (callerdat, err, repository, update_dir, entries)
     return (err);
 }
 
-static Dtype send_dirent_proc PROTO ((void *, char *, char *, char *, List *));
+static Dtype send_dirent_proc PROTO ((void *, const char *, const char *,
+                                      const char *, List *));
 
 /*
  * send_dirent_proc () is called back by the recursion processor before a
@@ -5183,9 +5288,9 @@ static Dtype send_dirent_proc PROTO ((void *, char *, char *, char *, List *));
 static Dtype
 send_dirent_proc (callerdat, dir, repository, update_dir, entries)
     void *callerdat;
-    char *dir;
-    char *repository;
-    char *update_dir;
+    const char *dir;
+    const char *repository;
+    const char *update_dir;
     List *entries;
 {
     struct send_data *args = (struct send_data *) callerdat;
@@ -5255,7 +5360,10 @@ send_dirent_proc (callerdat, dir, repository, update_dir, entries)
     return (dir_exists ? R_PROCESS : R_SKIP_ALL);
 }
 
-static int send_dirleave_proc PROTO ((void *, char *, int, char *, List *));
+
+
+static int send_dirleave_proc PROTO ((void *, const char *, int, const char *,
+                                      List *));
 
 /*
  * send_dirleave_proc () is called back by the recursion code upon leaving
@@ -5266,9 +5374,9 @@ static int send_dirleave_proc PROTO ((void *, char *, int, char *, List *));
 static int
 send_dirleave_proc (callerdat, dir, err, update_dir, entries)
     void *callerdat;
-    char *dir;
+    const char *dir;
     int err;
-    char *update_dir;
+    const char *update_dir;
     List *entries;
 {
 
@@ -5312,8 +5420,8 @@ send_option_string (string)
 }
 
 
-/* Send the names of all the argument files to the server.  */
 
+/* Send the names of all the argument files to the server.  */
 void
 send_file_names (argc, argv, flags)
     int argc;
@@ -5321,42 +5429,11 @@ send_file_names (argc, argv, flags)
     unsigned int flags;
 {
     int i;
-    int level;
-    int max_level;
     
     /* The fact that we do this here as well as start_recursion is a bit 
        of a performance hit.  Perhaps worth cleaning up someday.  */
     if (flags & SEND_EXPAND_WILD)
 	expand_wild (argc, argv, &argc, &argv);
-
-    /* Send Max-dotdot if needed.  */
-    max_level = 0;
-    for (i = 0; i < argc; ++i)
-    {
-	level = pathname_levels (argv[i]);
-	if (level > max_level)
-	    max_level = level;
-    }
-    if (max_level > 0)
-    {
-	if (supported_request ("Max-dotdot"))
-	{
-            char buf[10];
-            sprintf (buf, "%d", max_level);
-
-	    send_to_server ("Max-dotdot ", 0);
-	    send_to_server (buf, 0);
-	    send_to_server ("\012", 1);
-	}
-	else
-	    /*
-	     * "leading .." is not strictly correct, as this also includes
-	     * cases like "foo/../..".  But trying to explain that in the
-	     * error message would probably just confuse users.
-	     */
-	    error (1, 0,
-		   "leading .. not supported by old (pre-Max-dotdot) servers");
-    }
 
     for (i = 0; i < argc; ++i)
     {
@@ -5388,7 +5465,10 @@ send_file_names (argc, argv, flags)
 	    /* Split the argument onto the stack.  */
 	    stack = getlist();
 	    r = xstrdup (argv[i]);
-	    while ((q = last_component (r)) != r)
+            /* It's okay to discard the const from the last_component return
+             * below since we know we passed in an arg that was not const.
+             */
+	    while ((q = (char *)last_component (r)) != r)
 	    {
 		push (stack, xstrdup (q));
 		*--q = '\0';
@@ -5497,6 +5577,51 @@ send_file_names (argc, argv, flags)
 }
 
 
+
+/* Calculate and send max-dotdot to the server */
+static void
+send_max_dotdot (argc, argv)
+    int argc;
+    char **argv;
+{
+    int i;
+    int level = 0;
+    int max_level = 0;
+
+    /* Send Max-dotdot if needed.  */
+    for (i = 0; i < argc; ++i)
+    {
+        level = pathname_levels (argv[i]);
+	if (level > 0)
+	{
+            if (uppaths == NULL) uppaths = getlist();
+	    push_string (uppaths, xstrdup (argv[i]));
+	}
+        if (level > max_level)
+            max_level = level;
+    }
+
+    if (max_level > 0)
+    {
+        if (supported_request ("Max-dotdot"))
+        {
+            char buf[10];
+            sprintf (buf, "%d", max_level);
+
+            send_to_server ("Max-dotdot ", 0);
+            send_to_server (buf, 0);
+            send_to_server ("\012", 1);
+        }
+        else
+        {
+            error (1, 0,
+"backreference in path (`..') not supported by old (pre-Max-dotdot) servers");
+        }
+    }
+}
+
+
+
 /* Send Repository, Modified and Entry.  argc and argv contain only
   the files to operate on (or empty for everything), not options.
   local is nonzero if we should not recurse (-l option).  flags &
@@ -5516,6 +5641,8 @@ send_files (argc, argv, local, aflag, flags)
 {
     struct send_data args;
     int err;
+
+    send_max_dotdot (argc, argv);
 
     /*
      * aflag controls whether the tag/date is copied into the vers_ts.
@@ -5663,7 +5790,9 @@ client_import_done ()
 	toplevel_repos = xstrdup (current_parsed_root->directory);
     send_repository ("", toplevel_repos, ".");
 }
-
+
+
+
 static void
 notified_a_file (data, ent_list, short_pathname, filename)
     char *data;
@@ -5782,11 +5911,11 @@ handle_notified (args, len)
 
 void
 client_notify (repository, update_dir, filename, notif_type, val)
-    char *repository;
-    char *update_dir;
-    char *filename;
+    const char *repository;
+    const char *update_dir;
+    const char *filename;
     int notif_type;
-    char *val;
+    const char *val;
 {
     char buf[2];
 

@@ -49,30 +49,29 @@ static int checkout_file PROTO ((struct file_info *finfo, Vers_TS *vers_ts,
 				 int adding, int merging, int update_server));
 #ifdef SERVER_SUPPORT
 static void checkout_to_buffer PROTO ((void *, const char *, size_t));
-#endif
-#ifdef SERVER_SUPPORT
 static int patch_file PROTO ((struct file_info *finfo,
 			      Vers_TS *vers_ts, 
 			      int *docheckout, struct stat *file_info,
 			      unsigned char *checksum));
 static void patch_file_write PROTO ((void *, const char *, size_t));
-#endif
+#endif /* SERVER_SUPPORT */
 static int merge_file PROTO ((struct file_info *finfo, Vers_TS *vers));
 static int scratch_file PROTO((struct file_info *finfo, Vers_TS *vers));
-static Dtype update_dirent_proc PROTO ((void *callerdat, char *dir,
-					char *repository, char *update_dir,
-					List *entries));
-static int update_dirleave_proc PROTO ((void *callerdat, char *dir,
-					int err, char *update_dir,
+static Dtype update_dirent_proc PROTO ((void *callerdat, const char *dir,
+                                        const char *repository,
+                                        const char *update_dir,
+                                        List *entries));
+static int update_dirleave_proc PROTO ((void *callerdat, const char *dir,
+					int err, const char *update_dir,
 					List *entries));
 static int update_fileproc PROTO ((void *callerdat, struct file_info *));
 static int update_filesdone_proc PROTO ((void *callerdat, int err,
-					 char *repository, char *update_dir,
-					 List *entries));
+                                         const char *repository,
+                                         const char *update_dir,
+                                         List *entries));
 #ifdef PRESERVE_PERMISSIONS_SUPPORT
 static int get_linkinfo_proc PROTO ((void *callerdat, struct file_info *));
 #endif
-static void write_letter PROTO ((struct file_info *finfo, int letter));
 static void join_file PROTO ((struct file_info *finfo, Vers_TS *vers_ts));
 
 static char *options = NULL;
@@ -184,7 +183,7 @@ update (argc, argv)
 #endif
 		    error (1, 0,
 			   "-q or -Q must be specified before \"%s\"",
-			   command_name);
+			   cvs_cmd_name);
 		break;
 	    case 'd':
 		update_build_dirs = 1;
@@ -570,6 +569,8 @@ get_linkinfo_proc (callerdat, finfo)
 }
 #endif
 
+
+
 /*
  * This is the callback proc for update.  It is called for each file in each
  * directory by the recursion code.  The current directory is the local
@@ -692,8 +693,8 @@ update_fileproc (callerdat, finfo)
                 {
                     if (vers->ts_conflict)
                     {
-			if ( file_has_conflict ( finfo, vers->ts_conflict )
-			     || file_has_markers ( finfo ) )
+			if (file_has_conflict (finfo, vers->ts_conflict)
+			    || file_has_markers (finfo))
                         {
                             write_letter (finfo, 'C');
                             retval = 1;
@@ -708,10 +709,7 @@ update_fileproc (callerdat, finfo)
                         }
                     }
                     if (!retval)
-                    {
                         write_letter (finfo, 'M');
-                        retval = 0;
-                    }
                 }
 		break;
 	    case T_PATCH:		/* needs patch */
@@ -781,42 +779,48 @@ update_fileproc (callerdat, finfo)
     }
 
     freevers_ts (&vers);
-    return (retval);
+    return retval;
 }
 
-static void update_ignproc PROTO ((char *, char *));
+
+
+static void update_ignproc PROTO ((const char *, const char *));
 
 static void
 update_ignproc (file, dir)
-    char *file;
-    char *dir;
+    const char *file;
+    const char *dir;
 {
     struct file_info finfo;
+    char *tmp;
 
     memset (&finfo, 0, sizeof (finfo));
     finfo.file = file;
     finfo.update_dir = dir;
     if (dir[0] == '\0')
-	finfo.fullname = xstrdup (file);
+	tmp = xstrdup (file);
     else
     {
-	finfo.fullname = xmalloc (strlen (file) + strlen (dir) + 10);
-	strcpy (finfo.fullname, dir);
-	strcat (finfo.fullname, "/");
-	strcat (finfo.fullname, file);
+	tmp = xmalloc (strlen (file) + strlen (dir) + 10);
+	strcpy (tmp, dir);
+	strcat (tmp, "/");
+	strcat (tmp, file);
     }
 
+    finfo.fullname = tmp;
     write_letter (&finfo, '?');
-    free (finfo.fullname);
+    free (tmp);
 }
+
+
 
 /* ARGSUSED */
 static int
 update_filesdone_proc (callerdat, err, repository, update_dir, entries)
     void *callerdat;
     int err;
-    char *repository;
-    char *update_dir;
+    const char *repository;
+    const char *update_dir;
     List *entries;
 {
     if (rewrite_tag)
@@ -833,7 +837,7 @@ update_filesdone_proc (callerdat, err, repository, update_dir, entries)
     }
 
     /* Clean up CVS admin dirs if we are export */
-    if (strcmp (command_name, "export") == 0)
+    if (strcmp (cvs_cmd_name, "export") == 0)
     {
 	/* I'm not sure the existence_error is actually possible (except
 	   in cases where we really should print a message), but since
@@ -855,6 +859,8 @@ update_filesdone_proc (callerdat, err, repository, update_dir, entries)
     return (err);
 }
 
+
+
 /*
  * update_dirent_proc () is called back by the recursion processor before a
  * sub-directory is processed for update.  In this case, update_dirent proc
@@ -866,9 +872,9 @@ update_filesdone_proc (callerdat, err, repository, update_dir, entries)
 static Dtype
 update_dirent_proc (callerdat, dir, repository, update_dir, entries)
     void *callerdat;
-    char *dir;
-    char *repository;
-    char *update_dir;
+    const char *dir;
+    const char *repository;
+    const char *update_dir;
     List *entries;
 {
     if (ignore_directory (update_dir))
@@ -1012,6 +1018,8 @@ update_dirent_proc (callerdat, dir, repository, update_dir, entries)
     return (R_PROCESS);
 }
 
+
+
 /*
  * update_dirleave_proc () is called back by the recursion code upon leaving
  * a directory.  It will prune empty directories if needed and will execute
@@ -1021,9 +1029,9 @@ update_dirent_proc (callerdat, dir, repository, update_dir, entries)
 static int
 update_dirleave_proc (callerdat, dir, err, update_dir, entries)
     void *callerdat;
-    char *dir;
+    const char *dir;
     int err;
-    char *update_dir;
+    const char *update_dir;
     List *entries;
 {
     /* Delete the ignore list if it hasn't already been done.  */
@@ -1090,7 +1098,7 @@ isremoved (node, closure)
    and the directory doesn't exist, then just return 0.  */
 int
 isemptydir (dir, might_not_exist)
-    char *dir;
+    const char *dir;
     int might_not_exist;
 {
     DIR *dirp;
@@ -1446,7 +1454,7 @@ VERS: ", 0);
 	    }
 
 	    /* If this is really Update and not Checkout, recode history */
-	    if (strcmp (command_name, "update") == 0)
+	    if (strcmp (cvs_cmd_name, "update") == 0)
 		history_write ('U', finfo->update_dir, xvers_ts->vn_rcs, finfo->file,
 			       finfo->repository);
 
@@ -1800,7 +1808,7 @@ patch_file (finfo, vers_ts, docheckout, file_info, checksum)
 	    error (1, errno, "could not stat %s", finfo->file);
 
 	/* If this is really Update and not Checkout, record history.  */
-	if (strcmp (command_name, "update") == 0)
+	if (strcmp (cvs_cmd_name, "update") == 0)
 	    history_write ('P', finfo->update_dir, xvers_ts->vn_rcs,
 	                   finfo->file, finfo->repository);
 
@@ -1869,7 +1877,7 @@ patch_file_write (callerdat, buffer, len)
  * Several of the types we process only print a bit of information consisting
  * of a single letter and the name.
  */
-static void
+void
 write_letter (finfo, letter)
     struct file_info *finfo;
     int letter;
@@ -1909,6 +1917,8 @@ write_letter (finfo, letter)
     }
     return;
 }
+
+
 
 /*
  * Do all the magic associated with a file which needs to be merged
@@ -1984,8 +1994,8 @@ merge_file (finfo, vers)
 	goto out;
     }
 
-    status = RCS_merge(finfo->rcs, vers->srcfile->path, finfo->file,
-		       vers->options, vers->vn_user, vers->vn_rcs);
+    status = RCS_merge (finfo->rcs, vers->srcfile->path, finfo->file,
+		        vers->options, vers->vn_user, vers->vn_rcs);
     if (status != 0 && status != 1)
     {
 	error (0, status == -1 ? errno : 0,
@@ -2085,6 +2095,8 @@ merge_file (finfo, vers)
     free (backup);
     return retval;
 }
+
+
 
 /*
  * Do all the magic associated with a file which needs to be joined
@@ -2663,6 +2675,8 @@ out:
     free (rev2);
     free (backup);
 }
+
+
 
 /*
  * Report whether revisions REV1 and REV2 of FINFO agree on:
