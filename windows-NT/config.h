@@ -335,3 +335,6 @@ extern char *sock_strerror (int errnum);
    and define the old re_comp routines that we use.  */
 #define REGEX_MALLOC 1
 #define _REGEX_RE_COMP 1
+
+/* ssize_t not available under Windows */
+typedef int ssize_t;
