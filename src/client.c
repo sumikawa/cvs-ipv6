@@ -103,7 +103,7 @@ static Key_schedule sched;
 /* This is needed for GSSAPI encryption.  */
 static gss_ctx_id_t gcontext;
 
-static int connect_to_gserver PROTO((int, struct hostent *));
+static int connect_to_gserver PROTO((int, const char *));
 
 #endif /* HAVE_GSSAPI */
 
@@ -3789,13 +3789,14 @@ connect_to_pserver (tofdp, fromfdp, verify_only, do_gssapi)
 #endif
     int port_number;
     char no_passwd = 0;   /* gets set if no password found */
-    struct addrinfo hints, *res, *res0;
+    struct addrinfo hints, *res, *res0 = NULL;
     char pbuf[10];
     int e;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = PF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_CANONNAME;
     port_number = auth_server_port_number ();
     snprintf(pbuf, sizeof(pbuf), "%d", port_number);
     e = getaddrinfo(CVSroot_hostname, pbuf, &hints, &res0);
@@ -3826,8 +3827,11 @@ connect_to_pserver (tofdp, fromfdp, verify_only, do_gssapi)
     if (do_gssapi)
     {
 #ifdef HAVE_GSSAPI
-	if (! connect_to_gserver (sock, hostinfo))
+	if (! connect_to_gserver (sock,
+	    res0->ai_canonname ? res0->ai_canonname : CVSroot_hostname))
+	{
 	    goto rejected;
+	}
 #else
 	error (1, 0, "This client does not support GSSAPI authentication");
 #endif
@@ -3955,6 +3959,8 @@ connect_to_pserver (tofdp, fromfdp, verify_only, do_gssapi)
 	if (shutdown (sock, 2) < 0)
 	    error (0, 0, "shutdown() failed, server %s: %s", CVSroot_hostname,
 		   SOCK_STRERROR (SOCK_ERRNO));
+	if (res0)
+	    freeaddrinfo(res0);
 	return;
     }
     else
@@ -3975,6 +3981,8 @@ connect_to_pserver (tofdp, fromfdp, verify_only, do_gssapi)
 #endif /* NO_SOCKET_TO_FD */
     }
 
+    if (res0)
+	freeaddrinfo(res0);
     return;
 
   rejected:
@@ -4130,9 +4138,9 @@ recv_bytes (sock, buf, need)
 /* Connect to the server using GSSAPI authentication.  */
 
 static int
-connect_to_gserver (sock, hostinfo)
+connect_to_gserver (sock, hostname)
      int sock;
-     struct hostent *hostinfo;
+     const char *hostname;
 {
     char *str;
     char buf[1024];
@@ -4145,7 +4153,7 @@ connect_to_gserver (sock, hostinfo)
     if (send (sock, str, strlen (str), 0) < 0)
 	error (1, 0, "cannot send: %s", SOCK_STRERROR (SOCK_ERRNO));
 
-    sprintf (buf, "cvs@%s", hostinfo->h_name);
+    sprintf (buf, "cvs@%s", hostname);
     tok_in.length = strlen (buf);
     tok_in.value = buf;
     gss_import_name (&stat_min, &tok_in, GSS_C_NT_HOSTBASED_SERVICE,
