@@ -482,11 +482,11 @@ main()
                       NI_NUMERICHOST|NI_NUMERICSERV) != 0) {
         goto bad;
       }
-      if (strcmp(strport, "54321") != 0) {
-        goto bad;
-      }
       switch (ai->ai_family) {
       case AF_INET:
+        if (strcmp(strport, "54321") != 0) {
+          goto bad;
+        }
         if (passive) {
           if (strcmp(straddr, "0.0.0.0") != 0) {
             goto bad;
@@ -499,6 +499,9 @@ main()
         inet4++;
         break;
       case AF_INET6:
+        if (strcmp(strport, "54321") != 0) {
+          goto bad;
+        }
         if (passive) {
           if (strcmp(straddr, "::") != 0) {
             goto bad;
