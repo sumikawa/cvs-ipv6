@@ -291,7 +291,7 @@ add (argc, argv)
 	struct file_info finfo;
 	char *p;
 #if defined (SERVER_SUPPORT) && !defined (FILENAMES_CASE_INSENSITIVE)
-	char *found_name;
+	char *found_name = NULL;
 #endif
 
 	memset (&finfo, 0, sizeof finfo);
@@ -356,7 +356,6 @@ add (argc, argv)
 	    dirp = CVS_OPENDIR (finfo.repository);
 	    if (dirp == NULL)
 		error (1, errno, "cannot read directory %s", finfo.repository);
-	    found_name = NULL;
 	    errno = 0;
 	    while ((dp = CVS_READDIR (dirp)) != NULL)
 	    {
@@ -519,7 +518,7 @@ file `%s' will be added on branch `%s' from version %s",
 				   can't think of a way to word the
 				   message which is not confusing.  */
 				error (0, 0, "\
-re-adding file %s (in place of dead revision %s)",
+re-adding file `%s' (in place of dead revision %s)",
 					finfo.fullname, vers->vn_rcs);
 			}
 			Register (entries, finfo.file, "0", vers->ts_user,
@@ -575,7 +574,7 @@ cannot resurrect %s; RCS file removed by second party", finfo.fullname);
 		     * There is an RCS file, so remove the "-" from the
 		     * version number and restore the file
 		     */
-		    char *tmp = xmalloc( strlen( finfo.file ) );
+		    char *tmp = xmalloc( strlen( vers->vn_user ) );
 		    (void) strcpy (tmp, vers->vn_user + 1);
 		    (void) strcpy (vers->vn_user, tmp);
 		    free( tmp );
@@ -645,7 +644,7 @@ cannot resurrect %s; RCS file removed by second party", finfo.fullname);
 
 	free (finfo.fullname);
 #if defined (SERVER_SUPPORT) && !defined (FILENAMES_CASE_INSENSITIVE)
-	if (ign_case && found_name != NULL)
+	if (found_name != NULL)
 	    free (found_name);
 #endif
     }
@@ -738,7 +737,8 @@ add_directory (finfo)
 		       + 80
 		       + (tag == NULL ? 0 : strlen (tag) + 80)
 		       + (date == NULL ? 0 : strlen (date) + 80));
-    (void) sprintf (message, "Directory %s added to the repository\n", rcsdir);
+    (void) sprintf (message, "Directory %s added to the repository\n",
+		    rcsdir);
     if (tag)
     {
 	(void) strcat (message, "--> Using per-directory sticky tag `");
@@ -821,12 +821,13 @@ add_directory (finfo)
 
     Subdir_Register (entries, (char *) NULL, dir);
 
-    cvs_output (message, 0);
+    if (!really_quiet)
+	cvs_output (message, 0);
 
     free (rcsdir);
     free (message);
 
-    return (0);
+    return 0;
 
 out:
     if (restore_cwd (&cwd, NULL))

@@ -1,3 +1,119 @@
+2003-09-29  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note recent fix of the potential segfault during a diff.
+
+2003-09-26  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Note bug in options passed to diff via `cvs diff'.
+
+2003-09-12  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note checkoutlist error message handling fix.
+
+2003-08-27  Larry Jones  <lawrence.jones@eds.com>
+
+	* NEWS: Note client/server messages have real command name, client/
+	server updates get logged in history file, history file has "P"
+	record type.
+
+2003-07-29  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Replace my recent misuse of AH_VERBATIM with a call to
+	AC_DEFINE.
+	* config.h.in, configure: Regenerated.
+	
+2003-07-29  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Do not check for getpassphrase.  Define `getpass' to
+	`cvs_getpass' in config.h to avoid conflicts with system decls.
+	* NEWS: Note use of GNULIB getpass.
+
+	* config.h.in, configure: Regenerated.
+
+2003-07-25  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Note --without-gssapi required to configure on OS X.
+
+2003-07-18  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Remove mention of wrappers -t/-f since they are no longer
+	supported.
+
+2003-07-18  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (EXTRA_DIST): Add cvs.spec so that RPMs can be built
+	directly from tarballs.
+	* Makefile.in: Regenerated.
+
+2003-07-18  Derek Price  <derek@ximbiot.com>
+
+	* TODO (72): Remove mention of the -i/-o in the modules file since they
+	have been removed.
+
+2003-06-27  Larry Jones  <lawrence.jones@eds.com>
+
+	* NEWS: Note LockDir fix.
+
+2003-06-23  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Debian Woody has -lkrb4, so check for that.
+	(Patch from Alexey Mahotkin <alexm@hsys.msk.ru>.)
+
+	* config.h.in: Regenerated.
+	* configure: Ditto.
+
+2003-06-20  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Add some OS X platforms to the compile list. Correct link to
+	cvsgui.org -> wincvs.org.
+
+2003-06-09  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak: Rename win32.c to woe32.c in accordance with the GNU
+	convention to avoid implying that we consider the Microsoft Windows
+	Operating Environment any sort of "win".
+
+2003-06-09  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note short patch fix.
+
+2003-06-09  Derek Price  <derek@ximbiot.com>
+
+	* TODO (45): Combine this with...
+	(30): ...this item (as #30).  Remove reference to diff since the
+	modules file is only consulted for the r* commands.
+
+2003-06-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note empty diff change text fix.
+
+2003-05-29  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note removal of global -l option.
+
+2003-05-27  Derek Price  <derek@ximbiot.com>
+
+	* AUTHORS: Give Mark an email address.
+
+2003-05-27  Derek Price  <derek@ximbiot.com>
+
+	* cvs.spec.in: Add some files to doc.  Remove redundant %defattr.
+
+2003-05-27  Derek Price  <derek@ximbiot.com>
+
+	* NEWS (Changes since 1.11.5): Add missing entry.
+
+2003-05-27  Derek Price  <derek@ximbiot.com>
+
+	* README (Credits): Move...
+	* AUTHORS: ...here and update.
+
+2003-05-26  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Update CVS version to 1.11.6.1.
+
+	* configure: Regenerated.
+
 2003-05-25  Derek Price  <derek@ximbiot.com>
 
 	* configure.in: Update CVS version to 1.11.6.

@@ -116,9 +116,6 @@
 /* Define to 1 if you have the `getpagesize' function. */
 #undef HAVE_GETPAGESIZE
 
-/* Define to 1 if you have the `getpassphrase' function. */
-#undef HAVE_GETPASSPHRASE
-
 /* Define if you have the getspnam function. */
 #undef HAVE_GETSPNAM
 
@@ -157,6 +154,9 @@
 
 /* Define to 1 if you have the `krb' library (-lkrb). */
 #undef HAVE_LIBKRB
+
+/* Define to 1 if you have the `krb4' library (-lkrb4). */
+#undef HAVE_LIBKRB4
 
 /* Define to 1 if you have the `nsl' library (-lnsl). */
 #undef HAVE_LIBNSL
@@ -472,6 +472,11 @@
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const
+
+/* We want to always use the GNULIB version of getpass which we have in lib,
+   so define getpass to something that won't conflict with any existing system
+   declarations. */
+#undef getpass
 
 /* Define to `int' if <sys/types.h> doesn't define. */
 #undef gid_t

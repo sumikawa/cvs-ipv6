@@ -416,7 +416,7 @@ int RCS_merge PROTO((RCSNode *, char *, char *, char *, char *, char *));
 
 extern int RCS_exec_rcsdiff PROTO ((RCSNode *rcsfile,
 				    char *opts, char *options,
-				    char *rev1, char *rev2,
+				    char *rev1, char *rev1_cache, char *rev2,
 				    char *label1, char *label2,
 				    char *workfile));
 extern int diff_exec PROTO ((char *file1, char *file2,
@@ -447,8 +447,8 @@ void Sanitize_Repository_Name PROTO((char *repository));
 
 char *Name_Root PROTO((char *dir, char *update_dir));
 void free_cvsroot_t PROTO((cvsroot_t *root_in));
-cvsroot_t *parse_cvsroot PROTO((char *root));
-cvsroot_t *local_cvsroot PROTO((char *dir));
+cvsroot_t *parse_cvsroot PROTO((const char *root));
+cvsroot_t *local_cvsroot PROTO((const char *dir));
 void Create_Root PROTO((char *dir, char *rootdir));
 void root_allow_add PROTO ((char *));
 void root_allow_free PROTO ((void));
@@ -464,7 +464,7 @@ void *xrealloc PROTO((void *ptr, size_t bytes));
 void expand_string PROTO ((char **, size_t *, size_t));
 void xrealloc_and_strcat PROTO ((char **, size_t *, const char *));
 char *xstrdup PROTO((const char *str));
-void strip_trailing_newlines PROTO((char *str));
+int strip_trailing_newlines PROTO((char *str));
 int pathname_levels PROTO ((char *path));
 
 typedef	int (*CALLPROC)	PROTO((char *repository, char *value));
@@ -557,12 +557,10 @@ void rename_file PROTO((const char *from, const char *to));
    malloc'd.  It is OK to call it with PARGC == &ARGC or PARGV == &ARGV.  */
 extern void expand_wild PROTO ((int argc, char **argv, 
                                 int *pargc, char ***pargv));
+char *locate_file_in_dir PROTO((const char *dir, const char *file ));
 
-extern char *locate_rcs PROTO (( const char *repository,
-				 const char *file,
-				 int *inattic ));
 #ifdef SERVER_SUPPORT
-extern int cvs_casecmp PROTO ((char *, char *));
+extern int cvs_casecmp PROTO ((const char *, const char *));
 extern int fopen_case PROTO ((char *, char *, FILE **, char **));
 #endif
 
@@ -756,7 +754,7 @@ void freevers_ts PROTO ((Vers_TS ** versp));
 /* Miscellaneous CVS infrastructure which layers on top of the recursion
    processor (for example, needs struct file_info).  */
 
-int Checkin PROTO ((int type, struct file_info *finfo, char *rcs, char *rev,
+int Checkin PROTO ((int type, struct file_info *finfo, char *rev,
 		    char *tag, char *options, char *message));
 int No_Difference PROTO ((struct file_info *finfo, Vers_TS *vers));
 /* TODO: can the finfo argument to special_file_mismatch be changed? -twp */

@@ -15,8 +15,10 @@ cvs.log
 cvs.pdf
 cvs.pg
 cvs.ps
+cvs.tmp
 cvs.toc
 cvs.tp
+cvs.txt
 cvs.vr
 cvsclient.info
 cvsclient.aux
@@ -33,4 +35,5 @@ cvsclient.pg
 cvsclient.ps
 cvsclient.toc
 cvsclient.tp
+cvsclient.txt
 cvsclient.vr

@@ -1,3 +1,122 @@
+2003-09-12  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (checkoutlist): Document the error messages which may be
+	specified in this file.
+	* stamp-vti, version.texi: Regenerated.
+
+2003-08-27  Larry Jones  <lawrence.jones@eds.com>
+
+	* cvs.texinfo (history options): Note the 'P' record type which
+	has been around for a long time but never actually appeared in
+	the history file due to bugs in the code.
+	(Invoking CVS): Ditto.
+	(config): Ditto.
+	* stamp-vti, version.texi: Regenerated.
+
+2003-08-07  Derek Price  <derek@ximbiot.com>
+
+	* .cvsignore: Ignore {cvs,cvsclient}.txt.
+
+2003-08-07  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Use the @dircategory and @direntry commands from texinfo
+	rather than rolling our own.
+
+	* stamp-vti, version.texi: Regenerated.
+
+2003-08-07  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (POSTSCRIPTS): Rename to...
+	(PSS): ...to sync with and override Automakes default targets.
+	(PDFS): Reorder to match PSS.
+	(SUFFIXES): Remove .pdf and .aux.
+	(cvs.aux, cvs.pdf, cvsclient.aux, cvsclient.pdf): Remove these targets.
+	.aux weren't being generated anyhow and .pdf no longer need to be
+	supplied explicitly.
+	(cvs-paper.pdf: cvs-paper.ps): Provide ps2pdf rule explicitly.
+	(.{texinfo,texi,txy}.pdf): Remove these suffix rules - they are now
+	provided by Automake.
+
+2003-08-06  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (CLEANFILES): Move...
+	(MOSTLYCLEANFILES): ...here and drop PDFs since this is where Automake
+	cleans PDFs & PSs by default.
+	(MAINTAINERCLEANFILES): Clean all PostScripts even though they will
+	have been removed in mostlyclean.  That is a bug in Automake.
+	(doc): Depend on info & ps.
+	(pdf, ps): Removed in favor of Automake's default targets for these
+	types.
+	(cvsclient.* targets): Depened on version-client.texi.
+	(cvs-paper.pdf): Remove in favor of Automake's default target.
+	(.{texinfo,texi,txi}.{pdf,txt}): Update these targets based on
+	Automake's similar treatment of dvi, ps, and info targets.
+	* .cvsignore: Add cvs.tmp, a `make pdf' generated file.
+
+	* Makefile.in: Regenerated.
+
+2003-07-18  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Put a few errant references to bug-cvs inside @code{}
+	for consistancy.
+
+2003-07-18  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Update WARNINGs and Notes for a more consistent
+	appearance.  Remove some obsolete comments.
+	* stamp-vti: Regenerated.
+	* version.texi: Regenerated.
+
+2003-07-12  Larry Jones  <lawrence.jones@eds.com>
+
+	* cvs.texinfo (Binary howto): Add note about how to determine whether
+	a file is marked as binary or not.
+	(Suggested by Erik Sigra <sigra@home.se>.)
+	* stamp-vti: Regenerated.
+	* version.texi: Regenerated.
+
+2003-06-23  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-06-16  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (splitrcskeyword): New macro, now that @ifhtml will work
+	properly with texi2html (as of version 1.68), to cause output HTML to
+	contain <i></i> where we used to have @asis{} and prevent RCS keyword
+	substitution in generated HTML.
+	(Original patch from Patrice Dumas <dumas@centre-cired.fr>.)
+
+2003-06-11  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Invoking CVS): Remove `-P' from the list of `cvs export'
+	options.
+	(Patch from Alexander Taler <dissent@cvshome.org>.)
+
+2003-06-11  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (Top): Remove out-of-date (by at least 5 years) comment.
+	(Patch from Alexander Taler <dissent@cvshome.org>.)
+
+2003-05-27  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Consolidate copyright notices into a single macro that
+	is called elsewhere to avoid needing three of them.  Update copyright
+	notice.
+	(BUGS): Suggest Ximbiot rather than the defunct Signum Support as CVS
+	consultants.
+
+	* stamp-vti: Regenerated.
+	* version.texi: Ditto.
+
+2003-05-26  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1: Regenerated for 1.11.6.1.
+	* stamp-vti: Ditto.
+	* version-client.texi: Ditto.
+	* version.texi: Ditto.
+
 2003-05-25  Derek Price  <derek@ximbiot.com>
 
 	* stamp-1: Regenerated for 1.11.6.

@@ -1,4 +1,44 @@
-Changes since 1.11.5:
+Changes since 1.11.6:
+
+* A segfault that could occur in very rare cases where the stat of a file
+  failed during a diff has been fixed.
+
+* Any user with write privleges to the CVSROOT/checkoutlist file could pass
+arbitrary format strings directly through to a printf function.  This was
+probably bad and has been fixed.  White space at the beginning of error strings
+in checkoutlist is now ignored properly.
+
+* In client/server mode, most messages from CVS now contain the actual
+command name rather than the generic "server".
+
+* A long-standing bug that prevented most client/server updates from being
+logged in the history file has been fixed.
+
+* Updates done via a patch ("P" status) are now logged in the history file
+by default and the corresponding "P" history record type is now documented.
+If you're setting the LogHistory option in your CVSROOT/config file, you may
+want to add "P" to the list of record types.
+
+* CVS now will always compile and its own getpass() function (originally from
+GNULIB) in favor of any system one that may exist.  This avoids some problems
+with long passwords on some systems and updates us to POSIX.2 compliance, since
+getpass() was removed from the POSIX.2 specification.
+
+* A bug that allowed a write lock to be created in a directory despite
+there being existing read locks when using LockDir in CVSROOT/config has
+been fixed.
+
+* A bug with short patches (`rdiff -s') which caused rdiff to sometimes report
+differences that did not exist has been fixed.
+
+* Some minor corrections were made to the diff code to keep diff & rdiff from
+printing diff headers with empty change texts when two files have different
+revision numbers but the same content.
+
+* The global '-l' option, which suppressed history logging, has been removed
+from both client and server.
+
+Changes from 1.11.5 to 1.11.6:
 
 * A warning message is now issued if an administrative file contains
 more than one DEFAULT entry.
@@ -18,6 +58,9 @@ checked in like the modification time is.
 fuctionality previously allowed executables to be specified in the modules file
 to be run at update and checkin time, but users could edit these files on a per
 workspace basis, creating a security hole.
+
+* contrib/rcs2log and src/cvsbug now use the BSD mktemp program to create
+their temp files and directories on systems which provide it.
 
 * Corrected the path in a failed write error message.
 

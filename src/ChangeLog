@@ -1,3 +1,310 @@
+2003-09-29  Derek Price  <derek@ximbiot.com>
+
+	* rcs.c (make_file_label): Make a failure to stat a file a fatal error
+	since it signals that a later read will also fail.
+
+2003-09-26  Derek Price  <derek@ximbiot.com>
+
+	* diff.c (diff): Add a FIXME re spaces in diff arguments.
+
+2003-09-25  Mark D. Baushke  <mdb@cvshome.org>
+
+	* rcs.c (make_file_label): Do not return an uninitialized label.
+	(Reported by "Todd C. Miller" <Todd.Miller@courtesan.com>)
+
+2003-09-12  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (mkmodules): Correct comments.
+
+2003-09-12  Derek Price  <derek@ximbiot.com>
+
+	* mkmodules.c (mkmodules): Do not pass a string which came from the
+	checkoutlist file directly to error as a format string since we don't
+	want to trust any user with access to checkoutlist with creating printf
+	format strings.  I already claimed I did this in the NEWS file.
+	(Thanks to Larry Jones for spotting my mistake.)
+	* sanity.sh (mkmodules): Test for the above.
+
+2003-09-12  Derek Price  <derek@ximbiot.com>
+
+	* mkmodules.c (checkoutlist_contents): Document the optional portions
+	of this file format more accurately.
+	(mkmodules): Ditto, in comments.  Fix bug that always failed to ignore
+	whitespace before error messages.
+	* sanity.sh (mkmodules-temp-file-removal): Rename to...
+	(mkmodules): ...this and add a test of the checkoutlist error message.
+	Add cleanup step to restore checkoutlist.
+
+2003-08-27  Larry Jones  <lawrence.jones@eds.com>
+
+	* history.c: 'P' is a valid record type and has been for a long time.
+	Add it to the comments, usage message, and, most important,
+	ALL_REC_TYPES so it gets recorded by default.
+	* server.c (do_cvs_command): Set global command_name to the real
+	command name rather than leaving it set to "server".
+	* sanity.sh: Update to match.
+	(Reported by Dmitry Ryzhkov <rdim_outside@softhome.net>.)
+
+2003-08-13  Larry Jones  <lawrence.jones@eds.com>
+
+	* server.c (server_cleanup): Don't shutdown buf_from_net if it's
+	null.
+	(Reported by Scott Mitchell <scott@fishballoon.org>.)
+
+2003-08-01  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (join5): Use $PROG consistently and escape a `.'.
+
+2003-08-01  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (join5): Use `[a-z]*' as opposed to `update'.
+
+2003-07-31  Derek Price  <derek@ximbiot.com>
+
+	* add.c (add_directory): Restore a malloc I shouldn't have altered on
+	the stable branch.
+
+2003-07-31  Derek Price  <derek@ximbiot.com>
+
+	* rcscmds.c (RCS_merge): Pass `--' before the filename arguments to
+	diff so that filenames starting with `-' can be merged.
+	* sanity.sh (join5): New test for same.
+
+2003-07-31  Derek Price  <derek@ximbiot.com>
+
+	* add.c (add_directory): Don't print status information in really_quiet
+	mode.
+
+2003-07-29  Derek Price  <derek@ximbiot.com>
+
+	* checkout.c (checkaddfile): Simplify the logic here, using assumptions
+	already made later in the function to remove calls to locate_rcs and
+	some conditionals.  Use same assumptions to remove some variables.
+
+2003-07-29  Derek Price  <derek@ximbiot.com>
+
+	* login.c: Remove GETPASS & HAVE_GETPASSPHRASE cruft in favor of always
+	using the GNULIB getpass since the system getpass was removed from the
+	POSIX.2 specification.
+
+2003-07-28  Derek Price  <derek@ximbiot.com>
+
+	* subr.c (strip_trailiing_newlines): Use size_t rather than int to
+	count string length.
+	(Suggestion from Paul Edwards, who provides a broken return email
+	address in Tonga.  I believe he is actually from Australia.)
+
+2003-07-28  Derek Price  <derek@ximbiot.com>
+
+	* checkout.c (checkout): Remove out-of-date comment about Checkin.prog
+	and Update.prog.
+
+2003-07-25  Derek Price  <derek@ximbiot.com>
+
+	* rcs.c (RCS_parsercsfile): Declare rcsfile argument as const.
+	* rcs.h (RCS_parsercsfile): Update prototype to match.
+	* commit.c (fixaddfile): Accept a single path to an rcs file as an
+	argument rather than trying to look it up again when it is not
+	necessary.
+
+2003-07-25  Derek Price  <derek@ximbiot.com>
+
+	* commit.c (finaladd): But don't free variables we no longer allocate.
+
+2003-07-25  Derek Price  <derek@ximbiot.com>
+
+	* checkin.c (Checkin): The rcs argument is unecessary since we know
+	that the parsed RCS data always exists as part of finfo by the time
+	this function gets called.
+	* commit.c (commit_fileproc, finaladd):  Use new Checkin() API.
+	* cvs.h (Checkin): Update prototype.
+
+2003-07-25  Derek Price  <derek@ximbiot.com>
+
+	* subr.c (strip_trailing_newlines): Check len b4 str[len] to avoid
+	exceeding the array bounds when the string length == 0.
+	(Report from John Tytgat <JoTy@esko-graphics.com>.)
+
+2003-07-25  Derek Price  <derek@ximbiot.com>
+
+	* subr.c (strip_trailing_newlines): Generalize this function to watch
+	len so that it cannot walk past the beginning of the string passed in.
+	(Report from John Tytgat <JoTy@esko-graphics.com>.)
+
+2003-07-25  Derek Price  <derek@ximbiot.com>
+
+	* subr.c (strip_trailing_newlines): Leave the K&R function decl on this
+	branch.
+
+2003-07-25  Derek Price  <derek@ximbiot.com>
+
+	* cvs.h (strip_trailing_newlines): Update prototype.
+	* subr.c (strip_trailing_newlines): Return true when newlines are
+	removed.
+	* server.c (pserver_authenticate_connection): Don't give a DOS attack a
+	chance to authenticate accidentally because I like to be paranoid.
+	* sanity.sh (pserver): New test for same.
+
+2003-07-20  Derek Price  <derek@ximbiot.com>
+
+	* wrapper.c: Remove mention of obsolete -f and -t wrapper options from
+	a comment.
+
+2003-07-12  Larry Jones  <lawrence.jones@eds.com>
+
+	* sanity.sh (diffnl): New tests for diff on files with no newline
+	at end.
+	(Patch from Andrew Moise <chops@demiurgestudios.com>.)
+
+2003-07-09  Larry Jones  <lawrence.jones@eds.com>
+
+	* add.c (add): Update "re-adding" message to have quotes around
+	the file name like all the other similar messages.
+	* sanity.sh: Update to match.
+
+	* update.c (join_file): Handle locally removed but not yet committed
+	files.
+	(Reported by Larry Lords <LordsLL@ldschurch.org>.)
+	* sanity.sh (join, join4): New tests for above.
+
+2003-06-28  Larry Jones  <lawrence.jones@eds.com>
+
+	* commit.c (fixaddfile): Bail out if locate_rcs() fails.  Make
+	parameters const.
+
+	* add.c (add): Fix -Wall complaints.
+	* diff.c (diff_file_nodiff): Ditto.
+	* filesubr.c (cvs_casecmp): Ditto.
+	* patch.c (patch_fileproc): Ditto.
+	* rcs.c (RCS_cmp_file): Ditto.
+	* root.c (parse_cvsroot): Ditto.
+	* subr.c (locate_file_in_dir): Ditto.
+	* cvs.h (cvs_casecmp, locate_file_in_dir): Update prototypes.
+
+2003-06-27  Larry Jones  <lawrence.jones@eds.com>
+
+	* lock.c (readers_exist): Use LockDir rather than always looking
+	in the repository.
+	(Original patch from Robert Ambalu <Robert.Ambalu@gs.com>.)
+	Remove vestigial lock promotion code.
+
+2003-06-26  Larry Jones  <lawrence.jones@eds.com>
+
+	* hash.c (sortlist): Avoid crash when list is null.
+
+2003-06-23  Derek Price  <derek@ximbiot.com>
+
+	* patch.c (patch_fileproc): Output revision number of the original
+	revision in the removed case.
+	(Idea from Paul Edwards <kerravon@w3.to>.)
+
+	* sanity.sh (rdiff-add-remove-nodiff): Rename to...
+	(rdiff-short): ...this.  Test for the above changes.  Add some tests
+	for when rev2 defaults to the trunk.  Expand comments.
+
+2003-06-23  Derek Price  <derek@ximbiot.com>
+
+	* add.c (add): Fix xmalloc's strlen() of wrong variable.
+	* checkout.c (safe_location): leak: reused where_location without free.
+	* log.c (rlog_proc): leak: free where before exit.
+	* logmsg.c (do_verify): leak: free verifymsg_script before exit.
+	(Original patch from Kenneth Lorber <keni@his.com>.)
+
+2003-06-20  Derek Price  <derek@ximbiot.com>
+
+	* client.c: Remove silly comment.
+	(Patch from Alexey Mahotkin  <alexm@hsys.msk.ru>.)
+
+2003-06-13  Derek Price  <derek@ximbiot.com>
+
+	* subr.c (file_has_conflict): Fix comment.
+	(Patch from Paul Edwards <kerravon@w3.to>.)
+
+2003-06-13  Derek Price  <derek@ximbiot.com>
+
+	* subr.c (xrealloc): Trivial comment fix.
+	(Patch from Kenneth Lorber <keni@his.com>.)
+
+2003-06-13  Derek Price  <derek@ximbiot.com>
+
+	* diff.c (diff_fileproc): Fix memory leak.
+	(Patch from Kenneth Lorber <keni@his.com>.)
+
+2003-06-12  Derek Price  <derek@ximbiot.com>
+
+	* root.c (parse_cvsroot, local_cvsroot): Parse trailing '/'s off the
+	end of cvsroots.  Make arguments const.
+	* cvs.h: Update prototypes to match.
+	(Idea from Miles Zarathustra <shiva@aranyaka.org>.)
+
+2003-06-11  Larry Jones  <lawrence.jones@eds.com>
+
+	* sanity.sh: Change warning messages to note that defective tools
+	can result in defective results, both pass and fail.  Also change
+	"which" to "that" for errant grammar pedants.
+
+2003-06-09  Derek Price  <derek@ximbiot.com>
+
+	* rcs.c (RCS_delete_revs): Reference WOE32 rather than WIN32 in
+	accordance with the GNU convention to avoid implying that we consider
+	the Microsoft Windows Operating Environment any sort of "win".
+
+2003-06-09  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c (cvs_temp_file): Tidy a comment.
+
+2003-06-09  Derek Price  <derek@ximbiot.com>
+
+	* patch.c (patch_fileproc): Don't assume the content of files is
+	different just because the revision number is different.
+	* sanity.sh (rdiff-add-remove-nodiff): New tests for the above.
+	(Report & original patches from Paul Edwards <kerravon@w3.to>.)
+
+2003-06-04  Derek Price  <derek@ximbiot.com>
+
+	* cvs.h (locate_file_in_dir): New proto.
+	(locate_rcs): Move proto...
+	* rcs.h: ...here.
+	* filesubr.c (locate_rcs): Move function...
+	* rcs.c: ...here for Windows.
+	* filesubr.c (locate_file_in_dir): Move function...
+	* subr.c: ...here for Windows.
+
+2003-06-02  Derek Price  <derek@ximbiot.com>
+
+	* diff.c (diff_file_nodiff): Don't assume that because two specified
+	revision numbers are different, the contents are different.
+	(Original report & patch from Paul Edwards <kerravon@w3.to>.)
+
+	* diff.c (diff_file_nodiff): Pass through rev1_cache to be filled in
+	by RCS_cmp_file when it needs to check out revision 1 into a file.  Add
+	some more informative error messages.  Cleanup for efficiency &
+	readability.
+	(diff_fileproc): Pass the cached revision to RCS_exec_diff().  Clean up
+	the error exit code.  Remove code killed by the changes to
+	diff_file_nodiff().
+	* rcscmds.c (RCS_exec_rcsdiff): Accept and use new cached revision text
+	if present.
+	* rcs.c (RCS_cmp_file): Accept a second revision number and cache the
+	first revision if it needs to be checked out.
+
+	* checkin.c (Checkin): Use new RCS_cmp_file().
+	* import.c (update_rcs_file): Ditto.
+	* no_diff.c (No_Difference): Ditto.
+
+	* cvs.h (RCS_exec_rcsdiff): New proto to match above changes.
+	* rcs.h (RCS_cmp_file): Ditto.
+
+	* sanity.sh: Minor corrections to handle the above changes.
+
+2003-05-29  Derek Price  <derek@ximbiot.com>
+
+	* client.c (start_server): Don't send -l to server.
+	* history.c (history_write): Fix comment.
+	* main.c (main): Don't process -l.
+	* server.c (serve_global_option): Ditto.
+	(Suggestion from Rob Lanphier <robla@real.com>.)
+
 2003-05-23  Larry Jones  <lawrence.jones@eds.com>
 
 	* sanity.sh (info-cleanup-verifymsg): Avoid race in output.

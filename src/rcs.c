@@ -234,7 +234,7 @@ RCS_parse (file, repos)
  */
 RCSNode *
 RCS_parsercsfile (rcsfile)
-    char *rcsfile;
+    const char *rcsfile;
 {
     FILE *fp;
     RCSNode *rcs;
@@ -5469,22 +5469,22 @@ struct cmp_file_data
     int different;
 };
 
-/* Compare the contents of revision REV of RCS file RCS with the
-   contents of the file FILENAME.  OPTIONS is a string for the keyword
+/* Compare the contents of revision REV1 of RCS file RCS with the
+   contents of REV2 if given, otherwise, compare with the contents of
+   the file FILENAME.  OPTIONS is a string for the keyword
    expansion options.  Return 0 if the contents of the revision are
    the same as the contents of the file, 1 if they are different.  */
 
 int
-RCS_cmp_file (rcs, rev, options, filename)
+RCS_cmp_file ( rcs, rev1, rev1_cache, rev2, options, filename )
      RCSNode *rcs;
-     char *rev;
+     char *rev1;
+     char **rev1_cache;
+     char *rev2;
      char *options;
      const char *filename;
 {
     int binary;
-    FILE *fp;
-    struct cmp_file_data data;
-    int retcode;
 
     if (options != NULL && options[0] != '\0')
 	binary = STREQ (options, "-kb");
@@ -5512,6 +5512,7 @@ RCS_cmp_file (rcs, rev, options, filename)
     if (preserve_perms)
     {
 	char *tmp;
+	int retcode;
 
 	tmp = cvs_temp_name();
 	retcode = RCS_checkout(rcs, NULL, rev, NULL, options, tmp, NULL, NULL);
@@ -5527,18 +5528,43 @@ RCS_cmp_file (rcs, rev, options, filename)
     else
 #endif
     {
-        fp = CVS_FOPEN (filename, binary ? FOPEN_BINARY_READ : "r");
+	FILE *fp;
+	struct cmp_file_data data;
+	const char *use_file1;
+	char *tmpfile = NULL;
+
+	if( rev2 != NULL )
+	{
+	    /* Open & cache rev1 */
+	    tmpfile = cvs_temp_name();
+	    if( RCS_checkout( rcs, NULL, rev1, NULL, options, tmpfile,
+	                      (RCSCHECKOUTPROC)0, NULL ) )
+		error( 1, errno,
+		       "cannot check out revision %s of %s",
+		       rev1, rcs->path );
+	    use_file1 = tmpfile;
+	    if( rev1_cache != NULL )
+		*rev1_cache = tmpfile;
+	}
+	else
+	    use_file1 = filename;
+
+        fp = CVS_FOPEN( use_file1, binary ? FOPEN_BINARY_READ : "r" );
 	if (fp == NULL)
 	    /* FIXME-update-dir: should include update_dir in message.  */
 	    error (1, errno, "cannot open file %s for comparing", filename);
 	
-        data.filename = filename;
+        data.filename = use_file1;
         data.fp = fp;
         data.different = 0;
 	
-        retcode = RCS_checkout (rcs, (char *) NULL, rev, (char *) NULL,
+        if( RCS_checkout( rcs, (char *) NULL, rev2 ? rev2 : rev1,
+	                        (char *) NULL,
 				options, RUN_TTY, cmp_file_buffer,
-				(void *) &data);
+				(void *) &data ) )
+		error( 1, errno,
+		       "cannot check out revision %s of %s",
+		       rev2 ? rev2 : rev1, rcs->path );
 
         /* If we have not yet found a difference, make sure that we are at
            the end of the file.  */
@@ -5549,10 +5575,13 @@ RCS_cmp_file (rcs, rev, options, filename)
         }
 	
         fclose (fp);
+	if( rev1_cache == NULL && tmpfile )
+	{
+	    if( CVS_UNLINK( tmpfile ) < 0 )
+		error( 0, errno, "cannot remove %s", tmpfile );
+	    free( tmpfile );
+	}
 
-	if (retcode != 0)
-	    return 1;
-	
         return data.different;
     }
 }
@@ -6371,7 +6400,7 @@ RCS_delete_revs (rcs, tag1, tag2, inclusive)
 	char *diffbuf;
 	size_t bufsize, len;
 
-#if defined (__CYGWIN32__) || defined (_WIN32)
+#ifdef WOE32
 	/* FIXME: This is an awful kludge, but at least until I have
 	   time to work on it a little more and test it, I'd rather
 	   give a fatal error than corrupt the file.  I think that we
@@ -6384,7 +6413,7 @@ RCS_delete_revs (rcs, tag1, tag2, inclusive)
 		error (1, 0,
 		   "admin -o not implemented yet for binary on this system");
 	}
-#endif
+#endif /* WOE32 */
 
 	afterfile = cvs_temp_name();
 	status = RCS_checkout (rcs, NULL, after, NULL, "-ko", afterfile,
@@ -8468,15 +8497,17 @@ make_file_label (path, rev, rcs)
     else
     {
 	struct stat sb;
-	struct tm *wm = NULL;
+	struct tm *wm;
 
 	if (strcmp(DEVNULL, path))
 	{
 	    char *file = last_component (path);
 	    if (CVS_STAT (file, &sb) < 0)
-		error (0, 1, "could not get info for `%s'", path);
-	    else
-		wm = gmtime (&sb.st_mtime);
+		/* Assume that if the stat fails,then the later read for the
+		 * diff will too.
+		 */
+		error (1, errno, "could not get info for `%s'", path);
+	    wm = gmtime (&sb.st_mtime);
 	}
 	else
 	{
@@ -8484,13 +8515,86 @@ make_file_label (path, rev, rcs)
 	    wm = gmtime(&t);
 	}
 
-	if (wm)
-	{
-	    (void) tm_to_internet (datebuf, wm);
-	    (void) sprintf (label, "-L%s\t%s", path, datebuf);
-	}
+	(void) tm_to_internet (datebuf, wm);
+	(void) sprintf (label, "-L%s\t%s", path, datebuf);
     }
     return label;
+}
+
+
+
+/*
+ * char *
+ * locate_rcs ( const char* file, const char *repository , int *inattic )
+ *
+ * Find an RCS file in the repository.  Most parts of CVS will want to
+ * rely instead on RCS_parse which calls this function and is
+ * called by recurse.c which then puts the result in useful places
+ * like the rcs field of struct file_info.
+ *
+ * INPUTS
+ *
+ *  repository		the repository (including the directory)
+ *  file		the filename within that directory (without RCSEXT).
+ *  inattic		NULL or a pointer to the output boolean
+ *
+ * OUTPUTS
+ *
+ *  inattic		If this input was non-null, the destination will be
+ *  			set to true if the file was found in the attic or
+ *  			false if not.  If no RCS file is found, this value
+ *  			is undefined.
+ *
+ * RETURNS
+ *
+ *  a newly-malloc'd array containing the absolute pathname of the RCS
+ *  file that was found or NULL on error.
+ *
+ * ERRORS
+ *
+ *  errno will be set by the system calls in the case of failure.
+ */
+char *
+locate_rcs ( repository, file, inattic )
+    const char *repository;
+    const char *file;
+    int *inattic;
+{
+    char *rcsfile;
+    char *dir;
+    char *retval;
+
+    /* Allocate space and add the RCS extension */
+    rcsfile = xmalloc ( strlen ( file )
+		    + sizeof ( RCSEXT ) );
+    (void) sprintf ( rcsfile, "%s%s", file, RCSEXT );
+
+    /* Search in the top dir given */
+    if (( retval = locate_file_in_dir ( repository, rcsfile )) != NULL )
+    {
+	if ( inattic )
+	    *inattic = 0;
+	goto out;
+    }
+
+    /* Search in the Attic */
+    dir = xmalloc ( strlen ( repository )
+		    + sizeof ( CVSATTIC )
+		    + 2 );
+    (void) sprintf ( dir,
+		     "%s/%s",
+		     repository,
+		     CVSATTIC );
+
+    if ( ( retval = locate_file_in_dir ( dir, rcsfile ) ) != NULL
+	 && inattic != NULL )
+	*inattic = 1;
+
+    free ( dir );
+
+out:
+    free ( rcsfile );
+    return retval;
 }
 
 
