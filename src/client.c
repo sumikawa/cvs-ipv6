@@ -19,9 +19,6 @@
 #ifdef HAVE_KERBEROS
 # error kerberos is not supported with the IPv6 patch
 #endif
-#ifdef HAVE_GSSAPI
-# error gssapi is not supported with the IPv6 patch
-#endif
 
 #include <assert.h>
 #include "cvs.h"
