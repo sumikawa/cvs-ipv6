@@ -44,4 +44,16 @@
    FIXME: Why two different macros for setmode?  */
 #undef HAVE_SETMODE
 
+/* Define if you have the crypt function.  */
+#undef HAVE_CRYPT
+
+/* Define if you have the getspnam function.  */
+#undef HAVE_GETSPNAM
+
+/* Define to force lib/regex.c to use malloc instead of alloca.  */
+#undef REGEX_MALLOC
+
+/* Define to force lib/regex.c to define re_comp et al.  */
+#undef _REGEX_RE_COMP
+
 #undef ENABLE_IPV6
