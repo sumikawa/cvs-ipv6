@@ -2568,7 +2568,7 @@ check_command_legal_p (cmd_name)
 }
 
 
-
+
 /* Execute COMMAND in a subprocess with the approriate funky things done.  */
 
 static struct fd_set_wrapper { fd_set fds; } command_fds_to_drain;
@@ -2579,6 +2579,28 @@ static int max_command_fd;
 #ifdef SERVER_FLOWCONTROL
 static int flowcontrol_pipe[2];
 #endif /* SERVER_FLOWCONTROL */
+
+
+
+/*
+ * Set buffer FD to non-blocking I/O.  Returns 0 for success or errno
+ * code.
+ */
+int
+set_nonblock_fd (fd)
+     int fd;
+{
+    int flags;
+
+    flags = fcntl (fd, F_GETFL, 0);
+    if (flags < 0)
+	return errno;
+    if (fcntl (fd, F_SETFL, flags | O_NONBLOCK) < 0)
+	return errno;
+    return 0;
+}
+
+
 
 static void
 do_cvs_command (cmd_name, command)
@@ -4089,7 +4111,7 @@ CVS server internal error: no mode in server_updated");
 	       in case we end up processing it again (e.g. modules3-6
 	       in the testsuite).  */
 	    node = findnode_fn (finfo->entries, finfo->file);
-	    entnode = (Entnode *)node->data;
+	    entnode = node->data;
 	    free (entnode->timestamp);
 	    entnode->timestamp = xstrdup ("=");
 	}
@@ -4199,7 +4221,6 @@ CVS server internal error: unhandled case in server_updated");
 	else
 	{
 	    buf_append_buffer (protocol, filebuf);
-	    buf_free (filebuf);
 	}
 	/* Note we only send a newline here if the file ended with one.  */
 
@@ -5122,12 +5143,33 @@ error ENOMEM Virtual memory exhausted.\n");
 	}
 	free (orig_cmd);
     }
-    free(error_prog_name);
+    free (error_prog_name);
+
+    /* We expect the client is done talking to us at this point.  If there is
+     * any data in the buffer or on the network pipe, then something we didn't
+     * prepare for is happening.
+     */
+    if (!buf_empty (buf_from_net))
+    {
+	/* Try to send the error message to the client, but also syslog it, in
+	 * case the client isn't listening anymore.
+	 */
+#ifdef HAVE_SYSLOG_H
+	/* FIXME: Can the IP address of the connecting client be retrieved
+	 * and printed here?
+	 */
+	syslog (LOG_DAEMON | LOG_ERR, "Dying gasps received from client.");
+#endif
+	error (0, 0, "Dying gasps received from client.");
+    }
+
+    /* This command will actually close the network buffers.  */
     server_cleanup (0);
     return 0;
 }
 
-
+
+
 #if defined (HAVE_KERBEROS) || defined (AUTH_SERVER_SUPPORT) || defined (HAVE_GSSAPI)
 static void switch_to_user PROTO((const char *, const char *));
 
