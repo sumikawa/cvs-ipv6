@@ -1,3 +1,27 @@
+2004-02-04  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (File Permissions): Clarify index entry.
+	* stamp-vti, version.texi: Regenerated.
+
+2004-01-22  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti, version.texi: Regenerated.
+
+2004-01-08  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* cvs.texinfo (user-defined logging): Move taginfo stuff from here...
+	(Administrative files): ...to its own node under here.
+
+2003-12-18  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.11.1.
+
+2003-12-18  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.11.
+
 2003-12-05  Derek Price  <derek@ximbiot.com>
 
 	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated.

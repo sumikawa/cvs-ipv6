@@ -1,5 +1,50 @@
-Changes since 1.11.10:
+Changes since 1.11.11:
 **********************
+
+GENERAL USER ISSUES
+
+* Infinite alias loops in the modules file are now checked for and avoided.
+
+* Clients on case insensitive systems now preserve the case of directories in
+  CVS/Entries, in addition to files, for use in communications with the CVS
+  server.
+
+* Some previously untested behavior is now being tested.
+
+* Server support for case insensitive clients has been removed in favor of the
+  server relying on the client to preserve the case of checked out files, as
+  per the CVS client/server protocol spec.  This is not as drastic as it may
+  sound, as all of the current tests still pass without modification when run
+  from a case insensitive client to a case sensitive server.  This change
+  disables little previous functionality, enables access to more of the
+  possible namespace to users on systems with case insensitive file systems,
+  fixes a few bugs, and in the end this should provide a major stability
+  improvement.
+
+* Thanks to Ville Skyttä the man page is a bit more accurate.
+
+* Thanks to Ville Skyttä some unused variables were removed from the log_accum
+  Perl script in contrib.
+
+* Thanks to Alexey Mahotkin, a bug that prevented CVS from being compiled with
+  Kerberos 4 authentication enabled has been fixed.
+
+* A minor bug that caused CVS to fail to report an inifinte alias loop in the
+  modules file when portions of the alias definition contained trailing slashes
+  has been fixed.
+
+* A bug in the gzip code that could cause heap corruption and segfaults in CVS
+  servers talking to clients less than 1.8 and some modern third-party CVS
+  clients has been fixed.
+
+* mktemp.sh is now included with the source distribution so that the rcs2log
+  and cvsbug executables may be run on systems which do not contain an
+  implementation of mktemp.
+
+* Misc documentation fixes.
+
+Changes from 1.11.10 to 1.11.11:
+********************************
 
 SERVER SECURITY ISSUES
 

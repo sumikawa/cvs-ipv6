@@ -84,6 +84,7 @@ extern int errno;
 #include "system.h"
 
 #include "hash.h"
+#include "stack.h"
 
 #include "root.h"
 
@@ -542,7 +543,6 @@ int ignore_directory PROTO((char *name));
 typedef void (*Ignore_proc) PROTO ((char *, char *));
 extern void ignore_files PROTO ((List *, List *, char *, Ignore_proc));
 extern int ign_inhibit_server;
-extern int ign_case;
 
 #include "update.h"
 
@@ -560,9 +560,6 @@ void rename_file PROTO((const char *from, const char *to));
    malloc'd.  It is OK to call it with PARGC == &ARGC or PARGV == &ARGV.  */
 extern void expand_wild PROTO ((int argc, char **argv, 
                                 int *pargc, char ***pargv));
-#if defined (SERVER_SUPPORT) && !defined (FILENAMES_CASE_INSENSITIVE)
-char *locate_file_in_dir PROTO((const char *dir, const char *file ));
-#endif /* SERVER_SUPPORT && !FILENAMES_CASE_INSENSITIVE */
 
 #ifdef SERVER_SUPPORT
 extern int cvs_casecmp PROTO ((const char *, const char *));

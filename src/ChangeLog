@@ -1,3 +1,99 @@
+2004-02-05  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (recase): Fix typo that creeped in somehow between my last
+	test run and my commit.
+
+2004-02-04  Derek Price  <derek@ximbiot.com>
+
+	* stack.c (shift, shift_string): Make sure these functions return their
+	result.
+
+2004-02-04  Derek Price  <derek@ximbiot.com>
+
+	* modules.c (do_modules): Move content to and make this function a
+	wrapper for...
+	(_do_modules): ...this new function which can watch for infinite loops
+	in alias modules.
+	* stack.c (_push, _pop, _unshift, _shift, push_string, pop_string,
+	unshift_string, shift_string): New
+	functions.
+	* stack.h (push_string, pop_string, unshift_string, shift_string: New
+	prototypes.
+	* sanity.sh (modules): Add check for nested alias loops.
+
+2004-02-04  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (recase): Update test names and comments for clarity and
+	consistency.
+
+2004-02-03  Derek Price  <derek@ximbiot.com>
+
+	Preserve the case of checked out directories in a path as well as file
+	names for client communication with the server.
+
+	* Makefile.am (cvs_SOURCES): Add stack.c & stack.h.
+	* stack.c, stack.h: New files.
+	* cvs.h: Include stack.h.
+	* client.c (send_file_names): Preserve the case of directories in a
+	path as well as file names for communication with the server.
+
+	* Makefile.in: Regenerated.
+
+2004-02-02  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (join-rm): New test for issue #104 & #159.
+
+2004-02-02  Derek Price  <derek@ximbiot.com>
+
+	Continue removal from server of handling of case insensitive clients.
+
+	* cvs.h: Remove extern declaration of ign_case.
+	* ignore.c (ign_case): Remove declaration.
+	(ign_name): Remove support for ign_case.
+	* server.c (serve_case): Ditto.
+	(requests): No longer support the "Case" request.
+	* rcs.c (locate_rcs): Remove reference to GLOBAL in function header
+	comment.
+
+2004-02-02  Derek Price  <derek@ximbiot.com>
+
+	* add.c, client.c, cvs.h, rcs.c, subr.c: Remove server support for case
+	insensitivity.
+
+2004-01-25  Derek Price  <derek@ximbiot.com>
+
+	* server.c (kserver_authenticate_connection): Fix call to
+	switch_to_user().
+	(Original patch from Alexey Mahotkin <alexm@hsys.msk.ru>.)
+
+2004-01-22  Derek Price  <derek@ximbiot.com>
+
+	* modules.c (do_module): Strip trailing slashes before checking for
+	infinite alias loops.
+	* sanity.sh (modules): Tests for response to infinite alias loops.
+
+2004-01-17  Mark D. Baushke  <mdb@cvshome.org>
+
+	* logmsg.c (do_verify): Eliminate double-free bug.
+	(Original patch from Gerald Combs.)
+
+2004-01-07  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* checkout.c (safe_location): Remove unused variable(s).
+	* lock.c (lock_tree_for_write): Ditto.
+	* rcs.c (RCS_checkin): Ditto.
+	* subr.c (compare_revnums): Ditto.
+	* tag.c (tag_check_valid): Ditto.
+	* mkmodules.c (init): Initialize err and return it rather than 0.
+	* server.c (do_cvs_command): Only define and set max_command_fd if
+	we're actually going to use it.
+
+2004-01-01  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* zlib.c (read_and_gzip, gunzip_and_write): Fix potential buffer
+	overruns, use names for magic numbers.
+	(Original patch from Jeff Downs <heydowns@borg.com>.)
+
 2003-12-18  Derek Price  <derek@ximbiot.com>
 
 	* server.c (switch_to_user): SysLog attempts to root from pserver.

@@ -774,6 +774,7 @@ if test x"$*" = x; then
 	tests="${tests} update-p import-after-initial branch-after-import"
 	tests="${tests} join join2 join3 join4 join5 join6"
 	tests="${tests} join-readonly-conflict join-admin join-admin-2"
+	tests="${tests} join-rm"
 	tests="${tests} new newb conflicts conflicts2 conflicts3"
 	tests="${tests} clean"
 	# Checking out various places (modules, checkout -d, &c)
@@ -9190,6 +9191,183 @@ e already contains the differences between 1\.1 and 1\.2"
 	  rm -rf ${CVSROOT_DIRNAME}/$module
 	  ;;
 
+	join-rm)
+	  # This first half of this test checks that a single-argument merge
+	  # from a branch is capable of removing files.
+	  #
+	  # The second half verifies that an update to another location with an
+	  # uncommitted removal will transfer the destination branch of the
+	  # removal.
+
+	  module=join-rm
+	  mkdir $module; cd $module
+
+	  dotest join-rm-init-1 "$testcvs -q co -l ." ''
+	  mkdir $module
+	  dotest join-rm-init-2 "$testcvs -q add $module" \
+"Directory $CVSROOT_DIRNAME/$module added to the repository"
+	  cd $module
+
+	  # add some files.
+	  touch a b c d e f g
+	  dotest join-rm-init-3 "$testcvs -Q add a b c d e f g"
+	  dotest join-rm-init-4 "$testcvs -Q ci -m add-em" \
+"RCS file: $CVSROOT_DIRNAME/join-rm/a,v
+done
+Checking in a;
+$CVSROOT_DIRNAME/join-rm/a,v  <--  a
+initial revision: 1\.1
+done
+RCS file: $CVSROOT_DIRNAME/join-rm/b,v
+done
+Checking in b;
+$CVSROOT_DIRNAME/join-rm/b,v  <--  b
+initial revision: 1\.1
+done
+RCS file: $CVSROOT_DIRNAME/join-rm/c,v
+done
+Checking in c;
+$CVSROOT_DIRNAME/join-rm/c,v  <--  c
+initial revision: 1\.1
+done
+RCS file: $CVSROOT_DIRNAME/join-rm/d,v
+done
+Checking in d;
+$CVSROOT_DIRNAME/join-rm/d,v  <--  d
+initial revision: 1\.1
+done
+RCS file: $CVSROOT_DIRNAME/join-rm/e,v
+done
+Checking in e;
+$CVSROOT_DIRNAME/join-rm/e,v  <--  e
+initial revision: 1\.1
+done
+RCS file: $CVSROOT_DIRNAME/join-rm/f,v
+done
+Checking in f;
+$CVSROOT_DIRNAME/join-rm/f,v  <--  f
+initial revision: 1\.1
+done
+RCS file: $CVSROOT_DIRNAME/join-rm/g,v
+done
+Checking in g;
+$CVSROOT_DIRNAME/join-rm/g,v  <--  g
+initial revision: 1\.1
+done"
+	  
+	  # create the branch and update to it
+	  dotest join-rm-init-5 "$testcvs -Q tag -b br"
+	  dotest join-rm-init-6 "$testcvs -Q up -rbr"
+
+	  # remove a few files from the branch
+	  dotest join-rm-init-7 "$testcvs -Q rm -f b d g"
+	  dotest join-rm-init-8 "$testcvs -Q ci -mrm" \
+"Removing b;
+$CVSROOT_DIRNAME/join-rm/b,v  <--  b
+new revision: delete; previous revision: 1\.1\.2
+done
+Removing d;
+$CVSROOT_DIRNAME/join-rm/d,v  <--  d
+new revision: delete; previous revision: 1\.1\.2
+done
+Removing g;
+$CVSROOT_DIRNAME/join-rm/g,v  <--  g
+new revision: delete; previous revision: 1\.1\.2
+done"
+
+	  # update to the trunk
+	  dotest join-rm-init-9 "$testcvs -Q up -A"
+
+	  # now for the test - try and merge the removals.
+	  dotest join-rm-1 "$testcvs -q up -jbr" \
+"$PROG update: scheduling b for removal
+$PROG update: scheduling d for removal
+$PROG update: scheduling g for removal"
+
+	  # And make sure the merge took
+	  dotest join-rm-2 "$testcvs -qn up" \
+"R b
+R d
+R g"
+
+	  dotest join-rm-3 "$testcvs -q ci -m 'save the merge'" \
+"Removing b;
+$CVSROOT_DIRNAME/join-rm/b,v  <--  b
+new revision: delete; previous revision: 1\.1
+done
+Removing d;
+$CVSROOT_DIRNAME/join-rm/d,v  <--  d
+new revision: delete; previous revision: 1\.1
+done
+Removing g;
+$CVSROOT_DIRNAME/join-rm/g,v  <--  g
+new revision: delete; previous revision: 1\.1
+done"
+
+	  # and verify that it was the head revision which was removed.
+	  dotest join-rm-4 "$testcvs -q log b"  "
+RCS file: $CVSROOT_DIRNAME/join-rm/Attic/b,v
+Working file: b
+head: 1\.2
+branch:
+locks: strict
+access list:
+symbolic names:
+	br: 1\.1\.0\.2
+keyword substitution: kv
+total revisions: 3;	selected revisions: 3
+description:
+----------------------------
+revision 1\.2
+date: [0-9/]* [0-9:]*;  author: $username;  state: dead;  lines: ${PLUS}0 -0
+save the merge
+----------------------------
+revision 1\.1
+date: [0-9/]* [0-9:]*;  author: $username;  state: Exp;
+branches:  1.1.2;
+add-em
+----------------------------
+revision 1\.1\.2\.1
+date: [0-9/]* [0-9:]*;  author: $username;  state: dead;  lines: ${PLUS}0 -0
+rm
+============================================================================="
+
+	  # go back to the branch to set up for the second set of tests
+	  dotest join-rm-init-10 "$testcvs -Q up -rbr"
+	  dotest join-rm-init-11 "$testcvs -Q rm -f a"
+	  dotest join-rm-init-12 "$testcvs -Q ci -m rma" \
+"Removing a;
+$CVSROOT_DIRNAME/join-rm/a,v  <--  a
+new revision: delete; previous revision: 1\.1\.2
+done"
+
+	  # now the test: update to the trunk
+	  #
+	  # FIXCVS: This update should merge the removal to the trunk.  It does
+	  # not.
+	  dotest join-rm-5 "$testcvs -q up -A" "U a"
+
+	  # and verify that there is no sticky tag
+	  dotest join-rm-6 "$testcvs status a" \
+"===================================================================
+File: a                	Status: Up-to-date
+
+   Working revision:	1\.1.*
+   Repository revision:	1\.1	$CVSROOT_DIRNAME/join-rm/a,v
+   Sticky Tag:		(none)
+   Sticky Date:		(none)
+   Sticky Options:	(none)"
+
+	  if $keep; then
+	    echo Keeping $TESTDIR and exiting due to --keep
+            exit 0
+	  fi
+
+	  cd ../..
+	  rm -rf $CVSROOT_DIRNAME/$module
+	  rm -r $module
+	  ;;
+
 	new) # look for stray "no longer pertinent" messages.
 		mkdir ${CVSROOT_DIRNAME}/first-dir
 
@@ -10081,6 +10259,7 @@ fish"
 	  # -a:
 	  #   error on incorrect placement: modules
 	  #   error combining with other options: modules2-a*
+	  #   infinite loops: modules148a1.1 - modules148a1.2
 	  #   use to specify a file more than once: modules3
 	  #   use with ! feature: modules4
 	  # regular modules: modules, modules2, cvsadm
@@ -10244,6 +10423,15 @@ aliasnested -a first-dir/subdir/ssdir
 topfiles -a first-dir/file1 first-dir/file2
 world -a .
 statusmod -s Mungeable
+# Check for ability to block infinite loops.
+infinitealias -a infinitealias
+# Prior to 1.11.12 & 1.12.6, the infinite alias loop check didn't strip
+# slashes or work if a module called a module which then called itself
+# (A -> A was blocked, but not A -> B -> A or deeper).
+infinitealias2 -a infinitealias2/
+infinitealias3 -a infinitealias4/
+infinitealias4 -a aliasmodule infinitealias5
+infinitealias5 -a infinitealias3/
 # Options must come before arguments.  It is possible this should
 # be relaxed at some point (though the result would be bizarre for
 # -a); for now test the current behavior.
@@ -10265,6 +10453,11 @@ ${PROG} commit: Rebuilding administrative file database"
 aliasnested  -a first-dir/subdir/ssdir
 bogusalias   first-dir/subdir/a -a
 dirmodule    first-dir/subdir
+infinitealias -a infinitealias
+infinitealias2 -a infinitealias2/
+infinitealias3 -a infinitealias4/
+infinitealias4 -a aliasmodule infinitealias5
+infinitealias5 -a infinitealias3/
 namedmodule  -d nameddir first-dir/subdir
 realmodule   first-dir/subdir a
 statusmod    -s Mungeable
@@ -10279,6 +10472,24 @@ bogusalias   NONE        first-dir/subdir/a -a
 dirmodule    NONE        first-dir/subdir
 namedmodule  NONE        first-dir/subdir
 realmodule   NONE        first-dir/subdir a'
+
+	  # Check that infinite loops are avoided
+	  dotest modules-148a1.1 "${testcvs} co infinitealias" \
+"$PROG checkout: module \`infinitealias' in modules file contains infinite loop" \
+"$PROG server: module \`infinitealias' in modules file contains infinite loop
+$PROG checkout: module \`infinitealias' in modules file contains infinite loop"
+	  # Prior to 1.11.12 & 1.12.6, the inifinte alias loop check did not
+	  # strip slashes.
+	  dotest modules-148a1.2 "${testcvs} co infinitealias2" \
+"$PROG checkout: module \`infinitealias2' in modules file contains infinite loop" \
+"$PROG server: module \`infinitealias2' in modules file contains infinite loop
+$PROG checkout: module \`infinitealias2' in modules file contains infinite loop"
+	  # Prior to 1.11.12 & 1.12.6, the inifinte alias loop check did not
+	  # notice when A -> B -> A, it only noticed A -> A.
+	  dotest modules-148a1.3 "${testcvs} co infinitealias3/" \
+"$PROG checkout: module \`infinitealias3' in modules file contains infinite loop" \
+"$PROG server: module \`infinitealias3' in modules file contains infinite loop
+$PROG checkout: module \`infinitealias3' in modules file contains infinite loop"
 
 	  # Test that real modules check out to realmodule/a, not subdir/a.
 	  dotest modules-149a1 "${testcvs} co realmodule" "U realmodule/a"
@@ -23625,7 +23836,7 @@ revision 1\.1
 date: [0-9/]* [0-9:]*;  author: $username;  state: Exp;
 recase
 ============================================================================="
-	    else # client insensitive
+	    else # server sensitive && client insensitive
 	      # Client finds same Entry for file & FiLe.
 	      dotest recase-4ssci "$testcvs status file" \
 "===================================================================
@@ -23765,8 +23976,8 @@ File: no file fIlE		Status: Unknown
 
    Working revision:	No entry for fIlE
    Repository revision:	No revision control file"
-	  else # ! $client_sensitive && ! $server_sensitive
-	    dotest recase-8 "$testcvs status fIlE" \
+	  else # !$client_sensitive || !$server_sensitive
+	    dotest recase-8anyi "$testcvs status fIlE" \
 "===================================================================
 File: $fIlE             	Status: Up-to-date
 
@@ -23824,11 +24035,6 @@ C FILE"
 	  else # server insensitive
 	    dotest recase-9si "$testcvs -q up -rfirst" "U FiLe"
 	    dotest recase-10si "$testcvs -q up -A" "U FiLe"
-	  fi
-
-	  if $keep; then
-	    echo Keeping ${TESTDIR} and exiting due to --keep
-	    exit 0
 	  fi
 
 	  # Prove that we can still get status and log information on
@@ -23916,7 +24122,7 @@ revision 1\.1
 date: [0-9/]* [0-9:]*;  author: $username;  state: Exp;
 recase
 ============================================================================="
-	    else
+	    else # $server_sensitive && !$client_sensitive
 	      # Client finds same Entry for file & FiLe.
 	      dotest recase-13ssci "$testcvs status file" \
 "===================================================================
@@ -23971,22 +24177,22 @@ date: [0-9/]* [0-9:]*;  author: $username;  state: Exp;
 recase
 ============================================================================="
 	    fi
-	  else
+	  else # !$server_sensitive
 	    # Skip these when the server is case insensitive - nothing
 	    # has changed since recase-[4-7]si
 	    :
 	  fi
 
 	  if $client_sensitive && $server_sensitive; then
-	    dotest recase-19cs "$testcvs status fIlE" \
+	    dotest recase-19sscs "$testcvs status fIlE" \
 "$PROG status: nothing known about fIlE
 ===================================================================
 File: no file fIlE		Status: Unknown
 
    Working revision:	No entry for fIlE
    Repository revision:	No revision control file"
-	  else
-	    dotest recase-19ci "$testcvs status fIlE" \
+	  else # !$client_sensitive || !$server_sensitive
+	    dotest recase-19anyi "$testcvs status fIlE" \
 "===================================================================
 File: $fIlE             	Status: Up-to-date
 
@@ -24005,15 +24211,20 @@ File: $fIlE             	Status: Up-to-date
 	      dotest recase-20sscs "$testcvs -q co first-dir" \
 "U first-dir/FILE
 U first-dir/FiLe"
-	    else
+	    else # $server_senstive && !$client_sensitive
 	      dotest_fail recase-20ssci "$testcvs -q co first-dir" \
 "U first-dir/FILE
 $PROG checkout: move away first-dir/FiLe; it is in the way
 C first-dir/FiLe"
 	    fi
-	  else
+	  else # !$server_sensitive
 	    # Skip these since nothing has changed.
 	    :
+	  fi
+
+	  if $keep; then
+	    echo Keeping ${TESTDIR} and exiting due to --keep
+	    exit 0
 	  fi
 
 	  cd ..

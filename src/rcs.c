@@ -185,9 +185,6 @@ static int rcs_lockfd = -1;
  *  file		the filename within that directory (without RCSEXT).
  *  inattic		NULL or a pointer to the output boolean
  *
- * GLOBALS
- *  ign_case		Whether the client has requested case insensitive mode.
- *
  * OUTPUTS
  *
  *  inattic		If this input was non-null, the destination will be
@@ -240,47 +237,7 @@ locate_rcs (repository, file, inattic)
     }
     free (retval);
 
-#if defined (SERVER_SUPPORT) && !defined (FILENAMES_CASE_INSENSITIVE)
-    /* We didn't find the file as cased, so try again case insensitively if the
-     * client has requested that mode.
-     */
-    if (ign_case)
-    {
-	/* Allocate space and add the RCS extension */
-	rcsfile = xmalloc (strlen (file)
-	                   + sizeof (RCSEXT));
-	sprintf (rcsfile, "%s%s", file, RCSEXT);
-
-
-	/* Search in the top dir given */
-	if ((retval = locate_file_in_dir (repository, rcsfile)) != NULL)
-	{
-	    if (inattic)
-		*inattic = 0;
-	    goto out;
-	}
-
-	/* Search in the Attic */
-	dir = xmalloc (strlen (repository)
-	               + sizeof (CVSATTIC)
-	               + 2);
-	sprintf (dir, "%s/%s", repository, CVSATTIC);
-
-	if ((retval = locate_file_in_dir (dir, rcsfile)) != NULL
-	    && inattic)
-	    *inattic = 1;
-
-	free (dir);
-
-    out:
-	free (rcsfile);
-	return retval;
-    }
-    else /* !ign_case */
-#endif /* SERVER_SUPPORT && !FILENAMES_CASE_INSENSITIVE */
-    {
-	return NULL;
-    }
+    return NULL;
 }
 
 
@@ -4974,10 +4931,9 @@ RCS_checkin (rcs, workfile, message, rev, flags)
     RCSVers *delta, *commitpt;
     Deltatext *dtext;
     Node *nodep;
-    char *tmpfile, *changefile, *chtext;
+    char *tmpfile, *changefile;
     char *diffopts;
     size_t bufsize;
-    int buflen, chtextlen;
     int status, checkin_quiet, allocated_workfile;
     struct tm *ftm;
     time_t modtime;
@@ -5398,9 +5354,7 @@ workfile);
 	       "could not check out revision %s of `%s'",
 	       commitpt->version, rcs->path);
 
-    bufsize = buflen = 0;
-    chtext = NULL;
-    chtextlen = 0;
+    bufsize = 0;
     changefile = cvs_temp_name();
 
     /* Diff options should include --binary if the RCS file has -kb set

@@ -1,3 +1,70 @@
+2004-02-04  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note that alias module recursion is now more comprehensive.
+
+2004-02-03  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note case insensitive client directory case preservation.
+
+2004-02-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new join-rm tests.
+
+2004-02-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note removal from the server of support for case insensitive
+	clients.
+
+2004-01-30  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note man page fix.
+
+2004-01-30  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note contrib/log_accum tidy.
+
+2004-01-25  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Kerberos 4 fix.
+
+2004-01-22  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note recent infinite alias loop fix.
+
+2004-01-22  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Remove a note about an Automake bug that has been fixed for
+	quite awhile.
+
+2004-01-22  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: s/Automake 1.7.5/Automake 1.7.9/.
+
+2004-01-14  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Larrys recent mktemp.sh inclusion, documentation reorg,
+	and zlib code fix.
+
+2003-12-23  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* Makefile.am: Add mktemp.sh to EXTRA_DIST.
+	* Makefile.in: Regenerated.
+
+	* configure.in: Get mktemp.sh from $srcdir.
+	* configure: Regenerated.
+	(Reported by Matt Selsky <selsky@columbia.edu>.)
+
+2003-12-18  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Add since 1.11.11 section.
+	* configure.in: Update for dev 1.11.11.1.
+	* configure: Regenerated.
+
+2003-12-18  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Update for release 1.11.11.
+	* configure: Regenerated.
+
 2003-12-18  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note syslog of root attempts.

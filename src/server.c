@@ -2357,15 +2357,8 @@ serve_questionable (arg)
     }
 }
 
-static void serve_case PROTO ((char *));
 
-static void
-serve_case (arg)
-    char *arg;
-{
-    ign_case = 1;
-}
-
+
 static struct buffer *protocol;
 
 /* This is the output which we are saving up to send to the server, in the
@@ -2596,7 +2589,9 @@ check_command_legal_p (cmd_name)
 /* Execute COMMAND in a subprocess with the approriate funky things done.  */
 
 static struct fd_set_wrapper { fd_set fds; } command_fds_to_drain;
+#ifdef SUNOS_KLUDGE
 static int max_command_fd;
+#endif
 
 #ifdef SERVER_FLOWCONTROL
 static int flowcontrol_pipe[2];
@@ -2828,7 +2823,9 @@ error  \n");
 	FD_SET (protocol_pipe[0], &command_fds_to_drain.fds);
 	if (STDOUT_FILENO > num_to_check)
 	  num_to_check = STDOUT_FILENO;
+#ifdef SUNOS_KLUDGE
 	max_command_fd = num_to_check;
+#endif
 	/*
 	 * File descriptors are numbered from 0, so num_to_check needs to
 	 * be one larger than the largest descriptor.
@@ -4648,7 +4645,6 @@ struct request requests[] =
   REQ_LINE("Unchanged", serve_unchanged, RQ_ESSENTIAL),
   REQ_LINE("Notify", serve_notify, 0),
   REQ_LINE("Questionable", serve_questionable, 0),
-  REQ_LINE("Case", serve_case, 0),
   REQ_LINE("Argument", serve_argument, RQ_ESSENTIAL),
   REQ_LINE("Argumentx", serve_argumentx, RQ_ESSENTIAL),
   REQ_LINE("Global_option", serve_global_option, RQ_ROOTLESS),
@@ -5832,7 +5828,7 @@ error 0 kerberos: can't get local name: %s\n", krb_get_err_text(status));
     }
 
     /* Switch to run as this user. */
-    switch_to_user (user);
+    switch_to_user ("Kerberos 4", user);
 }
 #endif /* HAVE_KERBEROS */
 
