@@ -346,10 +346,11 @@ main()
 
 ipv6type=unknown
 ipv6lib=none
+ipv6trylibc=yes
 
 if test "$ipv6" = "yes"; then
 	AC_MSG_CHECKING([ipv6 stack type])
-	for i in inria kame linux toshiba v6d zeta; do
+	for i in inria kame linux-glibc linux-inet6 toshiba v6d zeta; do
 		case $i in
 		inria)
 			dnl http://www.kame.net/
@@ -371,9 +372,20 @@ yes
 				[ipv6type=$i;
 				ipv6lib=inet6;
 				ipv6libdir=/usr/local/v6/lib;
+				ipv6trylibc=yes
 				CFLAGS="-DINET6 $CFLAGS"])
 			;;
-		linux)
+		linux-glibc)
+			dnl http://www.v6.linux.or.jp/
+			AC_EGREP_CPP(yes, [dnl
+#include <features.h>
+#if defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1
+yes
+#endif],
+			[ipv6type=$i;
+			CFLAGS="-DINET6 $CFLAGS"])
+			;;
+		linux-inet6)
 			dnl http://www.v6.linux.or.jp/
 			if test -d /usr/inet6; then
 				ipv6type=$i
@@ -426,11 +438,16 @@ fi
 if test "$ipv6" = "yes" -a "$ipv6lib" != "none"; then
 	if test -d $ipv6libdir -a -f $ipv6libdir/lib$ipv6lib.a; then
 		LIBS="-L$ipv6libdir -l$ipv6lib $LIBS"
+		echo "You have $ipv6lib library, using it"
 	else
-		echo 'Fatal: no $ipv6lib library found.  cannot continue.'
-		echo "You need to fetch lib$ipv6lib.a from appropriate"
-		echo 'ipv6 kit and compile beforehand.'
-		exit 1
+		if test "$ipv6trylibc" = "yes"; then
+			echo "You do not have $ipv6lib library, using libc"
+		else
+			echo 'Fatal: no $ipv6lib library found.  cannot continue.'
+			echo "You need to fetch lib$ipv6lib.a from appropriate"
+			echo 'ipv6 kit and compile beforehand.'
+			exit 1
+		fi
 	fi
 fi
 
