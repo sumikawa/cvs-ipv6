@@ -1,3 +1,34 @@
+2003-10-08  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note history reporting fix.
+
+2003-10-08  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Improve syntax and punctuation of my last entry.
+
+2003-10-08  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note history fix for clients requesting `P' records.
+
+2003-10-07  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note case insensitive file lookup fix.
+
+2003-10-03  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note server ignoring `-l' with a warning.
+
+2003-10-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS (Changes since 1.11.8): Add empty section.
+	* configure.in: Update package version to 1.11.8.1.
+	* configure: Regenerated.
+
+2003-10-02  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Update package version to 1.11.8.
+	* configure: Regenerated.
+
 2003-10-02  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note getpass fix.

@@ -1,4 +1,23 @@
-Changes since 1.11.7:
+Changes since 1.11.8:
+
+* CVS now knows how to report, as well as record, `P' record types.
+
+* When running the `cvs history' command, clients will now send the
+  long-accepted `-e' option, for all records, rather than explicitly requesting
+  `P' record types, a request which servers prior to 1.11.7 will reject with a
+  fatal error message.
+
+* A problem with locating files requested by case insensitive clients which was
+  accidentally introduced in 1.11.6 as part of a fix for a data loss problem
+  involving `cvs add's from case insensitive clients has been fixed.  The
+  relevant error message was `cvs [<command> aborted]: filE,v is ambiguous;
+  could mean FILE,v or file,v'.
+
+* Attempts to use the global `-l' option, removed from both client and server
+  as of version 1.11.6, will now elicit a warning rather than a fatal error
+  from the server.
+
+Changes from 1.11.7 to 1.11.8:
 
 * A problem in the CVS getpass library that could cause passwords to echo on
   some systems has been fixed.

@@ -35,9 +35,9 @@
  *
  *  CurDir	The directory where the action occurred.  This should be the
  *		absolute path of the directory which is at the same level as
- *		the "Repository" field (for W,U,G,C & M,A,R).
+ *		the "Repository" field (for W,U,P,G,C & M,A,R).
  *
- *  Repository	For record types [W,U,G,C,M,A,R] this field holds the
+ *  Repository	For record types [W,U,P,G,C,M,A,R] this field holds the
  *		repository read from the administrative data where the
  *		command was typed.
  *		T	"A" --> New Tag, "D" --> Delete Tag
@@ -49,11 +49,11 @@
  *		O,E	The Tag or Date, if specified, else "" (null field).
  *		F	"" (null field)
  *		W	The Tag or Date, if specified, else "" (null field).
- *		U	The Revision checked out over the User file.
+ *		U,P	The Revision checked out over the User file.
  *		G,C	The Revision(s) involved in merge.
  *		M,A,R	RCS Revision affected.
  *
- *  argument	The module (for [TOEUF]) or file (for [WUPGCMAR]) affected.
+ *  argument	The module (for [TOEF]) or file (for [WUPGCMAR]) affected.
  *
  *
  *** Report categories: "User" and "Since" modifiers apply to all reports.
@@ -94,7 +94,7 @@
  *		modules are remembered.  Only records matching exactly those
  *		files and repositories are shown.  Sorting by "module", then
  *		filename, is implied.  If -l ("last modified") is specified,
- *		then "update" records (types WUCG), tag and release records
+ *		then "update" records (types WUPCG), tag and release records
  *		are ignored and the last (by date) "modified" record.
  *
  *   TAG history
@@ -171,7 +171,7 @@
  *	cvs hi -e -u user
  *
  *** Dump (eXtract) specified record types
- *	cvs hi -x [TOFWUGCMAR]
+ *	cvs hi -x [TOEFWUPGCMAR]
  *
  *
  * FUTURE:		J[Join], I[Import]  (Not currently implemented.)
@@ -179,6 +179,7 @@
  */
 
 #include "cvs.h"
+#include "history.h"
 #include "savecwd.h"
 
 static struct hrec
@@ -209,7 +210,6 @@ static void save_file PROTO((char *dir, char *name, char *module));
 static void save_module PROTO((char *module));
 static void save_user PROTO((char *name));
 
-#define ALL_REC_TYPES "TOEFWUPCGMAR"
 #define USER_INCREMENT	2
 #define FILE_INCREMENT	128
 #define MODULE_INCREMENT 5
@@ -218,6 +218,7 @@ static void save_user PROTO((char *name));
 static short report_count;
 
 static short extract;
+static short extract_all;
 static short v_checkout;
 static short modified;
 static short tag_report;
@@ -235,7 +236,7 @@ static short tz_local;
 static time_t tz_seconds_east_of_GMT;
 static char *tz_name = "+0000";
 
-char *logHistory = ALL_REC_TYPES;
+char *logHistory = ALL_HISTORY_REC_TYPES;
 
 /* -r, -t, or -b options, malloc'd.  These are "" if the option in
    question is not specified or is overridden by another option.  The
@@ -291,7 +292,7 @@ static const char *const history_usg[] =
     "        -c              Committed (Modified) files\n",
     "        -o              Checked out modules\n",
     "        -m <module>     Look for specified module (repeatable)\n",
-    "        -x [TOEFWUPCGMAR] Extract by record type\n",
+    "        -x [" ALL_HISTORY_REC_TYPES "] Extract by record type\n",
     "        -e              Everything (same as -x, but all record types)\n",
     "   Flags:\n",
     "        -a              All users (Default is self)\n",
@@ -400,9 +401,9 @@ history (argc, argv)
 		break;
 	    case 'e':
 		report_count++;
-		extract++;
+		extract_all++;
 		free (rec_types);
-		rec_types = xstrdup (ALL_REC_TYPES);
+		rec_types = xstrdup (ALL_HISTORY_REC_TYPES);
 		break;
 	    case 'l':			/* Find Last file record */
 		last_entry = 1;
@@ -483,7 +484,7 @@ history (argc, argv)
 		    char *cp;
 
 		    for (cp = optarg; *cp; cp++)
-			if (!strchr (ALL_REC_TYPES, *cp))
+			if (!strchr (ALL_HISTORY_REC_TYPES, *cp))
 			    error (1, 0, "%c is not a valid report type", *cp);
 		}
 		free (rec_types);
@@ -585,6 +586,8 @@ history (argc, argv)
 	    option_with_arg ("-t", since_tag);
 	for (mod = user_list; mod < &user_list[user_count]; ++mod)
 	    option_with_arg ("-u", *mod);
+	if (extract_all)
+	    send_arg("-e");
 	if (extract)
 	    option_with_arg ("-x", rec_types);
 	option_with_arg ("-z", tz_name);
@@ -608,7 +611,7 @@ history (argc, argv)
 	    (void) strcat (rec_types, "T");
 	}
     }
-    else if (extract)
+    else if (extract || extract_all)
     {
 	if (user_list)
 	    user_sort++;
@@ -637,7 +640,7 @@ history (argc, argv)
     else if (module_report)
     {
 	free (rec_types);
-	rec_types = xstrdup (last_entry ? "OMAR" : ALL_REC_TYPES);
+	rec_types = xstrdup (last_entry ? "OMAR" : ALL_HISTORY_REC_TYPES);
 	module_sort++;
 	repos_sort++;
 	file_sort++;
@@ -1536,6 +1539,7 @@ report_hrecs ()
 		break;
 	    case 'W':
 	    case 'U':
+	    case 'P':
 	    case 'C':
 	    case 'G':
 	    case 'M':
