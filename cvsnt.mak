@@ -595,7 +595,6 @@ DEP_CPP_MKMOD=\
 	".\lib\savecwd.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -633,7 +632,6 @@ DEP_CPP_SUBR_=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -670,7 +668,6 @@ SOURCE=.\src\admin.c
 DEP_CPP_ADMIN=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -713,7 +710,6 @@ DEP_CPP_SERVE=\
 	".\src\buffer.h"\
 	{$(INCLUDE)}"\sys\Types.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -746,11 +742,20 @@ NODEP_CPP_SERVE=\
 ################################################################################
 # Begin Source File
 
+SOURCE=.\lib\fnmatch.h.in
+
+".\lib\fnmatch.h" : $(SOURCE)
+   copy $(SOURCE) .\lib\fnmatch.h
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
 SOURCE=.\src\diff.c
 DEP_CPP_DIFF_=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -813,7 +818,6 @@ DEP_CPP_CLIEN=\
 	".\src\edit.h"\
 	".\src\buffer.h"\
 	".\lib\md5.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -850,7 +854,6 @@ SOURCE=.\src\checkout.c
 DEP_CPP_CHECK=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -887,7 +890,6 @@ SOURCE=.\src\no_diff.c
 DEP_CPP_NO_DI=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -926,7 +928,6 @@ DEP_CPP_ENTRI=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -964,7 +965,6 @@ DEP_CPP_TAG_C=\
 	".\src\cvs.h"\
 	".\lib\savecwd.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1001,7 +1001,6 @@ SOURCE=.\src\status.c
 DEP_CPP_STATU=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1039,7 +1038,6 @@ DEP_CPP_ROOT_=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1077,7 +1075,6 @@ DEP_CPP_MYNDB=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1114,7 +1111,6 @@ SOURCE=.\src\hash.c
 DEP_CPP_HASH_=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1152,7 +1148,6 @@ DEP_CPP_REPOS=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1190,7 +1185,6 @@ DEP_CPP_PARSE=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1227,7 +1221,6 @@ SOURCE=.\src\vers_ts.c
 DEP_CPP_VERS_=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1266,7 +1259,6 @@ DEP_CPP_CHECKI=\
 	".\src\fileattr.h"\
 	".\src\edit.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1307,7 +1299,6 @@ DEP_CPP_COMMI=\
 	".\src\fileattr.h"\
 	".\src\hardlink.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1344,7 +1335,6 @@ SOURCE=.\src\version.c
 DEP_CPP_VERSI=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1404,7 +1394,6 @@ DEP_CPP_CVSRC=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1441,7 +1430,6 @@ SOURCE=.\src\remove.c
 DEP_CPP_REMOV=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1486,7 +1474,6 @@ DEP_CPP_UPDAT=\
 	".\src\buffer.h"\
 	".\src\hardlink.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1525,7 +1512,6 @@ DEP_CPP_LOGMS=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1562,7 +1548,6 @@ SOURCE=.\src\classify.c
 DEP_CPP_CLASS=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1600,7 +1585,6 @@ DEP_CPP_HISTO=\
 	".\src\cvs.h"\
 	".\lib\savecwd.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1639,7 +1623,6 @@ DEP_CPP_ADD_C=\
 	".\lib\savecwd.h"\
 	".\src\fileattr.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1676,7 +1659,6 @@ SOURCE=.\src\lock.c
 DEP_CPP_LOCK_=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1716,7 +1698,6 @@ DEP_CPP_RECUR=\
 	".\src\fileattr.h"\
 	".\src\edit.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1754,7 +1735,6 @@ DEP_CPP_MODUL=\
 	".\src\cvs.h"\
 	".\lib\savecwd.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1791,7 +1771,6 @@ SOURCE=.\src\find_names.c
 DEP_CPP_FIND_=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1830,7 +1809,6 @@ DEP_CPP_RCS_C=\
 	".\src\edit.h"\
 	".\src\hardlink.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1867,7 +1845,6 @@ SOURCE=.\src\create_adm.c
 DEP_CPP_CREAT=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1904,7 +1881,6 @@ SOURCE=.\src\main.c
 DEP_CPP_MAIN_=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1942,7 +1918,6 @@ DEP_CPP_PATCH=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -1981,7 +1956,6 @@ DEP_CPP_RELEA=\
 	".\lib\savecwd.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2018,7 +1992,6 @@ SOURCE=.\src\rcscmds.c
 DEP_CPP_RCSCM=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2074,7 +2047,6 @@ DEP_CPP_IMPOR=\
 	".\src\cvs.h"\
 	".\lib\savecwd.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2112,7 +2084,6 @@ DEP_CPP_IGNOR=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2149,7 +2120,6 @@ SOURCE=.\src\annotate.c
 DEP_CPP_ANNOTATE_C=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2186,7 +2156,6 @@ SOURCE=.\src\log.c
 DEP_CPP_LOG_C=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2224,7 +2193,6 @@ DEP_CPP_WRAPP=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2261,7 +2229,6 @@ SOURCE=.\src\error.c
 DEP_CPP_ERROR=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2299,7 +2266,6 @@ DEP_CPP_EXPAN=\
 	".\src\cvs.h"\
 	{$(INCLUDE)}"\sys\Types.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2339,7 +2305,6 @@ DEP_CPP_EDIT_=\
 	".\src\edit.h"\
 	".\src\fileattr.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2378,7 +2343,6 @@ DEP_CPP_FILEA=\
 	".\lib\getline.h"\
 	".\src\fileattr.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2418,7 +2382,6 @@ DEP_CPP_WATCH=\
 	".\src\fileattr.h"\
 	".\src\watch.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2456,7 +2419,6 @@ DEP_CPP_LOGIN=\
 	".\src\cvs.h"\
 	".\lib\getline.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2493,7 +2455,6 @@ SOURCE=.\src\scramble.c
 DEP_CPP_SCRAM=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2531,7 +2492,6 @@ DEP_CPP_BUFFE=\
 	".\src\cvs.h"\
 	".\src\buffer.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2570,7 +2530,6 @@ DEP_CPP_ZLIB_=\
 	".\src\buffer.h"\
 	".\zlib\zlib.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2848,7 +2807,6 @@ SOURCE=".\windows-NT\mkdir.c"
 DEP_CPP_MKDIR=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2885,7 +2843,6 @@ SOURCE=".\windows-NT\run.c"
 DEP_CPP_RUN_C=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2935,7 +2892,6 @@ SOURCE=".\windows-NT\filesubr.c"
 DEP_CPP_FILES=\
 	".\src\cvs.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -2972,7 +2928,6 @@ SOURCE=".\windows-NT\win32.c"
 DEP_CPP_WIN32=\
 	".\windows-NT\config.h"\
 	".\src\cvs.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -3049,7 +3004,6 @@ DEP_CPP_RCMD_=\
 	".\windows-NT\rcmd.h"\
 	{$(INCLUDE)}"\sys\Types.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -3086,7 +3040,6 @@ DEP_CPP_START=\
 	".\src\cvs.h"\
 	".\windows-NT\rcmd.h"\
 	".\windows-NT\config.h"\
-	".\windows-NT\options.h"\
 	".\lib\fnmatch.h"\
 	".\windows-NT\pwd.h"\
 	".\lib\system.h"\
@@ -3683,7 +3636,6 @@ NODEP_CPP_FNCAS=\
 
 "$(INTDIR)\fncase.obj" : $(SOURCE) $(DEP_CPP_FNCAS) "$(INTDIR)"
    $(CPP) $(CPP_PROJ) $(SOURCE)
-
 
 # End Source File
 # End Target

@@ -1,3 +1,60 @@
+2002-12-19  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Remove reference to options.h.
+	* startserver.c: Replace reference to options.h with config.h.
+	* options.h: Remove file and move relevant content...
+	* config.h: ...here.
+
+	* Makefile.in: Regenerated.
+
+2002-12-06  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c: Change some calls to malloc to use xmalloc.
+	* filutils.c: Ditto.
+	(Reported by Dan Peterson <dbpete@aol.com>.)
+
+2002-12-06  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c: Change some calls to strdup to use xstrdup.
+	(Reported by Dan Peterson <dbpete@aol.com>.)
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* options.h: Remove prototype of STDC exit().  Move definition of
+	NO_SOCKET_TO_FD & include of "vms.h"...
+	* config.h: here.
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated using Automake 1.6.3.
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2002-09-24  Larry Jones  <lawrence.jones@eds.com>
+
+	* options.h: Remove PATCH_PROGRAM.
+
+2002-08-16  Derek Price  <derek@ximbiot.com>
+
+	* options.h: Remove RELATIVE_REPOS & move CVS_BADROOT...
+	* config.h: ...here.
+
+2002-05-23  Larry Jones  <lawrence.jones@eds.com>
+
+	* filesubr.c (strcat_filename_onto_homedir): Make arguments const,
+	move more code here from callers, change all callers.
+
+2002-05-22  Derek Price  <oberon@umich.edu>
+
+	* config.h: Remove obsolete definition of NO_SLASH_AFTER_HOMEDIR.
+	* filesubr.c (strcat_filename_onto_homedir): New function.
+
+2002-04-30  Derek Price  <oberon@umich.edu>
+
+	* Makefile.in: Regenerated with automake 1.6.
+
 2001-09-04  Derek Price  <dprice@collab.net>
 
 	* Makefile.in: Regenerated with automake 1.5.

@@ -932,6 +932,27 @@ get_homedir ()
     return getenv ("HOME");
 }
 
+/* Compose a path to a file in the home directory.  This is different than
+ * the UNIX version since, on VMS, foo:[bar]/.cvspass is not
+ * a legal filename but foo:[bar].cvspass is.
+ *
+ * A more clean solution would be something more along the lines of a
+ * "join a directory to a filename" kind of thing which was not specific to
+ * the homedir.  This should aid portability between UNIX, Mac, Windows, VMS,
+ * and possibly others.  This is already handled by Perl - it might be
+ * interesting to see how much of the code was written in C since Perl is under
+ * the GPL and the Artistic license - we might be able to use it.
+ */
+char *
+strcat_filename_onto_homedir (dir, file)
+    const char *dir;
+    const char *file;
+{
+    char *path = xmalloc (strlen (dir) + strlen(file) + 1);
+    sprintf (path, "%s%s", dir, file);
+    return path;
+}
+
 #ifndef __VMS_VER
 #define __VMS_VER 0
 #endif
@@ -998,7 +1019,7 @@ static int ew_add_file (char *fname) {
         ;
     }
     if (i==CurArg && CurArg<MaxArgs) {
-        ArgvList[CurArg++] = strdup(fname);
+        ArgvList[CurArg++] = xstrdup(fname);
     }
     return ArgvList[CurArg-1] != 0; /* Stop if we couldn't dup the string */
 }
@@ -1083,7 +1104,7 @@ void expand_wild (int argc, char **argv, int *pargc, char ***pargv) {
     }
     largv = 0;
     if (totfiles) {
-        largv = malloc (sizeof*largv * (totfiles + 1));
+        largv = xmalloc (sizeof*largv * (totfiles + 1));
     }
     filesgotten = 0;
     if (largv != 0) {
@@ -1114,7 +1135,7 @@ void expand_wild (int argc, char **argv, int *pargc, char ***pargv) {
                              || strcmp(arg,".") == 0
                              || strcmp(arg,"..") == 0) ) {
                 if (CurArg < MaxArgs) {
-                    ArgvList[CurArg++] = strdup(arg);
+                    ArgvList[CurArg++] = xstrdup(arg);
                 }
                 ++filesgotten;
             }else if (arg != 0) {
@@ -1125,7 +1146,7 @@ void expand_wild (int argc, char **argv, int *pargc, char ***pargv) {
                     *p = '\0';
                     num = decc$from_vms (arg, ew_add_file, 1);
                     if (num <= 0 && CurArg < MaxArgs) {
-                        ArgvList[CurArg++] = strdup(arg);
+                        ArgvList[CurArg++] = xstrdup(arg);
                     }
                     filesgotten += num>0 ? num : 1;
                     *p++ = ',';
@@ -1134,7 +1155,7 @@ void expand_wild (int argc, char **argv, int *pargc, char ***pargv) {
                 if (*arg != '\0') {
                     num = decc$from_vms (arg, ew_add_file, 1);
                     if (num <= 0 && CurArg < MaxArgs) {
-                        ArgvList[CurArg++] = strdup(arg);
+                        ArgvList[CurArg++] = xstrdup(arg);
                     }
                     filesgotten += num>0 ? num : 1;
                 }
@@ -1148,7 +1169,7 @@ void expand_wild (int argc, char **argv, int *pargc, char ***pargv) {
         release_globs();
     }
     if (!largv) {
-        (*pargv) = malloc (sizeof(char *));
+        (*pargv) = xmalloc (sizeof(char *));
         if ((*pargv) != 0) {
             *(*pargv) = 0;
         }

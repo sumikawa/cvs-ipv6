@@ -1,3 +1,51 @@
+2002-12-27  Derek Price  <derek@ximbiot.com>
+
+	* config.h (PACKAGE_STRING): Define.
+	* filesubr.c (strcat_filename_onto_homedir): New function.
+	(Thanks to Stephane Rouleau <s.rouleau@videotron.ca>,
+	 Cristopher Seawood <cls@seawood.org>, and
+	 Frederico Costa <frederico.costa@tiscali.no> for all their hints,
+	 tips, and patches for this problem.)
+
+2002-12-19  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Remove reference to options.h.
+	* options.h: Remove file and move relevant content...
+	* config.h: ...here.
+
+	* Makefile.in: Regenerated.
+
+2002-12-06  Derek Price  <derek@ximbiot.com>
+
+	* ndir.c: Replace some calls to malloc with calls to xmalloc.
+	* pwd.c: Ditto.
+	(Reported by Dan Peterson <dbpete@aol.com>.)
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* options.h: Remove prototype of STDC exit().
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated using Automake 1.6.3.
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2002-09-24  Larry Jones  <lawrence.jones@eds.com>
+
+	* options.h: Remove PATCH_PROGRAM.
+
+2002-08-16  Derek Price  <derek@ximbiot.com>
+
+	* options.h: Remove RELATIVE_REPOS & move CVS_BADROOT...
+	* config.h: ...here.
+
+2002-04-30  Derek Price  <oberon@umich.edu>
+
+	* Makefile.in: Regenerated with automake 1.6.
+
 2001-09-18  Derek Price  <dprice@collab.net>
 
 	* win32.c: config.h should be #included with double quotes; and be the
