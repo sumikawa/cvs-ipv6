@@ -55,22 +55,14 @@
    1.  Check for EROFS.  Maybe useful, although in the presence of NFS
    EROFS does *not* mean that the file system is unchanging.
 
-   2.  Provide a means to put the cvs locks in some directory apart from
-   the repository (CVSROOT/locks; a -l option in modules; etc.).
-
-   3.  Provide an option to disable locks for operations which only
+   2.  Provide an option to disable locks for operations which only
    read (see above for some of the consequences).
 
-   4.  Have a server internally do the locking.  Probably a good
+   3.  Have a server internally do the locking.  Probably a good
    long-term solution, and many people have been working hard on code
    changes which would eventually make it possible to have a server
    which can handle various connections in one process, but there is
-   much, much work still to be done before this is feasible.
-
-   5.  Like #4 but use shared memory or something so that the servers
-   merely need to all be on the same machine.  This is a much smaller
-   change to CVS (it functions much like #2; shared memory might be an
-   unneeded complication although it presumably would be faster).  */
+   much, much work still to be done before this is feasible.  */
 
 #include "cvs.h"
 #include <assert.h>
@@ -734,8 +726,13 @@ set_lockers_name (statp)
 
 /*
  * Persistently tries to make the directory "lckdir", which serves as a
- * lock. If the create time on the directory is greater than CVSLCKAGE
+ * lock.
+ *
+ * #ifdef CVS_FUDGELOCKS
+ * If the create time on the directory is greater than CVSLCKAGE
  * seconds old, just try to remove the directory.
+ * #endif
+ *
  */
 static int
 set_lock (lock, will_wait)
@@ -965,7 +962,7 @@ lock_tree_for_write (argc, argv, local, which, aflag)
     err = start_recursion ((FILEPROC) NULL, lock_filesdoneproc,
 			   (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL, argc,
 			   argv, local, which, aflag, CVS_LOCK_NONE,
-			   (char *) NULL, 0);
+			   (char *) NULL, 0, (char *) NULL);
     sortlist (lock_tree_list, fsortcmp);
     if (Writer_Lock (lock_tree_list) != 0)
 	error (1, 0, "lock failed - giving up");

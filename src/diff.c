@@ -431,7 +431,8 @@ diff (argc, argv)
     /* start the recursion processor */
     err = start_recursion (diff_fileproc, diff_filesdoneproc, diff_dirproc,
 			   diff_dirleaveproc, NULL, argc, argv, local,
-			   which, 0, CVS_LOCK_READ, (char *) NULL, 1);
+			   which, 0, CVS_LOCK_READ, (char *) NULL, 1,
+			   (char *) NULL);
 
     /* clean up */
     free (options);
@@ -837,9 +838,10 @@ diff_file_nodiff( finfo, vers, empty_file, rev1_cache )
     {
 	/* special handling for TAG_HEAD */
 	if (diff_rev1 && strcmp (diff_rev1, TAG_HEAD) == 0)
-	    use_rev1 = ((vers->vn_rcs == NULL || vers->srcfile == NULL)
-			? NULL
-			: RCS_branch_head (vers->srcfile, vers->vn_rcs));
+	{
+	    if (vers->vn_rcs != NULL && vers->srcfile != NULL)
+		use_rev1 = RCS_branch_head (vers->srcfile, vers->vn_rcs);
+	}
 	else
 	{
 	    xvers = Version_TS (finfo, NULL, diff_rev1, diff_date1, 1, 0);
@@ -852,9 +854,10 @@ diff_file_nodiff( finfo, vers, empty_file, rev1_cache )
     {
 	/* special handling for TAG_HEAD */
 	if (diff_rev2 && strcmp (diff_rev2, TAG_HEAD) == 0)
-	    use_rev2 = ((vers->vn_rcs == NULL || vers->srcfile == NULL)
-			? NULL
-			: RCS_branch_head (vers->srcfile, vers->vn_rcs));
+	{
+	    if (vers->vn_rcs != NULL && vers->srcfile != NULL)
+		use_rev2 = RCS_branch_head (vers->srcfile, vers->vn_rcs);
+	}
 	else
 	{
 	    xvers = Version_TS (finfo, NULL, diff_rev2, diff_date2, 1, 0);
@@ -880,9 +883,18 @@ diff_file_nodiff( finfo, vers, empty_file, rev1_cache )
 		return DIFF_ADDED;
 	    if( use_rev1 != NULL )
 	    {
-		error( 0, 0,
+		if (diff_rev1)
+		{
+		    error( 0, 0,
 		       "Tag %s refers to a dead (removed) revision in file `%s'.",
 		       diff_rev1, finfo->fullname );
+		}
+		else
+		{
+		    error( 0, 0,
+		       "Date %s refers to a dead (removed) revision in file `%s'.",
+		       diff_date1, finfo->fullname );
+		}
 		error( 0, 0,
 		       "No comparison available.  Pass `-N' to `%s diff'?",
 		       program_name );
@@ -906,9 +918,18 @@ diff_file_nodiff( finfo, vers, empty_file, rev1_cache )
 		return DIFF_REMOVED;
 	    if( use_rev2 != NULL )
 	    {
-		error( 0, 0,
+		if (diff_rev2)
+		{
+		    error( 0, 0,
 		       "Tag %s refers to a dead (removed) revision in file `%s'.",
 		       diff_rev2, finfo->fullname );
+		}
+		else
+		{
+		    error( 0, 0,
+		       "Date %s refers to a dead (removed) revision in file `%s'.",
+		       diff_date2, finfo->fullname );
+		}
 		error( 0, 0,
 		       "No comparison available.  Pass `-N' to `%s diff'?",
 		       program_name );
@@ -951,9 +972,18 @@ diff_file_nodiff( finfo, vers, empty_file, rev1_cache )
 	}
 	if( use_rev1 != NULL )
 	{
-	    error( 0, 0,
+	    if (diff_rev1)
+	    {
+		error( 0, 0,
 		   "Tag %s refers to a dead (removed) revision in file `%s'.",
 		   diff_rev1, finfo->fullname );
+	    }
+	    else
+	    {
+		error( 0, 0,
+		   "Date %s refers to a dead (removed) revision in file `%s'.",
+		   diff_date1, finfo->fullname );
+	    }
 	    error( 0, 0,
 		   "No comparison available.  Pass `-N' to `%s diff'?",
 		   program_name );

@@ -1,4 +1,69 @@
-Changes since 1.11.8:
+Changes since 1.11.9:
+*********************
+
+SERVER SECURITY ISSUES
+
+* Malformed module requests could cause the CVS server to attempt to create
+  directories and possibly files at the root of the filesystem holding the CVS
+  repository.  Filesystem permissions usually prevent the creation of these
+  misplaced directories, but nevertheless, the CVS server now rejects the
+  malformed requests.
+
+GENERAL USER ISSUES
+
+* Case insensitive clients using a case sensitive server can now use a
+  `cvs rm -f file; cvs add FILE' command sequence to add a file with the same
+  name in a new case.
+
+* CVSROOTs which contain a symlink to a real repository should work.
+
+* The configure script now tests whether it is building CVS on a case
+  insensitive file system.  If it is, CVS assumes that all file systems on this
+  platform will be case insensitive.  This is useful for getting the case
+  insensitivity flag set correctly when compiling on Mac OS X and under Cygwin
+  on Windows.  Autodetection can be overridden using the
+  --disable-case-sensitivity and --enable-case-sensitivity arguments to
+  configure.
+
+* A behavior change in `cvs up -jrev1 -jrev2' for modified files with a base
+  revision of rev2 (ie, checked-out version matches rev2 and file has been
+  modified).  The operation is no longer ignored and instead is passed to
+  diff3.  This will potentially re-apply the diffs between the two revisions to
+  a modified local file.  Status messages like from a standard merge have also
+  been added when the file would not or does not change due to this merge
+  request ("[file] already contains the changes between [revisions]...").
+
+* A bug which could stop `cvs admin -mTAG:message' from recursing has been
+  fixed.
+
+* Misc documentation cleanup and fixes.
+
+* Some of the contrib scripts, some of the documentation, and sanity.sh were
+  modified to use and recommend more portable commands rather than using and
+  recommending commands which were not compatible with the POSIX 1003.1-2001
+  specification.
+
+DEVELOPER ISSUES
+
+* A new set of tests to test issues specific to case insensitive clients and
+  servers has also been added.
+
+* Support has been added to the test suite to support testing over a :ext: link
+  to another machine, subject to some stringent requirements.  This support can
+  be used, for instance, to test the operation of a case insensitive client
+  against a case sensitive server.  Please see the comments in TEST and the
+  src/sanity.sh test script itself for more.
+
+* We've standardized on Automake 1.7.9 to get a bug fix.  See the note below
+  on the Autoconf upgrade for more details.
+
+* We've standardized on Autoconf version 2.58 to avoid a bug and get at a few
+  new macros.  Again, this should only really affect developers, though it is
+  possible that CVS will now compile on a few new platforms.  Please see the
+  section of the INSTALL file about using the autotools if you are compiling
+  CVS yourself.
+
+Changes from 1.11.8 to 1.11.9:
 
 * CVS now knows how to report, as well as record, `P' record types.
 

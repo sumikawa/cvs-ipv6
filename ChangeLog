@@ -1,3 +1,150 @@
+2003-12-03  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Always AC_LIBOBJ(fncase) when filenames are found to be
+	case insensitive.
+	* configure: Regenerated.
+
+2003-11-26  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note recase tests.
+
+2003-11-26  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new test suite functionality.
+
+2003-11-25  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note latest case insensitivity fix.
+
+2003-11-19  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Rename "OTHER ISSUES" to "GENERAL USER ISSUES" and move the
+	note about the Autoconf upgrade to a new "DEVELOPER ISSUES" section.
+	Add a note about upgrading Automake.
+	* aclocal.m4, configure, **/Makefile.in: Regenerated with Automake
+	1.7.9.
+
+2003-11-18  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Subdivide Changes section into "SERVER SECURITY ISSUES" and
+	"OTHER ISSUES".  Note module abspath issue in security section.
+
+2003-11-10  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Add some detail to the last two notes Mark added.
+
+2003-11-10  Mark D. Baushke  <mdb@cvshome.org>
+
+	* BUGS: Note that symlinks to files will not work with or without
+	LockDir. Note that symlinks to directories will not work with
+	LockDir.
+
+	* NEWS (Changes since 1.11.9): Note symlinked CVSROOT now works.
+
+2003-11-10  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Require Autoconf 2.58.
+	* INSTALL, NEWS: Note new Autoconf requirements.
+
+	* configure: Regenerated.
+
+2003-11-04  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add some more help text for --enable-case-sensitivity.
+	* configure: Regenerated.
+
+2003-11-03  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Require Automake 1.7.5.
+
+2003-11-03  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Add some notes on Autoconf requirements.
+
+2003-10-31  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Note Cygwin as an option for building CVS under Windows.
+
+2003-10-31  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: s/cvsgui/wincvs/.
+
+2003-10-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Move case sensitivity test to the enable-* section and
+	allow override via command line switch.
+	* NEWS: Update last news item to reflect new command line switch.
+	* configure, config.h.in: Regenerated.
+
+2003-10-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add new test for a case insensitive file system.
+	* configure, config.h.in: Regenerated.
+	* NEWS: Note the above change.
+
+2003-10-24  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Update recent text about joins to reflect new behavior.
+
+2003-10-24  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Note that release of a project subdir does not remove the entry
+	from `./CVS/Entries'.
+
+2003-10-24  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Remove obsolete bug report.
+	(Patch from Paul Edwards <somewhere in Australia>.)
+
+2003-10-24  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Remove obsolete bug report.
+	(Patch from Paul Edwards <somewhere in Australia>.)
+
+2003-10-23  Mark D. Baushke  <mdb@cvshome.org>
+
+	* NEWS: Note behavior change for cvs update -jrev1 -jrev2.
+
+2003-10-21  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Mark's recent admin -m fix.
+
+2003-10-21  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note the @email{} and @url{} fixes as misc documentation fixes.
+
+2003-10-14  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note POSIX 1003.1-2001 compatibility of docs and scripts.
+
+2003-10-14  Derek Price  <derek@ximbiot.com>
+
+	Port to pedantic POSIX 1003.1-2001 hosts, such as Debian GNU/Linux
+	testing with _POSIX2_VERSION=200112 in the environment.
+
+	* BUGS: Suggest 'diff -C2', not 'diff -c2'.
+	* FAQ: Suggest 'sort -k 1.2', not 'sort +0.1'.
+	* depcomp: Sync to the depcomp shipped with Automake 1.7.8, as
+	it has the bug fixed and that's better than maintaining our
+	own depcomp.
+	(Patch from Paul Eggert <eggert@twinsun.com>.)
+
+2003-10-14  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Add HPPA 2.0 running HP-UX 10.20 for CVS 1.11.9.
+	(Report from Tom Kuiper <kuiper@DSNra.JPL.NASA.gov>.)
+
+2003-10-10  Derek Price  <derek@ximbiot.com>
+
+	* NEWS (Changes since 1.11.9): New section.
+	* configure.in: Update package version to 1.11.9.1.
+	* configure: Regenerated.
+
+2003-10-10  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Update package version to 1.11.9.
+	* configure: Regenerated.
+
 2003-10-08  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note history reporting fix.

@@ -1,3 +1,61 @@
+2003-11-18  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti, version.texi: Regenerated.
+
+2003-11-13  Larry Jones  <lawrence.jones@eds.com>
+
+	* cvs.texinfo (Reverting local changes): Use the same vendor tag
+	in the admin command as was used in the previous import commands.
+
+2003-11-10  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti, version.texi: Regenerated.
+
+2003-11-07  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvs.texinfo (CVS commands): Fix typo.
+	(FreeBSD PR docs/58669 reported by Ceri Davies <ceri@FreeBSD.org>.)
+
+2003-10-30  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti, version.texi: Regenerated.
+
+2003-10-30  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo (File permissions, Error messages): Add index entries for
+	CVSROOT/val-tags file.
+
+2003-10-21  Derek Price  <derek@ximbiot.com>
+
+	* cvs.texinfo: Note gnu.cvs.* usenet mirrors of the email lists.
+	(Suggestion from Paul Edwards, from somewhere in Australia.)
+
+	* cvs.texinfo: Put email addresses in @email{} tags and URLs in @url{}
+	tags rather than relying on markup like @code{}.
+	* stamp-vti, version.texi: Regenerated.
+
+2003-10-14  Derek Price  <derek@ximbiot.com>
+
+	* stamp-vti, version.texi: Regenerated.
+
+2003-10-14  Derek Price  <derek@ximbiot.com>
+
+	Port to pedantic POSIX 1003.1-2001 hosts, such as Debian GNU/Linux
+	testing with _POSIX2_VERSION=200112 in the environment.
+
+	* cvs.texinfo: Suggest 'sed 1q', not 'head -1'.
+	(Patch from Paul Eggert <eggert@twinsun.com>.)
+
+2003-10-10  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.9.1.
+
+2003-10-10  Derek Price  <derek@ximbiot.com>
+
+	* stamp-1, stamp-vti, version-client.texi, version.texi: Regenerated
+	for 1.11.9.
+
 2003-10-06  Derek Price  <derek@ximbiot.com>
 
 	* cvsclient.texi (Requests): Add recommendation to client developers to

@@ -1,3 +1,325 @@
+2003-12-03  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (recase-8csss): rename to...
+	(recase-8sscs): ...this to match the convention.
+
+2003-12-03  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (recase): Add some clarifying comments.
+
+2003-12-03  Larry Jones  <lawrence.jones@eds.com>
+
+	* expand_path.c (expand_variable): Expand ${CVSROOT} to just the
+	directory like it's supposed to be.
+	(Reported by Michael S. Tsirkin <cvs1@misha.eml.cc>.)
+
+2003-11-26  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (modules3-2): Simplify syntax that may have given Cygwin
+	intermittent conniptions.
+
+2003-11-25  Mark D. Baushke  <mdb@cvshome.org>
+
+	* sanity.sh (recase-17sscs): Use ${CVSROOT_DIRNAME} in pattern.
+
+2003-11-25  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (release): Perform forgotten cleanup.
+
+2003-11-25  Derek Price  <derek@ximbiot.com>
+
+	* commit.c (commit_fileproc): Reword comment.
+
+2003-11-25  Derek Price  <derek@ximbiot.com>
+
+	* add.c (add): Disable ign_case for the purposes of adding a file so
+	that recasing the name of a file is possible from a case insensitive
+	client.
+	* sanity.sh (recase): New tests for behavior which varies when the
+	client and/or the server are case insensitive.
+
+2003-11-25  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (devcom3-9ar): Ignore the stderr output since it varies
+	considerably between platforms.
+
+2003-11-24  Larry Jones  <lawrence.jones@eds.com>
+
+	* diff.c (diff_file_nodiff): use_rev1 does *not* imply that diff_rev1
+	is not null, diff_date1 could be set instead (ditto for use_rev2).
+	(Reported by <jnelson-cvsbug@jamponi.net>.)
+
+2003-11-24  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (modes3): Skip modes3-5 entirely under Cygwin since
+	permisions are broken there.  This change removes most of the earlier
+	Cygwin differentiation in this test ($cygwin_hack & $cygwin_hack2) in
+	favor of skipping the test entirely.
+
+2003-11-21  Larry Jones  <lawrence.jones@eds.com>
+
+	* hash.c (printnode, printlist): Cast %p arguments to void * as
+	required by the C standard.
+
+2003-11-21  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh: Add `-h <hostname>' option to enable testing across a
+	:ext: connection to another host.  Warn when `-h' is specified without
+	$TESTDIR.  Leave $TESTDIR intact when it looks absolute since it may
+	contain symlinks.  Allow $CVS_SERVER to be overridden via the
+	environment for `-h'.  Default $CVS_RSH to `rsh'.
+	(*): Use $CVS_RSH to perform certain commands on the remote host (esp.
+	`ln -s' and `chmod') when `-h' is specified to work around
+	incompatibilities with CygWin & Samba.  Add a few other minor
+	workarounds for Cygwin bugs.
+
+	(newroot): New function.
+	(*): Use newroot when appropriate.
+
+2003-11-19  Larry Jones  <lawrence.jones@eds.com>
+
+	* rcs.c (RCS_getrevtime): Add error checking; cleanup.
+
+2003-11-18  Derek Price  <derek@ximbiot.com>
+
+	* modules.c (do_module): Reject absolute paths.
+	(Report and suggested fix from Tony Hoyle <tmh@nodomain.org>.)
+
+	* sanity.sh (abspath2): Check for the above.
+	(spacefiles): Remove tests that expect absolute paths to files in the
+	top level repository directory to work.
+	(tests): Add abspath2.
+
+2003-11-13  Derek Price  <derek@ximbiot.com>
+
+	* rcs.c (RCS_delete_revs): It's `&&', not `and'.
+
+2003-11-13  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh: Create the empty log to make it easier to tail immediately
+	after the script is started.
+
+2003-11-13  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (exit_help): Correct help to specify `-H' and not `-h' as
+	the help option.
+
+2003-11-13  Derek Price  <derek@ximbiot.com>
+
+	* rcs.c (RCS_delete_revs): Don't use the WOE32 kludge which refuses to
+	delete revisions from bvinary files on Cygwin.  I'm not sure what the
+	kludge was trying to avoid, but commenting it out causes the test suite
+	to pass.
+
+2003-11-10  Derek Price  <derek@ximbiot.com>
+
+	* commit.c (check_fileproc, find_fileproc): Don't leak memory.
+
+2003-11-10  Derek Price  <derek@ximbiot.com>
+
+	* commit.c (find_fileproc, check_fileproc):  Refuse to remove files
+	when the file exists in the sandbox.  This used to cause data loss.
+	(Report from Andreas Reifschneider <andyreif@studcs.uni-sb.de>.)
+
+	* sanity.sh (rmadd3): Update to match.  Expand comments.
+
+2003-11-10  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (rmadd3): Test the behavior of commit after the
+	add/replace.
+	(Report from Andreas Reifschneider <andyreif@studcs.uni-sb.de>.)
+
+2003-11-10  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Backport symlink bugfix from cvs 1.12.1.1 feature release
+	as written by Derek Price <derek@ximbiot.com>. (This fixes
+	the Issue 142 bug.)
+
+	* recurse.c (start_recursion): Accept new repository argument so
+	that the working directory may be tracked by do_recursion without
+	using xgetwd(), which returned a value different from the one the
+	user requested when symlinks were in use. Pass repository_in to
+	do_recursion() as part of the recursion frame.
+
+	* cvs.h (xreadlink): #ifdef HAVE_READLINK proto.
+	(xresolvepath): New proto.
+	(start_recursion): Add repository to proto.
+
+	* checkout.c (safe_location): Add more complete header comment.
+	Add trace.  Use new xresolvepath() function.  Always return true
+	in client mode since checking our destination path against the
+	CVSROOT path is usually meaningless in client/server mode.
+	(checkout_proc): Pass repository to do_update() for later use with
+	start_recursion().
+
+	* admin.c (admin): Use new definition of start_recursion().
+	* annotate.c (rannotate_proc): Ditto.
+	* client.c (send_files): Ditto.
+	* commit.c (commit): Ditto.
+	* diff.c (diff): Ditto.
+	* edit.c (watch_onoff, send_notifications, edit, unedit, editors):
+	Ditto.
+	* lock.c (lock_tree_for_write): Ditto.
+	* log.c (rlog_proc): Ditto.
+	* patch.c (patch_proc): Ditto.
+	* remove.c (cvsremove): Ditto.
+	* tag.c (rtag_proc): Ditto.
+	* update.c (do_update): Ditto.
+	* watch.c (watch_addremove, watchers): Ditto.
+
+	* patch.c (patch_proc): Call tag_check_valid with repository
+	instead of NULL.
+
+	* filesubr.c (xreadlink): #ifdef HAVE_READLINK this function.  Add
+	more complete header comment.
+	(xresolvepath): New function.
+
+	* recurse.c (do_recursion): Call Lock_Cleanup() only repository
+	was set.
+
+	* update.c (do_update): Accept new repository argument so that the
+	working directory may be tracked.
+	(update): Pass NULL repository to do_update().
+	* update.c (do_update): Add repository to proto.
+
+	* checkout.c (checkout_proc): Use new definition of do_update().
+	* update.c (update): Ditto.
+
+	* sanity.sh: Add new -l option to test symlinked roots.
+	(checkout_repository-1): Add server error messages about absolute
+	paths since the client now skips destination validity checks.
+	(check_repository-2): Test renamed to checkout_repository-2.
+	(checkout_repository-2): Process client error messages about
+	CVSROOT files being in the way since the client skips destination
+	validity checks since it should be rare that a client is running
+	in client/server mode on the server and CVS has no current way to
+	check if it is running on the server. 
+	(check_repository-3): Test renamed to checkout_repository-3.
+	(dottedroot): New test to check that a CVSROOT with a "." in the
+	name will work.
+
+2003-11-10  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (rmadd3): Add whitespace after end of test for readability.
+
+2003-11-10  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (rmadd3): New tests that confirms that CVS refuses to
+	delete a file it thinks was already removed.
+	(Report and test from Andreas Reifschneider
+	<andyreif@studcs.uni-sb.de>.)
+
+2003-11-03  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (server): Test that the global `-l' option is ignored
+	nonfatally.
+
+2003-11-01  Larry Jones  <lawrence.jones@eds.com>
+
+	* ignore.c (ignore_files): Use CVS_LSTAT() instead of lstat().
+	* filesubr.c (xcmp): Make sure S_ISLNK exists before calling it.
+	(Reported by Paul Edwards <kerravon@nosppaam.w3.to>.)
+
+2003-10-31  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (checkout_repository): Name tests consistently.
+
+2003-10-31  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh: s/${TESTDIR}/cvsroot/${CVSROOT_DIRNAME}/.
+
+2003-10-28  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (devcom): s/cvs/$PROG/.
+
+2003-10-28  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (devcom): Renumber tests and use dotest function.
+
+2003-10-28  Derek Price  <derek@ximbiot.com>
+
+	* sever.h: Add the standard copyright notice.
+
+2003-10-28  Derek Price  <derek@ximbiot.com>
+
+	* lock.c: Remove some suggestions which have already been implemented
+	or which have become obsolete from the header comment.
+
+2003-10-26  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (join6): Fix a few typos in the last test and remove a
+	misplaced test.
+
+2003-10-25  Mark D. Baushke  <mdb@cvshome.org>
+
+	* sanity.sh (parseroot): Perform this test in a subdirectory.
+	It should avoid problems on case-insensitive systems where 
+	CVSROOT and cvsroot are the same directory (eg, MacOS X).
+
+2003-10-24  Derek Price  <derek@ximbiot.com>
+
+	* update.c (join_file): Restore the optimization Mark recently removed,
+	but fix it.  Move one other optimization up since it needs to be
+	checked for first.  Add bew status messages like merge_file produces
+	when the requested diff has already been applied to the destination.
+	Expand header comment.
+	* sanity.sh (join6): Add tests for the new error messages.
+	(import-113, join-admin-2, diffmerge1): Fix collateral damage.
+
+2003-10-23  Mark D. Baushke  <mdb@cvshome.org>
+
+	* update.c (join_file): Do the -jrev1 -jrev2 merge even when
+	the file is already at rev2.
+	* sanity.sh (join6): New testcase for above.
+	(Suggested by Paul Edwards, from somewhere in Australia.)
+	(import): Fix collateral damage.
+	
+2003-10-23  Derek Price  <derek@ximbiot.com>
+
+	* sanity.sh (fail): Refer the user to the `TESTS' and `check.log' files
+	on failure.
+
+2003-10-19  Mark D. Baushke  <mdb@cvshome.org>
+
+	* sanity.sh (admin-31): Fix more typos.
+
+2003-10-18  Mark D. Baushke  <mdb@cvshome.org>
+
+	* sanity.sh (admin): Fix a typo.
+
+	* admin.c (admin_fileproc): Restore the ':' character in the
+	-mtag:message admin argument even if the tag does not exist so
+	that other files with the tag will be found. Also, be more
+	paranoid that a symbolic tag actually points to a version that
+	exists.
+	(Reported by Rodolfo Schulz de Lima <rodolfo@rodsoft.org>.)
+	* sanity.sh (admin): Test these changes.
+	
+2003-10-17  Mark D. Baushke  <mdb@cvshome.org>
+
+	* admin.c (admin_fileproc): Force tag match on admin
+	-mversion:message rather than altering the wrong log message.
+	(Patch from "Rodolfo Schulz de Lima" <rodsoft@uol.com.br>.)
+	* sanity.sh (admin): Test case for it.
+
+2003-10-15  Larry Jones  <lawrence.jones@eds.com>
+
+	* commit.c (commit_fileproc, finaladd): Don't call fixaddfile()
+	if the RCS file didn't get created at all.
+	(Reported by David Wood <David.Wood@thestreet.com>.)
+
+2003-10-14  Derek Price  <derek@ximbiot.com>
+
+	Port to pedantic POSIX 1003.1-2001 hosts, such as Debian GNU/Linux
+	testing with _POSIX2_VERSION=200112 in the environment.
+
+	* sanity.sh: Use 'sed 1q', not 'head -1'.
+	(Patch from Paul Eggert <eggert@twinsun.com>.)
+
+2003-10-10  Derek Price  <derek@ximbiot.com>
+
+	* lock.c (set_lock): Clarify comment.
+
 2003-10-08  Derek Price  <derek@ximbiot.com>
 
 	* Makefile.am (cvs_SOURCES): Add history.h.
