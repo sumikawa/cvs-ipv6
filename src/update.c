@@ -39,6 +39,7 @@
  */
 
 #include "cvs.h"
+#include <assert.h>
 #include "savecwd.h"
 #ifdef SERVER_SUPPORT
 # include "md5.h"
@@ -200,6 +201,7 @@ update (argc, argv)
 		tag = optarg;
 		break;
 	    case 'D':
+		if (date) free (date);
 		date = Make_Date (optarg);
 		break;
 	    case 'P':
@@ -1955,6 +1957,8 @@ merge_file (finfo, vers)
     int status;
     int retcode = 0;
     int retval;
+
+    assert (vers->vn_user);
 
     /*
      * The users currently modified file is moved to a backup file name

@@ -376,6 +376,7 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
 	    /* mwhere gets just the module name */
 	    mwhere = xstrdup (mname);
 	    mfile = cp + 1;
+	    assert (strlen (mfile));
 
 	    /* put the / back in mname */
 	    *cp = '/';
@@ -749,7 +750,7 @@ module `%s' is a request for a file in a module which is not a directory",
 		err += run_exec (RUN_TTY, RUN_TTY, RUN_TTY, RUN_NORMAL);
 		free (expanded_path);
 	    }
-	    free (real_prog);
+	    if (real_prog) free (real_prog);
 	}
     }
 

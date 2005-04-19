@@ -1,5 +1,23 @@
-#! @PERL@
+#! @PERL@ -T
 # -*-Perl-*-
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+# THIS SCRIPT IS PROBABLY BROKEN.  REMOVING THE -T SWITCH ON THE #! LINE ABOVE
+# WOULD FIX IT, BUT THIS IS INSECURE.  WE RECOMMEND FIXING THE ERRORS WHICH THE
+# -T SWITCH WILL CAUSE PERL TO REPORT BEFORE RUNNING THIS SCRIPT FROM A CVS
+# SERVER TRIGGER.  PLEASE SEND PATCHES CONTAINING THE CHANGES YOU FIND
+# NECESSARY TO RUN THIS SCRIPT WITH THE TAINT-CHECKING ENABLED BACK TO THE
+# <bug-cvs@gnu.org> MAILING LIST.
+#
+# For more on general Perl security and taint-checking, please try running the
+# `perldoc perlsec' command.
+#
+###############################################################################
+###############################################################################
+###############################################################################
 
 =head1 Name
 
@@ -205,7 +223,7 @@ It was developed and tested under Red Hat Linux 9.0 using PERL 5.8.0.
 Additionally, it was built and tested under Red Hat Linux 7.3 using 
 PERL 5.6.1.
 
-$Id: cvs_acls.in,v 1.4.4.1 2005/01/25 18:58:44 mdb Exp $
+$Id: cvs_acls.in,v 1.4.4.2 2005/04/14 14:26:37 dprice Exp $
 
 This version is based on the 1.11.13 version of cvs_acls
 peter.connolly@cnet.com (Peter Connolly) 

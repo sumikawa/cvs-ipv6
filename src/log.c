@@ -18,6 +18,7 @@
  */
 
 #include "cvs.h"
+#include <assert.h>
 
 /* This structure holds information parsed from the -r option.  */
 
@@ -1074,8 +1075,19 @@ log_expand_revlist (rcs, baserev, revlist, default_branch)
 	    /* If both first and last are NULL, it means that we want
 	       just the head of the default branch, which is RCS_head.  */
 	    nr->first = RCS_head (rcs);
-	    nr->last = xstrdup (nr->first);
-	    nr->fields = numdots (nr->first) + 1;
+	    if (!nr->first)
+	    {
+		if (!really_quiet)
+		    error (0, 0, "No head revision in archive `%s'.",
+		           rcs->path);
+		nr->last = NULL;
+		nr->fields = 0;
+	    }
+	    else
+	    {
+		nr->last = xstrdup (nr->first);
+		nr->fields = numdots (nr->first) + 1;
+	    }
 	}
 	else if (r->branchhead)
 	{
@@ -1095,10 +1107,11 @@ log_expand_revlist (rcs, baserev, revlist, default_branch)
 		    free (branch);
 		}
 	    }
-	    if (nr->first == NULL && !really_quiet)
+	    if (!nr->first)
 	    {
-		error (0, 0, "warning: no branch `%s' in `%s'",
-		       r->first, rcs->path);
+		if (!really_quiet)
+		    error (0, 0, "warning: no branch `%s' in `%s'",
+			   r->first, rcs->path);
 		nr->last = NULL;
 		nr->fields = 0;
 	    }
@@ -1162,6 +1175,7 @@ log_expand_revlist (rcs, baserev, revlist, default_branch)
 
 		    nr->first = xstrdup (nr->last);
 		    cp = strrchr (nr->first, '.');
+		    assert (cp);
 		    strcpy (cp + 1, "0");
 		}
 	    }
@@ -1176,6 +1190,7 @@ log_expand_revlist (rcs, baserev, revlist, default_branch)
 		    char *cp;
 
 		    cp = strrchr (nr->last, '.');
+		    assert (cp);
 		    *cp = '\0';
 		}
 	    }
@@ -1275,7 +1290,9 @@ log_expand_revlist (rcs, baserev, revlist, default_branch)
 	    char *cp;
 
 	    nr->first = xstrdup (rcs->head);
+	    assert (nr->first);
 	    cp = strrchr (nr->first, '.');
+	    assert (cp);
 	    *cp = '\0';
 	}
 	nr->last = xstrdup (nr->first);
@@ -1663,6 +1680,7 @@ log_version (log_data, revlist, rcs, ver, trunk)
 
     if (padd != NULL)
     {
+	assert (pdel);
 	cvs_output ("  lines: +", 0);
 	cvs_output (padd->data, 0);
 	cvs_output (" -", 2);
