@@ -1126,6 +1126,8 @@ call_in_directory (pathname, func, data)
     int reposdirname_absolute;
     int newdir = 0;
 
+    assert (pathname);
+
     reposname = NULL;
     read_line (&reposname);
     assert (reposname != NULL);
@@ -1231,6 +1233,11 @@ call_in_directory (pathname, func, data)
 	char *r;
 
 	newdir = 1;
+
+	/* If toplevel_repos doesn't have at least one character, then the
+	 * reference to r[-1] below could be out of bounds.
+	 */
+	assert (*toplevel_repos);
 
 	repo = xmalloc (strlen (toplevel_repos)
 			+ 10);
@@ -1941,7 +1948,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 #ifdef USE_VMS_FILENAMES
         /* A VMS rename of "blah.dat" to "foo" to implies a
            destination of "foo.dat" which is unfortinate for CVS */
-       sprintf (temp_filename, "%s_new_", filename);
+	sprintf (temp_filename, "%s_new_", filename);
 #else
 #ifdef _POSIX_NO_TRUNC
 	sprintf (temp_filename, ".new.%.9s", filename);
@@ -1994,6 +2001,8 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 		   entirely possible that future files will not have
 		   the same problem.  */
 		error (0, errno, "cannot write %s", short_pathname);
+		free (temp_filename);
+		free (buf);
 		goto discard_file_and_return;
 	    }
 
