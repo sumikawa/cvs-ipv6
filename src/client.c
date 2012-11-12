@@ -166,17 +166,22 @@ is_arg_a_parent_or_listed_dir (n, d)
     void *d;
 {
     char *directory = n->key;	/* name of the dir sent to server */
-    char *this_argv_elem = (char *) d;	/* this argv element */
+    char *this_argv_elem = xstrdup (d);	/* this argv element */
+    int retval;
 
     /* Say we should send this argument if the argument matches the
        beginning of a directory name sent to the server.  This way,
        the server will know to start at the top of that directory
        hierarchy and descend. */
 
+    strip_trailing_slashes (this_argv_elem);
     if (strncmp (directory, this_argv_elem, strlen (this_argv_elem)) == 0)
-	return 1;
+	retval = 1;
+    else
+	retval = 0;
 
-    return 0;
+    free (this_argv_elem);
+    return retval;
 }
 
 static int arg_should_not_be_sent_to_server PROTO((char *));
@@ -899,12 +904,6 @@ read_line (resultp)
 #if defined(CLIENT_SUPPORT) || defined(SERVER_SUPPORT)
 
 /*
- * Zero if compression isn't supported or requested; non-zero to indicate
- * a compression level to request from gzip.
- */
-int gzip_level;
-
-/*
  * Level of compression to use when running gzip on a single file.
  */
 int file_gzip_level;
@@ -1209,49 +1208,6 @@ call_in_directory (pathname, func, data)
     if (CVS_CHDIR (toplevel_wd) < 0)
 	error (1, errno, "could not chdir to %s", toplevel_wd);
 
-    /* Create the CVS directory at the top level if needed.  The
-       isdir seems like an unneeded system call, but it *does*
-       need to be called both if the CVS_CHDIR below succeeds
-       (e.g.  "cvs co .") or if it fails (e.g. basicb-1a in
-       testsuite).  We only need to do this for the "." case,
-       since the server takes care of forcing this directory to be
-       created in all other cases.  If we don't create CVSADM
-       here, the call to Entries_Open below will fail.  FIXME:
-       perhaps this means that we should change our algorithm
-       below that calls Create_Admin instead of having this code
-       here? */
-    if (/* I think the reposdirname_absolute case has to do with
-	   things like "cvs update /foo/bar".  In any event, the
-	   code below which tries to put toplevel_repos into
-	   CVS/Repository is almost surely unsuited to
-	   the reposdirname_absolute case.  */
-	!reposdirname_absolute
-	&& (strcmp (dir_name, ".") == 0)
-	&& ! isdir (CVSADM))
-    {
-	char *repo;
-	char *r;
-
-	newdir = 1;
-
-	/* If toplevel_repos doesn't have at least one character, then the
-	 * reference to r[-1] below could be out of bounds.
-	 */
-	assert (*toplevel_repos);
-
-	repo = xmalloc (strlen (toplevel_repos)
-			+ 10);
-	strcpy (repo, toplevel_repos);
-	r = repo + strlen (repo);
-	if (r[-1] != '.' || r[-2] != '/')
-	    strcpy (r, "/.");
-
-	Create_Admin (".", ".", repo, (char *) NULL,
-		      (char *) NULL, 0, 1, 1);
-
-	free (repo);
-    }
-
     if (CVS_CHDIR (dir_name) < 0)
     {
 	char *dir;
@@ -1512,7 +1468,44 @@ handle_copy_file (args, len)
 {
     call_in_directory (args, copy_a_file, (char *)NULL);
 }
-
+
+
+
+/* Attempt to read a file size from a string.  Accepts base 8 (0N), base 16
+ * (0xN), or base 10.  Exits on error.
+ *
+ * RETURNS
+ *   The file size, in a size_t.
+ *
+ * FATAL ERRORS
+ *   1.  As strtoul().
+ *   2.  If the number read exceeds SIZE_MAX.
+ */
+static size_t
+strto_file_size (const char *s)
+{
+    unsigned long tmp;
+    char *endptr;
+
+    /* Read it.  */
+    errno = 0;
+    tmp = strtoul (s, &endptr, 0);
+
+    /* Check for errors.  */
+    if (errno || endptr == s)
+	error (1, errno, "Server sent invalid file size `%s'", s);
+    if (*endptr != '\0')
+	error (1, 0,
+	       "Server sent trailing characters in file size `%s'",
+	       endptr);
+    if (tmp > SIZE_MAX)
+	error (1, 0, "Server sent file size exceeding client max.");
+
+    /* Return it.  */
+    return (size_t)tmp;
+}
+
+
 
 static void read_counted_file PROTO ((char *, char *));
 
@@ -1545,9 +1538,7 @@ read_counted_file (filename, fullname)
     if (size_string[0] == 'z')
 	error (1, 0, "\
 protocol error: compressed files not supported for that operation");
-    /* FIXME: should be doing more error checking, probably.  Like using
-       strtoul and making sure we used up the whole line.  */
-    size = atoi (size_string);
+    size = strto_file_size (size_string);
     free (size_string);
 
     /* A more sophisticated implementation would use only a limited amount
@@ -1560,6 +1551,7 @@ protocol error: compressed files not supported for that operation");
        is binary or not.  I haven't carefully looked into whether
        CVS/Template files should use local text file conventions or
        not.  */
+    errno = 0;  /* Standard C doesn't require errno be set on error */
     fp = CVS_FOPEN (filename, "wb");
     if (fp == NULL)
 	error (1, errno, "cannot write %s", fullname);
@@ -1708,6 +1700,9 @@ handle_mod_time (args, len)
 	error (0, 0, "protocol error: cannot parse date %s", args);
     else
 	stored_modtime_valid = 1;
+#ifdef DEBUG_TIMESTAMPS
+    printf("stored_modtime = %llu, 0x%llX\n", stored_modtime, stored_modtime);
+#endif
 }
 
 /*
@@ -1829,11 +1824,12 @@ update_entries (data_arg, ent_list, short_pathname, filename)
     {
 	char *size_string;
 	char *mode_string;
-	int size;
+	size_t size;
 	char *buf;
 	char *temp_filename;
 	int use_gzip;
 	int patch_failed;
+	char *s;
 
 	read_line (&mode_string);
 	
@@ -1841,13 +1837,14 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	if (size_string[0] == 'z')
 	{
 	    use_gzip = 1;
-	    size = atoi (size_string+1);
+	    s = size_string + 1;
 	}
 	else
 	{
 	    use_gzip = 0;
-	    size = atoi (size_string);
+	    s = size_string;
 	}
+	size = strto_file_size (s);
 	free (size_string);
 
 	/* Note that checking this separately from writing the file is
@@ -2149,6 +2146,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	     * here using text mode, so its lines will be terminated the same
 	     * way they were transmitted.
 	     */
+	    errno = 0; /* Standard C doesn't require errno be set on error */
 	    e = CVS_FOPEN (filename, "r");
 	    if (e == NULL)
 	        error (1, errno, "could not open %s", short_pathname);
@@ -2230,7 +2228,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	}
 #endif  /* UTIME_EXPECTS_WRITABLE  */
 
-	if (utime (filename, &t) < 0)
+	if (CVS_UTIME (filename, &t) < 0)
 	    error (0, errno, "cannot set time on %s", filename);
 
 #ifdef UTIME_EXPECTS_WRITABLE
@@ -2526,6 +2524,7 @@ set_sticky (data, ent_list, short_pathname, filename)
     read_line (&tagspec);
 
     /* FIXME-update-dir: error messages should include the directory.  */
+    errno = 0; /* Standard C doesn't require errno be set on error */
     f = CVS_FOPEN (CVSADM_TAG, "w+");
     if (f == NULL)
     {
@@ -2796,7 +2795,8 @@ send_repository (dir, repos, update_dir)
     send_to_server (repos, 0);
     send_to_server ("\012", 1);
 
-    if (supported_request ("Static-directory"))
+    if (strcmp (cvs_cmd_name, "import")
+	&& supported_request ("Static-directory"))
     {
 	adm_name[0] = '\0';
 	if (dir[0] != '\0')
@@ -2810,7 +2810,8 @@ send_repository (dir, repos, update_dir)
 	    send_to_server ("Static-directory\012", 0);
 	}
     }
-    if (supported_request ("Sticky"))
+    if (strcmp (cvs_cmd_name, "import")
+	&& supported_request ("Sticky"))
     {
 	FILE *f;
 	if (dir[0] == '\0')
@@ -2818,6 +2819,7 @@ send_repository (dir, repos, update_dir)
 	else
 	    sprintf (adm_name, "%s/%s", dir, CVSADM_TAG);
 
+	errno = 0; /* Standard C doesn't require errno be set on error */
 	f = CVS_FOPEN (adm_name, "r");
 	if (f == NULL)
 	{
@@ -2859,7 +2861,10 @@ send_a_repository (dir, repository, update_dir_in)
     const char *repository;
     const char *update_dir_in;
 {
-    char *update_dir = xstrdup (update_dir_in);
+    char *update_dir;
+
+    assert (update_dir_in);
+    update_dir = xstrdup (update_dir_in);
 
     if (toplevel_repos == NULL && repository != NULL)
     {
@@ -3090,9 +3095,6 @@ handle_m (args, len)
     char *args;
     int len;
 {
-    fd_set wfds;
-    int s;
-
     /* In the case where stdout and stderr point to the same place,
        fflushing stderr will make output happen in the correct order.
        Often stderr will be line-buffered and this won't be needed,
@@ -3100,12 +3102,6 @@ handle_m (args, len)
        based on being confused between default buffering between
        stdout and stderr.  But I'm not sure).  */
     fflush (stderr);
-    FD_ZERO (&wfds);
-    FD_SET (STDOUT_FILENO, &wfds);
-    errno = 0;
-    s = select (STDOUT_FILENO+1, NULL, &wfds, NULL, NULL);
-    if (s < 1 && errno != 0)
-        perror ("cannot write to stdout");
     fwrite (args, len, sizeof (*args), stdout);
     putc ('\n', stdout);
 }
@@ -3128,7 +3124,7 @@ handle_mbinary (args, len)
 
     /* Get the size.  */
     read_line (&size_string);
-    size = atoi (size_string);
+    size = strto_file_size (size_string);
     free (size_string);
 
     /* OK, now get all the data.  The algorithm here is that we read
@@ -3153,24 +3149,9 @@ handle_e (args, len)
     char *args;
     int len;
 {
-    fd_set wfds;
-    int s;
-
     /* In the case where stdout and stderr point to the same place,
        fflushing stdout will make output happen in the correct order.  */
     fflush (stdout);
-    FD_ZERO (&wfds);
-    FD_SET (STDERR_FILENO, &wfds);
-    errno = 0;
-    s = select (STDERR_FILENO+1, NULL, &wfds, NULL, NULL);
-    /*
-     * If stderr has problems, then adding a call to
-     *   perror ("cannot write to stderr")
-     * will not work. So, try to write a message on stdout and
-     * terminate cvs.
-     */
-    if (s < 1 && errno != 0)
-        fperrmsg (stdout, 1, errno, "cannot write to stderr");
     fwrite (args, len, sizeof (*args), stderr);
     putc ('\n', stderr);
 }
@@ -3292,7 +3273,7 @@ handle_mt (args, len)
 	    else if (importmergecmd.seen)
 	    {
 		if (strcmp (tag, "conflicts") == 0)
-		    importmergecmd.conflicts = atoi (text);
+		    importmergecmd.conflicts = text ? atoi (text) : -1;
 		else if (strcmp (tag, "mergetag1") == 0)
 		    importmergecmd.mergetag1 = xstrdup (text);
 		else if (strcmp (tag, "mergetag2") == 0)
@@ -3897,7 +3878,7 @@ auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, res0)
     int do_gssapi;
     struct addrinfo *res0;
 {
-    char *username;			/* the username we use to connect */
+    char *username = "";		/* the username we use to connect */
     char no_passwd = 0;			/* gets set if no password found */
 
     /* FIXME!!!!!!!!!!!!!!!!!!
@@ -3920,7 +3901,7 @@ auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, res0)
 	int fd = fp ? fileno(fp) : -1;
 	struct stat s;
 
-	if ((fd < 0) || (fstat (fd, &s) < 0) || !S_ISSOCK(s.st_mode))
+	if ((fd < 0) || (CVS_FSTAT (fd, &s) < 0) || !S_ISSOCK(s.st_mode))
 	{
 	    error (1, 0, "gserver currently only enabled for socket connections");
 	}
@@ -3982,8 +3963,8 @@ auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, res0)
 	send_to_server(end, 0);
 	send_to_server("\012", 1);
 
-        /* Paranoia. */
-        memset (password, 0, strlen (password));
+	free_cvs_password (password);
+	password = NULL;
 # else /* ! AUTH_CLIENT_SUPPORT */
 	error (1, 0, "INTERNAL ERROR: This client does not support pserver authentication");
 # endif /* AUTH_CLIENT_SUPPORT */
@@ -4098,7 +4079,7 @@ connect_to_forked_server (to_server, from_server)
 	fprintf (stderr, " -> Forking server: %s %s\n", command[0], command[1]);
     }
 
-    child_pid = piped_child (command, &tofd, &fromfd);
+    child_pid = piped_child (command, &tofd, &fromfd, 0);
     if (child_pid < 0)
 	error (1, 0, "could not fork server process");
 
@@ -4405,6 +4386,7 @@ start_server ()
 #endif /* HAVE_GSSAPI */
 
 	case ext_method:
+	case extssh_method:
 #ifdef NO_EXT_METHOD
 	    error (0, 0, ":ext: method not supported by this port of CVS");
 	    error (1, 0, "try :server: instead");
@@ -4781,35 +4763,20 @@ start_rsh_server (root, to_server, from_server)
     /* If you're working through firewalls, you can set the
        CVS_RSH environment variable to a script which uses rsh to
        invoke another rsh on a proxy machine.  */
-    char *cvs_rsh = getenv ("CVS_RSH");
+    char *env_cvs_rsh = getenv ("CVS_RSH");
+    char *env_cvs_ssh = getenv ("CVS_SSH");
+    char *cvs_rsh;
     char *cvs_server = getenv ("CVS_SERVER");
     int i = 0;
     /* This needs to fit "rsh", "-b", "-l", "USER", "host",
        "cmd (w/ args)", and NULL.  We leave some room to grow. */
     char *rsh_argv[10];
 
-    if (!cvs_rsh)
-	/* People sometimes suggest or assume that this should default
-	   to "remsh" on systems like HPUX in which that is the
-	   system-supplied name for the rsh program.  However, that
-	   causes various problems (keep in mind that systems such as
-	   HPUX might have non-system-supplied versions of "rsh", like
-	   a Kerberized one, which one might want to use).  If we
-	   based the name on what is found in the PATH of the person
-	   who runs configure, that would make it harder to
-	   consistently produce the same result in the face of
-	   different people producing binary distributions.  If we
-	   based it on "remsh" always being the default for HPUX
-	   (e.g. based on uname), that might be slightly better but
-	   would require us to keep track of what the defaults are for
-	   each system type, and probably would cope poorly if the
-	   existence of remsh or rsh varies from OS version to OS
-	   version.  Therefore, it seems best to have the default
-	   remain "rsh", and tell HPUX users to specify remsh, for
-	   example in CVS_RSH or other such mechanisms to be devised,
-	   if that is what they want (the manual already tells them
-	   that).  */
-	cvs_rsh = "rsh";
+    if (root->method == extssh_method)
+	cvs_rsh = env_cvs_ssh ? env_cvs_ssh : SSH_DFLT;
+    else
+	cvs_rsh = env_cvs_rsh ? env_cvs_rsh : RSH_DFLT;
+
     if (!cvs_server)
 	cvs_server = "cvs";
 
@@ -4863,14 +4830,19 @@ start_rsh_server (root, to_server, from_server)
     /* If you're working through firewalls, you can set the
        CVS_RSH environment variable to a script which uses rsh to
        invoke another rsh on a proxy machine.  */
-    char *cvs_rsh = getenv ("CVS_RSH");
+    char *env_cvs_rsh = getenv ("CVS_RSH");
+    char *env_cvs_ssh = getenv ("CVS_SSH");
+    char *cvs_rsh;
     char *cvs_server = getenv ("CVS_SERVER");
     char *command;
     int tofd, fromfd;
     int child_pid;
 
-    if (!cvs_rsh)
-	cvs_rsh = "rsh";
+    if (root->method == extssh_method)
+	cvs_rsh = env_cvs_ssh ? env_cvs_ssh : SSH_DFLT;
+    else
+	cvs_rsh = env_cvs_rsh ? env_cvs_rsh : RSH_DFLT;
+
     if (!cvs_server)
 	cvs_server = "cvs";
 
@@ -4914,7 +4886,7 @@ start_rsh_server (root, to_server, from_server)
 	        fprintf (stderr, "%s ", argv[i]);
 	    putc ('\n', stderr);
 	}
-	child_pid = piped_child (argv, &tofd, &fromfd);
+	child_pid = piped_child (argv, &tofd, &fromfd, 1);
 
 	if (child_pid < 0)
 	    error (1, errno, "cannot start server via rsh");
@@ -4933,10 +4905,10 @@ start_rsh_server (root, to_server, from_server)
 /* Send an argument STRING.  */
 void
 send_arg (string)
-    char *string;
+    const char *string;
 {
     char buf[1];
-    char *p = string;
+    const char *p = string;
 
     send_to_server ("Argument ", 0);
 
@@ -5228,7 +5200,10 @@ warning: ignoring -k options due to server limitations");
     }
     else if (vers->ts_rcs == NULL
 	     || args->force
-	     || strcmp (vers->ts_user, vers->ts_rcs) != 0)
+	     || strcmp (vers->ts_conflict
+			&& supported_request ("Empty-conflicts")
+		        ? vers->ts_conflict : vers->ts_rcs, vers->ts_user)
+	     || (vers->ts_conflict && !strcmp (cvs_cmd_name, "diff")))
     {
 	if (args->no_contents
 	    && supported_request ("Is-modified"))
@@ -5434,36 +5409,15 @@ send_dirleave_proc (callerdat, dir, err, update_dir, entries)
 }
 
 /*
- * Send each option in a string to the server, one by one.
- * This assumes that the options are separated by spaces, for example
- * STRING might be "--foo -C5 -y".
+ * Send each option in an array to the server, one by one.
+ * argv might be "--foo=bar",  "-C", "5", "-y".
  */
-
 void
-send_option_string (string)
-    char *string;
+send_options (int argc, char *const *argv)
 {
-    char *copy;
-    char *p;
-
-    copy = xstrdup (string);
-    p = copy;
-    while (1)
-    {
-        char *s;
-	char l;
-
-	for (s = p; *s != ' ' && *s != '\0'; s++)
-	    ;
-	l = *s;
-	*s = '\0';
-	if (s != p)
-	    send_arg (p);
-	if (l == '\0')
-	    break;
-	p = s + 1;
-    }
-    free (copy);
+    int i;
+    for (i = 0; i < argc; i++)
+	send_arg (argv[i]);
 }
 
 
