@@ -17,7 +17,7 @@
 # GNU General Public License for more details.
 
 info_TEXINFOS = cvs.texinfo cvsclient.texi
-man_MANS = cvs.1
+man_MANS = $(srcdir)/cvs.1
 
 PSS = \
 	cvs.ps \
@@ -26,7 +26,7 @@ PSS = \
 
 PDFS = \
 	cvs.pdf \
-	cvs-paper.pdf \
+	$(srcdir)/cvs-paper.pdf \
 	cvsclient.pdf
 
 TXTS = \
@@ -34,26 +34,27 @@ TXTS = \
 	cvsclient.txt
 
 EXTRA_DIST = \
-	$(PSS) \
 	.cvsignore \
 	ChangeLog.fsf \
 	RCSFILES \
 	mdate-sh \
-	cvs.1 \
+	$(srcdir)/cvs.1 \
 	cvs-paper.ms \
 	cvs.man.header \
-	cvs.man.footer
+	cvs.man.footer \
+	$(PDFS)
 
-MOSTLYCLEANFILES = \
+MOSTLYCLEANFILES =
+
+CLEANFILES = \
+	$(PSS) \
 	$(TXTS)
 
-# These Automake generates MOSTLYCLEAN targets for PostScripts genersted from
-# TEXINFOS, but it shouldn't when those files are in EXTRA_DIST
 MAINTAINERCLEANFILES = \
-	$(PSS) \
-	cvs.1
+	$(PDFS) \
+	$(srcdir)/cvs.1
 
-doc: info ps
+doc: info pdf
 .PHONY: doc
 
 txt: $(TXTS)
@@ -68,22 +69,35 @@ dvi: cvs.dvi cvsclient.dvi
 cvs.txt: cvs.texinfo $(srcdir)/version.texi
 cvsclient.txt: cvsclient.texi $(srcdir)/version-client.texi
 
-# These targets need to be very specific so that the other PDFs get generated
-# correctly.  If they are more generic and cvs.ps is made before cvs.pdf, then
-# cvs.pdf will be generated from the generic target and the PS source, which
-# contains less information (hyperlinks and such) than the usual texinfo source.
+# The cvs-paper.pdf target needs to be very specific so that the other PDFs get
+# generated correctly.  If a more generic .ps.pdf implicit target is defined,
+# and cvs.ps is made before cvs.pdf, then cvs.pdf can be generated from the
+# .ps.pdf target and the PS source, which contains less information (hyperlinks
+# and such) than the usual texinfo source.
+#
+# It is possible that an implicit .ms.ps target could be safely defined.  I
+# don't recall looking into it.
 cvs-paper.ps: cvs-paper.ms
-	$(ROFF) -t -p -ms -Tps $< > $@-t
-	mv $@-t $@
+	$(ROFF) -t -p -ms -Tps $(srcdir)/cvs-paper.ms >cvs-paper.ps-t
+	cp cvs-paper.ps-t $@
+	-@rm -f cvs-paper.ps-t
 
-cvs-paper.pdf: cvs-paper.ps
-	ps2pdf $< $@
+# This rule introduces some redundancy, but `make distcheck' requires that
+# Nothing in $(srcdir) be rebuilt, and this will always be rebuilt when it
+# is dependant on cvs-paper.ps and cvs-paper.ps isn't distributed.
+$(srcdir)/cvs-paper.pdf: cvs-paper.ms
+	$(ROFF) -t -p -ms -Tps $(srcdir)/cvs-paper.ms >cvs-paper.ps-t
+	ps2pdf cvs-paper.ps-t cvs-paper.pdf-t
+	cp cvs-paper.pdf-t $@
+	-@rm -f cvs-paper.pdf-t cvs-paper.ps-t
+
+MOSTLYCLEANFILES += cvs-paper.pdf-t cvs-paper.ps-t
 
 # Targets to build a man page from cvs.texinfo.
-cvs.1: @MAINTAINER_MODE_TRUE@ mkman cvs.man.header cvs.texinfo cvs.man.footer
+$(srcdir)/cvs.1: @MAINTAINER_MODE_TRUE@ mkman cvs.man.header cvs.texinfo cvs.man.footer
 	$(PERL) ./mkman $(srcdir)/cvs.man.header $(srcdir)/cvs.texinfo \
 		$(srcdir)/cvs.man.footer >cvs.tmp
-	cp cvs.tmp $(srcdir)/$@
+	cp cvs.tmp $(srcdir)/cvs.1
 	-@rm -f cvs.tmp
 
 # texinfo based targets automake neglects to include

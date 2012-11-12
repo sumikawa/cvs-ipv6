@@ -324,7 +324,6 @@ increment_revnum (rev)
     const char *rev;
 {
     char *newrev, *p;
-    int lastfield;
     size_t len = strlen (rev);
 
     newrev = xmalloc (len + 2);
@@ -650,59 +649,6 @@ make_message_rcslegal (message)
 
 
 
-/*
- * file_has_conflict
- *
- * This function compares the timestamp of a file with ts_conflict set
- * to the timestamp on the actual file and returns TRUE or FALSE based
- * on the results.
- *
- * This function does not check for actual markers in the file and
- * file_has_markers() function should be called when that is interesting.
- *
- * ASSUMPTIONS
- *  The ts_conflict field is not NULL.
- *
- * RETURNS
- *  TRUE	ts_conflict matches the current timestamp.
- *  FALSE	The ts_conflict field does not match the file's
- *		timestamp.
- */
-int
-file_has_conflict (finfo, ts_conflict)
-    const struct file_info *finfo;
-    const char *ts_conflict;
-{
-    char *filestamp;
-    int retcode;
-
-    /* If ts_conflict is NULL, there was no merge since the last
-     * commit and there can be no conflict.
-     */
-    assert (ts_conflict);
-
-    /*
-     * If the timestamp has changed and no
-     * conflict indicators are found, it isn't a
-     * conflict any more.
-     */
-
-#ifdef SERVER_SUPPORT
-    if (server_active)
-	retcode = ts_conflict[0] == '=';
-    else 
-#endif /* SERVER_SUPPORT */
-    {
-	filestamp = time_stamp (finfo->file);
-	retcode = !strcmp (ts_conflict, filestamp);
-	free (filestamp);
-    }
-
-    return retcode;
-}
-
-
-
 /* Does the file FINFO contain conflict markers?  The whole concept
    of looking at the contents of the file to figure out whether there are
    unresolved conflicts is kind of bogus (people do want to manage files
@@ -718,6 +664,7 @@ file_has_markers (finfo)
     int result;
 
     result = 0;
+    errno = 0; /* Standard C doesn't require errno be set on error */
     fp = CVS_FOPEN (finfo->file, "r");
     if (fp == NULL)
 	error (1, errno, "cannot open %s", finfo->fullname);
@@ -976,7 +923,7 @@ sleep_past (desttime)
 	}
 #else
 	/* default to 20 ms increments */
-	s = desttime - t;
+	s = (long)(desttime - t);
 	us = 20000;
 #endif
 

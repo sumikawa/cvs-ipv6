@@ -65,13 +65,11 @@ ign_setup ()
     ign_add (tmp, 0);
     free (tmp);
 
-#ifdef CLIENT_SUPPORT
     /* The client handles another way, by (after it does its own ignore file
        processing, and only if !ign_inhibit_server), letting the server
        know about the files and letting it decide whether to ignore
        them based on CVSROOOTADM_IGNORE.  */
     if (!current_parsed_root->isremote)
-#endif
     {
 	char *file = xmalloc (strlen (current_parsed_root->directory) + sizeof (CVSROOTADM)
 			      + sizeof (CVSROOTADM_IGNORE) + 10);
@@ -153,6 +151,7 @@ ign_add_file (file, hold)
     }
 
     /* load the file */
+    errno = 0; /* Standard C doesn't require errno be set on error */
     fp = CVS_FOPEN (file, "r");
     if (fp == NULL)
     {

@@ -42,8 +42,9 @@ static int build_entry PROTO((const char *repository, const char *user,
 static const char *const add_usage[] =
 {
     "Usage: %s %s [-k rcs-kflag] [-m message] files...\n",
-    "\t-k\tUse \"rcs-kflag\" to add the file with the specified kflag.\n",
-    "\t-m\tUse \"message\" for the creation log.\n",
+    "\t-k rcs-kflag\tUse \"rcs-kflag\" to add the file with the specified\n",
+    "\t\t\tkflag.\n",
+    "\t-m message\tUse \"message\" for the creation log.\n",
     "(Specify the --help global option for a list of other help options)\n",
     NULL
 };
@@ -116,7 +117,7 @@ add (argc, argv)
 	strip_trailing_slashes (argv[i]);
 	if (strcmp (argv[i], ".") == 0
 	    || strcmp (argv[i], "..") == 0
-	    || fncmp (argv[i], CVSADM) == 0)
+	    || fncmp (last_component(argv[i]), CVSADM) == 0)
 	{
 	    if (!quiet)
 		error (0, 0, "cannot add special file `%s'; skipping", argv[i]);
@@ -160,11 +161,17 @@ add (argc, argv)
 	int j;
 
 	if (argc == 0)
+	{
 	    /* We snipped out all the arguments in the above sanity
 	       check.  We can just forget the whole thing (and we
 	       better, because if we fired up the server and passed it
 	       nothing, it would spit back a usage message).  */
+	    if (options)
+		free (options);
+	    if (message)
+		free (message);
 	    return err;
+	}
 
 	start_server ();
 	ign_setup ();
@@ -770,11 +777,7 @@ add_directory (finfo)
 	error (0, errno, "cannot chdir to %s", finfo->fullname);
 	return 1;
     }
-#ifdef SERVER_SUPPORT
     if (!server_active && isfile (CVSADM))
-#else
-    if (isfile (CVSADM))
-#endif
     {
 	error (0, 0, "%s/%s already exists", finfo->fullname, CVSADM);
 	goto out;
@@ -843,7 +846,10 @@ add_directory (finfo)
 	fileattr_write ();
 	fileattr_free ();
 	if (attrs != NULL)
+	{
 	    free (attrs);
+	    attrs = NULL;
+	}
 
 	/*
 	 * Set up an update list with a single title node for Update_Logfile
@@ -863,9 +869,7 @@ add_directory (finfo)
 	dellist (&ulist);
     }
 
-#ifdef SERVER_SUPPORT
     if (!server_active)
-#endif
         Create_Admin (".", finfo->fullname, rcsdir, tag, date, nonbranch, 0, 1);
     if (tag)
 	free (tag);
@@ -883,6 +887,8 @@ add_directory (finfo)
 
     free (rcsdir);
     free (message);
+    if (attrs != NULL)
+	free (attrs);
 
     return 0;
 

@@ -1,5 +1,17 @@
 /* expand_path.c -- expand environmental variables in passed in string
  *
+ * Copyright (C) 1995-2005 The Free Software Foundation, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  * The main routine is expand_path(), it is the routine that handles
  * the '~' character in four forms: 
  *     ~name
@@ -128,7 +140,7 @@ expand_path (name, file, line)
 		    expand_string (&mybuf, &mybuf_size, p + 1);
 		    mybuf[p++] = name[s];
 		}
-		if (name[s] == '}') ++s;
+		if (name[s] != '\0') ++s;
 	    }
 	    else
 	    {
@@ -190,18 +202,18 @@ expand_path (name, file, line)
 	    else
 		error (0, 0, "%s:tilde expansion not supported on this system",
 		       file);
-	    return NULL;
+	    goto error_exit;
 #else
 	    struct passwd *ps;
 	    ps = getpwnam (buf + d);
-	    if (ps == 0)
+	    if (ps == NULL)
 	    {
 		if (line != 0)
 		    error (0, 0, "%s:%d: no such user %s",
 			   file, line, buf + d);
 		else
 		    error (0, 0, "%s: no such user %s", file, buf + d);
-		return NULL;
+		goto error_exit;
 	    }
 	    e = ps->pw_dir;
 #endif

@@ -2,10 +2,10 @@ Summary: A version control system.
 Name: @PACKAGE_TARNAME@
 Version: @PACKAGE_VERSION@
 Release: 1
-Copyright: GPL
+License: GPL
 Group: Development/Tools
-Source: ftp://ftp.cvshome.com/pub/%{name}-%{version}/%{name}-%{version}.tar.bz2
-URL: http://cvshome.org
+Source: http://savannah.nongnu.org/download/cvs/%{name}-%{version}.tar.bz2
+URL: http://cvs.nongnu.org/
 Prereq: /sbin/install-info
 Prefix: %{_prefix}
 BuildRoot:  %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -121,6 +121,10 @@ fi
 %endif
 
 %changelog
+* Wed Aug 31 2005 Derek Price <derek@ximbiot.com>
+
+- Update links to Savannah.  s/Copyright/License/ for RPM 4.mumble.
+
 * Wed Mar 31 2004 Mark D. Baushke <mdb@cvshome.org>
 - Do not fail if info DIR file is not present to be deleted.
 

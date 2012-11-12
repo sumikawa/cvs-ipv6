@@ -1,3 +1,30 @@
+2008-03-30  Larry Jones  <lawrence.jones@siemens.com>
+
+	* pvcs2rcs.in: Convert to correct line endings.
+
+2005-09-01  Derek Price  <derek@ximbiot.com>
+
+	* cvs_acls.html, cvs_acls.in, log_accum.in: Update links.
+
+2005-09-01  Derek Price  <derek@ximbiot.com>
+
+	* commit_prep.in, cvs_acls.in, log.in, log_accum.in, mfpipe.in,
+	pvcs2rcs.in, rcslock.in: Update links and email addresses.
+
+2005-07-12  Derek Price  <derek@ximbiot.com>
+
+	* clmerge.in, cln_hist.in, commit_prep.in, cvs2vendor.sh, cvs_acls.in,
+	cvscheck.sh, debug_check_log.sh, descend.sh, log.in, log_accum.in,
+	mfpipe.in, rcs-to-cvs.sh, rcs2log.sh, rcs2sccs.sh, rcslock.in,
+	sccs2rcs.in: Add copyright notices.
+
+2005-07-11  Derek Price  <derek@ximbiot.com>
+
+	* clmerge.in, cln_hist.in, commit_prep.in, cvs2vendor.sh, cvs_acls.in,
+	cvscheck.sh, debug_check_log.sh, descend.sh, log.in, log_accum.in,
+	mfpipe.in, rcs-to-cvs.sh, rcs2log.sh, rcs2sccs.sh, rcslock.in,
+	sccs2rcs.in: Update license notices.
+
 2005-04-14  Derek Price  <derek@ximbiot.com>
 
 	* commit_prep.in, cvs_acls.in, log.in, log_accum.in, mfpipe.in,

@@ -26,8 +26,6 @@ char cvsrc[] = CVSRC_FILENAME;
 
 #define	GROW	10
 
-extern char *strtok ();
-
 /* Read cvsrc, processing options matching CMDNAME ("cvs" for global
    options, and update *ARGC and *ARGV accordingly.  */
 
@@ -125,9 +123,9 @@ read_cvsrc (argc, argv, cmdname)
     if (found)
     {
 	/* skip over command in the options line */
-	for (optstart = strtok (line + command_len, "\t \n");
+	for (optstart = strtok (line + command_len, "\t \n\r");
 	     optstart;
-	     optstart = strtok (NULL, "\t \n"))
+	     optstart = strtok (NULL, "\t \n\r"))
 	{
 	    new_argv [new_argc++] = xstrdup (optstart);
 	  

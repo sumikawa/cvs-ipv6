@@ -1,3 +1,78 @@
+2008-05-07  Mark D. Baushke  <mdb@gnu.org>
+
+	[bug #22781]
+	* JmgStat.c, JmgStat.h: remove. 
+	* config.h: Add macros CVS_FSTAT & CVS_UTIME, declare wnt_fstat 
+	and wnt_utime, include sys/utime.h, remove declarations that 
+	conflict with windows header files.
+	* filesubr.c: convert all fstat and utime calls to use the new 
+	CVS_FSTAT and CVS_UTIME macros.  Reimplement check_statbuf to 
+	use GetFileTime to get accurate file timestamps, and new function
+	UTCFileTimeToUnixTime to accurtately convert them.
+	Implement wnt_utime and wnt_fstat.
+	* ndir.c, pwd.c: Add missing declaratiosn of xmalloc.
+	* rcmd.c: substitute errorCode for reserved word errcode.
+	* run.c: correct function signature of piped_child.
+	* Makefile.am Makefile.in: remove references to jmgStat.[ch]
+	(Patch from Nelson B. Bolyard <nelson@bolyard.com>.)
+	
+2008-03-30  Mark D. Baushke  <mdb@gnu.org>
+
+	* JmgStat.c, JmgStat.h: Convert CRLF to LF on UNIX to get CRLF on
+	checkout for Windows filesystems.
+
+2008-01-27  Mark D. Baushke  <mdb@gnu.org>
+
+	* config.h.in (RSH_DFLT, SSH_DFLT): Add default values.
+	* Makefile.in, config.h: Regenerated.
+	
+2005-09-19  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (stamp-ch): Sub PACKAGE_STRING rather than reconstructing
+	it.  Sub PACKAGE_BUGREPORT.
+	* config.h.in (PACKAGE_BUGREPORT): New macro.
+	(PACKAGE_STRING): Use $PACKAGE_STRING directly.
+
+2005-09-01  Derek Price  <derek@ximbiot.com>
+
+	* README: Update links and email addresses.
+
+2005-07-12  Derek Price  <derek@ximbiot.com>
+
+	* mkdir.c, startserver.c, woe32.c: Add copyright notices.
+
+2005-07-11  Derek Price  <derek@ximbiot.com>
+
+	* mkdir.c, startserver.c, woe32.c: Update license notices.
+
+2005-06-06  Conrad T. Pino  <Conrad@Pino.com>
+
+	* run.c: Add "run_add_arg_p" and "run_arg_free_p" functions.
+
+2005-06-06  Conrad T. Pino  <Conrad@Pino.com>
+
+	* run.c: Reverse patch committed 2005-05-27 by Conrad T. Pino.
+	  Reverse both patches committed 2005-05-28 by Conrad T. Pino.
+
+2005-05-28  Conrad T. Pino  <Conrad@Pino.com>
+
+	* run.c: Substitute "xrealloc" function for "xnrealloc" call from
+	"run_add_arg_p" function.
+
+2005-05-28  Conrad T. Pino  <Conrad@Pino.com>
+
+	* run.c: Import feature branch revision 1.21 which defines the
+	"run_add_arg_p" and "run_arg_free_p" functions.
+	FIXME: Function "xnrealloc" call from "run_add_arg_p" undefined.
+
+2005-05-27  Conrad T. Pino  <Conrad@Pino.com>
+
+	* run.c: Import feature branch revision 1.20 as base for adding new
+	"run_add_arg_p" and "run_arg_free_p" functions.  Imported revision
+	removes "run_arg" function and adds unused "run_piped" function.
+	All "run_arg" calls are fixed with macro defined in "../src/cvs.h".
+	FIXME: Functions "run_add_arg_p" and "run_arg_free_p" are undefined.
+
 2005-02-08  Derek Price  <derek@ximbiot.com>
 
 	* config.h.in: Clarify comments.

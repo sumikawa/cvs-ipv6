@@ -32,8 +32,10 @@ onoff_fileproc (callerdat, finfo)
     void *callerdat;
     struct file_info *finfo;
 {
-    fileattr_get0 (finfo->file, "_watched");
+    char *watched = fileattr_get0 (finfo->file, "_watched");
     fileattr_set (finfo->file, "_watched", turning_on ? "" : NULL);
+    if (watched != NULL)
+	free (watched);
     return 0;
 }
 
@@ -52,8 +54,10 @@ onoff_filesdoneproc (callerdat, err, repository, update_dir, entries)
 {
     if (setting_default)
     {
-	fileattr_get0 (NULL, "_watched");
+	char *watched = fileattr_get0 (NULL, "_watched");
 	fileattr_set (NULL, "_watched", turning_on ? "" : NULL);
+	if (watched != NULL)
+	    free (watched);
     }
     return err;
 }
@@ -143,8 +147,8 @@ dummy_fileproc (callerdat, finfo)
     struct file_info *finfo;
 {
     /* This is a pretty hideous hack, but the gist of it is that recurse.c
-       won't call notify_check unless there is a fileproc, so we can't just
-       pass NULL for fileproc.  */
+       won't call cvs_notify_check unless there is a fileproc, so we
+       can't just pass NULL for fileproc.  */
     return 0;
 }
 
@@ -174,6 +178,7 @@ ncheck_fileproc (callerdat, finfo)
     /* We send notifications even if noexec.  I'm not sure which behavior
        is most sensible.  */
 
+    errno = 0; /* Standard C doesn't require errno be set on error */
     fp = CVS_FOPEN (CVSADM_NOTIFY, "r");
     if (fp == NULL)
     {
@@ -361,12 +366,12 @@ edit_fileproc (callerdat, finfo)
 
 static const char *const edit_usage[] =
 {
-    "Usage: %s %s [-lR] [files...]\n",
-    "-l: Local directory only, not recursive\n",
-    "-R: Process directories recursively\n",
-    "-a: Specify what actions for temporary watch, one of\n",
-    "    edit,unedit,commit,all,none\n",
-    "(Specify the --help global option for a list of other help options)\n",
+    "Usage: %s %s [-lR] [-a <action>]... [<file>]...\n",
+    "-l\tLocal directory only, not recursive.\n",
+    "-R\tProcess directories recursively (default).\n",
+    "-a\tSpecify action to register for temporary watch, one of:\n",
+    "  \t`edit', `unedit', `commit', `all', or `none' (defaults to `all').\n",
+    "(Specify the --help global option for a list of other help options.)\n",
     NULL
 };
 
@@ -576,10 +581,10 @@ unedit_fileproc (callerdat, finfo)
 
 static const char *const unedit_usage[] =
 {
-    "Usage: %s %s [-lR] [files...]\n",
-    "-l: Local directory only, not recursive\n",
-    "-R: Process directories recursively\n",
-    "(Specify the --help global option for a list of other help options)\n",
+    "Usage: %s %s [-lR] [<file>]...\n",
+    "-l\tLocal directory only, not recursive.\n",
+    "-R\tProcess directories recursively (default).\n",
+    "(Specify the --help global option for a list of other help options.)\n",
     NULL
 };
 
@@ -895,6 +900,7 @@ notify_do (type, filename, who, val, watches, repository)
 	    strcat (usersname, CVSROOTADM);
 	    strcat (usersname, "/");
 	    strcat (usersname, CVSROOTADM_USERS);
+	    errno = 0; /* Standard C doesn't require errno be set on error */
 	    fp = CVS_FOPEN (usersname, "r");
 	    if (fp == NULL && !existence_error (errno))
 		error (0, errno, "cannot read %s", usersname);
@@ -987,7 +993,7 @@ notify_do (type, filename, who, val, watches, repository)
 #ifdef CLIENT_SUPPORT
 /* Check and send notifications.  This is only for the client.  */
 void
-notify_check (repository, update_dir)
+cvs_notify_check (repository, update_dir)
     const char *repository;
     const char *update_dir;
 {
@@ -1004,6 +1010,7 @@ notify_check (repository, update_dir)
     /* We send notifications even if noexec.  I'm not sure which behavior
        is most sensible.  */
 
+    errno = 0; /* Standard C doesn't require errno be set on error */
     fp = CVS_FOPEN (CVSADM_NOTIFY, "r");
     if (fp == NULL)
     {
@@ -1045,10 +1052,10 @@ notify_check (repository, update_dir)
 
 static const char *const editors_usage[] =
 {
-    "Usage: %s %s [-lR] [files...]\n",
-    "\t-l\tProcess this directory only (not recursive).\n",
-    "\t-R\tProcess directories recursively.\n",
-    "(Specify the --help global option for a list of other help options)\n",
+    "Usage: %s %s [-lR] [<file>]...\n",
+    "-l\tProcess this directory only (not recursive).\n",
+    "-R\tProcess directories recursively (default).\n",
+    "(Specify the --help global option for a list of other help options.)\n",
     NULL
 };
 

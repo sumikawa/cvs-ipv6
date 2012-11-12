@@ -1,4 +1,18 @@
 /*
+ * Copyright (C) 2003-2005 The Free Software Foundation, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
  * win32.c
  * - utility functions for cvs under win32
  *
@@ -9,6 +23,10 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <conio.h>
+
+#ifdef HAVE_PROCESS_H
+# include <process.h>
+#endif
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -79,11 +97,13 @@ char *win32getlogin()
 }
 
 
+#ifndef HAVE_GETPID
 pid_t
-getpid ()
+getpid (void)
 {
     return (pid_t) GetCurrentProcessId();
 }
+#endif
 
 char *
 getpass (const char *prompt)

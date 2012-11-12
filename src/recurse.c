@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ * Copyright (C) 1986-2008 The Free Software Foundation, Inc.
  *
  * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
  *                                  and others.
@@ -334,11 +334,8 @@ start_recursion (fileproc, filesdoneproc, direntproc, dirleaveproc, callerdat,
 		addfile (&files_by_dir, dir, comp);
 	    else if (isdir (dir))
 	    {
-		if ((which & W_LOCAL) && isdir (CVSADM)
-#ifdef CLIENT_SUPPORT
-		    && !current_parsed_root->isremote
-#endif
-		    )
+		if ((which & W_LOCAL) && isdir (CVSADM) &&
+		    !current_parsed_root->isremote)
 		{
 		    /* otherwise, look for it in the repository. */
 		    char *tmp_update_dir;
@@ -610,22 +607,16 @@ do_recursion (frame)
        directories, since we're guaranteed to have only one CVSROOT --
        our own.  */
 
-    if (
-	/* If -d was specified, it should override CVS/Root.
+    /* If -d was specified, it should override CVS/Root.
 
-	   In the single-repository case, it is long-standing CVS behavior
-	   and makes sense - the user might want another access method,
-	   another server (which mounts the same repository), &c.
+       In the single-repository case, it is long-standing CVS behavior
+       and makes sense - the user might want another access method,
+       another server (which mounts the same repository), &c.
 
-	   In the multiple-repository case, -d overrides all CVS/Root
-	   files.  That is the only plausible generalization I can
-	   think of.  */
-	CVSroot_cmdline == NULL
-
-#ifdef SERVER_SUPPORT
-	&& ! server_active
-#endif
-	)
+       In the multiple-repository case, -d overrides all CVS/Root
+       files.  That is the only plausible generalization I can
+       think of.  */
+    if (CVSroot_cmdline == NULL && !server_active)
     {
 	cvsroot_t *this_root = Name_Root ((char *) NULL, update_dir);
 	if (this_root != NULL)
@@ -671,7 +662,6 @@ do_recursion (frame)
     {
 	repository = frame->repository;
 	assert (repository != NULL);
-	assert (strstr (repository, "/./") == NULL);
     }
 
     fileattr_startdir (repository);
@@ -713,7 +703,8 @@ do_recursion (frame)
 	    if (repository == NULL)
 	    {
 		Name_Repository ((char *) NULL, update_dir);
-		assert (!"Not reached.  Please report this problem to <bug-cvs@gnu.org>");
+		assert (!"Not reached.  Please report this problem to <"
+			PACKAGE_BUGREPORT ">");
 	    }
 
 	    /* find the files and fill in entries if appropriate */
@@ -773,7 +764,7 @@ do_recursion (frame)
 	   have writelocks in place, and there is no way to get writelocks
 	   here.  */
 	if (current_parsed_root->isremote)
-	    notify_check (repository, update_dir);
+	    cvs_notify_check (repository, update_dir);
 #endif /* CLIENT_SUPPORT */
 
 	finfo_struct.repository = repository;
@@ -1062,22 +1053,16 @@ but CVS uses %s for its own purposes; skipping %s directory",
     /* Only process this directory if the root matches.  This nearly
        duplicates code in do_recursion. */
 
-    if (
-	/* If -d was specified, it should override CVS/Root.
+    /* If -d was specified, it should override CVS/Root.
 
-	   In the single-repository case, it is long-standing CVS behavior
-	   and makes sense - the user might want another access method,
-	   another server (which mounts the same repository), &c.
+       In the single-repository case, it is long-standing CVS behavior
+       and makes sense - the user might want another access method,
+       another server (which mounts the same repository), &c.
 
-	   In the multiple-repository case, -d overrides all CVS/Root
-	   files.  That is the only plausible generalization I can
-	   think of.  */
-	CVSroot_cmdline == NULL
-
-#ifdef SERVER_SUPPORT
-	&& ! server_active
-#endif
-	)
+       In the multiple-repository case, -d overrides all CVS/Root
+       files.  That is the only plausible generalization I can
+       think of.  */
+    if (CVSroot_cmdline == NULL && !server_active)
     {
 	cvsroot_t *this_root = Name_Root (dir, update_dir);
 	if (this_root != NULL)
