@@ -67,8 +67,6 @@ extern char *strerror ();
 #   endif
 # endif /* ! SOCK_STRERROR */
 
-#include "addrinfo.h"
-
 # if HAVE_KERBEROS
 
 #   include <krb.h>
