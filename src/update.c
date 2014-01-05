@@ -36,6 +36,8 @@
  * versions, these are updated too.  If the -d option was specified, new
  * directories added to the repository are automatically created and updated
  * as well.
+ *
+ * $FreeBSD: head/contrib/cvs/src/update.c 177401 2008-03-19 15:07:28Z obrien $
  */
 
 #include "cvs.h"
@@ -101,10 +103,10 @@ static char *join_rev2, *date_rev2;
 static int aflag = 0;
 static int toss_local_changes = 0;
 static int force_tag_match = 1;
+static int pull_template = 0;
 static int update_build_dirs = 0;
 static int update_prune_dirs = 0;
 static int pipeout = 0;
-static int dotemplate = 0;
 #ifdef SERVER_SUPPORT
 static int patches = 0;
 static int rcs_diff_patches = 0;
@@ -129,6 +131,7 @@ static const char *const update_usage[] =
     "\t-j rev\tMerge in changes made between current revision and rev.\n",
     "\t-I ign\tMore files to ignore (! to reset).\n",
     "\t-W spec\tWrappers specification line.\n",
+    "\t-T\tCreate CVS/Template.\n",
     "(Specify the --help global option for a list of other help options)\n",
     NULL
 };
@@ -144,6 +147,7 @@ update (argc, argv)
     int c, err;
     int local = 0;			/* recursive by default */
     int which;				/* where to look for files and dirs */
+    int xpull_template = 0;
 
     if (argc == -1)
 	usage (update_usage);
@@ -153,7 +157,7 @@ update (argc, argv)
 
     /* parse the args */
     optind = 0;
-    while ((c = getopt (argc, argv, "+ApCPflRQqduk:r:D:j:I:W:")) != -1)
+    while ((c = getopt (argc, argv, "+ApCPflRQTqduk:r:D:j:I:W:")) != -1)
     {
 	switch (c)
 	{
@@ -182,14 +186,15 @@ update (argc, argv)
 		break;
 	    case 'Q':
 	    case 'q':
-#ifdef SERVER_SUPPORT
 		/* The CVS 1.5 client sends these options (in addition to
 		   Global_option requests), so we must ignore them.  */
 		if (!server_active)
-#endif
 		    error (1, 0,
 			   "-q or -Q must be specified before \"%s\"",
 			   cvs_cmd_name);
+		break;
+	    case 'T':
+		xpull_template = 1;
 		break;
 	    case 'd':
 		update_build_dirs = 1;
@@ -420,8 +425,8 @@ update (argc, argv)
     /* call the command line interface */
     err = do_update (argc, argv, options, tag, date, force_tag_match,
 		     local, update_build_dirs, aflag, update_prune_dirs,
-		     pipeout, which, join_rev1, join_rev2, (char *) NULL, 1,
-		     (char *) NULL);
+		     pipeout, which, join_rev1, join_rev2, (char *) NULL,
+		     xpull_template, (char *) NULL);
 
     /* free the space Make_Date allocated if necessary */
     if (date != NULL)
@@ -438,7 +443,7 @@ update (argc, argv)
 int
 do_update (argc, argv, xoptions, xtag, xdate, xforce, local, xbuild, xaflag,
 	   xprune, xpipeout, which, xjoin_rev1, xjoin_rev2, preload_update_dir,
-	   xdotemplate, repository)
+	   xpull_template, repository)
     int argc;
     char **argv;
     char *xoptions;
@@ -454,7 +459,7 @@ do_update (argc, argv, xoptions, xtag, xdate, xforce, local, xbuild, xaflag,
     char *xjoin_rev1;
     char *xjoin_rev2;
     char *preload_update_dir;
-    int xdotemplate;
+    int xpull_template;
     char *repository;
 {
     int err = 0;
@@ -469,7 +474,7 @@ do_update (argc, argv, xoptions, xtag, xdate, xforce, local, xbuild, xaflag,
     aflag = xaflag;
     update_prune_dirs = xprune;
     pipeout = xpipeout;
-    dotemplate = xdotemplate;
+    pull_template = xpull_template;
 
     /* setup the join support */
     join_rev1 = xjoin_rev1;
@@ -521,13 +526,8 @@ do_update (argc, argv, xoptions, xtag, xdate, xforce, local, xbuild, xaflag,
 			   argc, argv, local, which, aflag, CVS_LOCK_READ,
 			   preload_update_dir, 1, repository);
 
-#ifdef SERVER_SUPPORT
-    if (server_active)
-	return err;
-#endif
-
     /* see if we need to sleep before returning to avoid time-stamp races */
-    if (last_register_time)
+    if (!server_active && last_register_time)
     {
 	sleep_past (last_register_time);
     }
@@ -611,7 +611,7 @@ update_fileproc (callerdat, finfo)
 	&& tag != NULL
 	&& finfo->rcs != NULL)
     {
-	char *rev = RCS_getversion (finfo->rcs, tag, NULL, 1, NULL);
+	char *rev = RCS_getversion (finfo->rcs, tag, date, 1, NULL);
 	if (rev != NULL
 	    && !RCS_nodeisbranch (finfo->rcs, tag))
 	    nonbranch = 1;
@@ -683,11 +683,7 @@ update_fileproc (callerdat, finfo)
                     bakname = backup_file (finfo->file, vers->vn_user);
                     /* This behavior is sufficiently unexpected to
                        justify overinformativeness, I think. */
-#ifdef SERVER_SUPPORT
-                    if ((! really_quiet) && (! server_active))
-#else /* ! SERVER_SUPPORT */
-                    if (! really_quiet)
-#endif /* SERVER_SUPPORT */
+                    if (!really_quiet && !server_active)
                         (void) printf ("(Locally modified %s moved to %s)\n",
                                        finfo->file, bakname);
                     free (bakname);
@@ -702,8 +698,7 @@ update_fileproc (callerdat, finfo)
                 {
                     if (vers->ts_conflict)
                     {
-			if (file_has_conflict (finfo, vers->ts_conflict)
-			    || file_has_markers (finfo))
+			if (file_has_markers (finfo))
                         {
                             write_letter (finfo, 'C');
                             retval = 1;
@@ -854,11 +849,7 @@ update_filesdone_proc (callerdat, err, repository, update_dir, entries)
 	if (unlink_file_dir (CVSADM) < 0 && !existence_error (errno))
 	    error (0, errno, "cannot remove %s directory", CVSADM);
     }
-#ifdef SERVER_SUPPORT
     else if (!server_active && !pipeout)
-#else
-    else if (!pipeout)
-#endif /* SERVER_SUPPORT */
     {
         /* If there is no CVS/Root file, add one */
         if (!isfile (CVSADM_ROOT))
@@ -911,15 +902,11 @@ update_dirent_proc (callerdat, dir, repository, update_dir, entries)
 	   is when update -d is specified, and the working directory
 	   is gone but the subdirectory is still mentioned in
 	   CVS/Entries).  */
-	if (1
-#ifdef SERVER_SUPPORT
-	    /* In the remote case, the client should refrain from
-	       sending us the directory in the first place.  So we
-	       want to continue to give an error, so clients make
-	       sure to do this.  */
-	    && !server_active
-#endif
-	    && !isdir (repository))
+	/* In the remote case, the client should refrain from
+	   sending us the directory in the first place.  So we
+	   want to continue to give an error, so clients make
+	   sure to do this.  */
+	if (!server_active && !isdir (repository))
 	    return R_SKIP_ALL;
 
 	if (noexec)
@@ -957,7 +944,7 @@ update_dirent_proc (callerdat, dir, repository, update_dir, entries)
 			     via WriteTag.  */
 			  0,
 			  0,
-			  dotemplate);
+			  pull_template);
 	    rewrite_tag = 1;
 	    nonbranch = 0;
 	    Subdir_Register (entries, (char *) NULL, dir);
@@ -1014,6 +1001,12 @@ update_dirent_proc (callerdat, dir, repository, update_dir, entries)
 	    WriteTag (dir, tag, date, 0, update_dir, repository);
 	    rewrite_tag = 1;
 	    nonbranch = 0;
+	}
+
+	/* keep the CVS/Template file current */
+	if (pull_template) 
+	{
+	    WriteTemplate (dir, update_dir);
 	}
 
 	/* initialize the ignore list for this directory */
@@ -1207,13 +1200,10 @@ scratch_file (finfo, vers)
 #endif
     if (unlink_file (finfo->file) < 0 && ! existence_error (errno))
 	error (0, errno, "unable to remove %s", finfo->fullname);
-    else
-#ifdef SERVER_SUPPORT
+    else if (!server_active)
+    {
 	/* skip this step when the server is running since
 	 * server_updated should have handled it */
-	if (!server_active)
-#endif
-    {
 	/* keep the vers structure up to date in case we do a join
 	 * - if there isn't a file, it can't very well have a version number, can it?
 	 */
@@ -1255,11 +1245,7 @@ checkout_file (finfo, vers_ts, adding, merging, update_server)
 
     /* Don't screw with backup files if we're going to stdout, or if
        we are the server.  */
-    if (!pipeout
-#ifdef SERVER_SUPPORT
-	&& ! server_active
-#endif
-	)
+    if (!pipeout && !server_active)
     {
 	backup = xmalloc (strlen (finfo->file)
 			  + sizeof (CVSADM)
@@ -1462,8 +1448,10 @@ VERS: ", 0);
 	    /* fix up the vers structure, in case it is used by join */
 	    if (join_rev1)
 	    {
-		/* FIXME: Throwing away the original revision info is almost
-		   certainly wrong -- what if join_rev1 is "BASE"?  */
+		/* FIXME: It seems like we should be preserving ts_user
+		 * & ts_rcs here, but setting them causes problems in
+		 * join_file().
+		 */
 		if (vers_ts->vn_user != NULL)
 		    free (vers_ts->vn_user);
 		if (vers_ts->vn_rcs != NULL)
@@ -1672,21 +1660,11 @@ patch_file (finfo, vers_ts, docheckout, file_info, checksum)
     data.final_nl = 0;
     data.compute_checksum = 0;
 
-    /* FIXME - Passing vers_ts->tag here is wrong in the least number
-     * of cases.  Since we don't know whether vn_user was checked out
-     * using a tag, we pass vers_ts->tag, which, assuming the user did
-     * not specify a new TAG to -r, will be the branch we are on.
-     *
-     * The only thing it is used for is to substitute in for the Name
-     * RCS keyword, so in the error case, the patch fails to apply on
-     * the client end and we end up resending the whole file.
-     *
-     * At least, if we are keeping track of the tag vn_user came from,
-     * I don't know where yet. -DRP
+    /* Duplicating the client working file, so use the original sticky options.
      */
     retcode = RCS_checkout (vers_ts->srcfile, (char *) NULL,
-			    vers_ts->vn_user, vers_ts->tag,
-			    vers_ts->options, RUN_TTY,
+			    vers_ts->vn_user, vers_ts->entdata->tag,
+			    vers_ts->entdata->options, RUN_TTY,
 			    patch_file_write, (void *) &data);
 
     if (fclose (e) < 0)
@@ -1724,7 +1702,9 @@ patch_file (finfo, vers_ts, docheckout, file_info, checksum)
     retcode = 0;
     if (! fail)
     {
-	char *diff_options;
+	int dargc = 0;
+	size_t darg_allocated = 0;
+	char **dargv = NULL;
 
 	/* If the client does not support the Rcs-diff command, we
            send a context diff, and the client must invoke patch.
@@ -1732,16 +1712,13 @@ patch_file (finfo, vers_ts, docheckout, file_info, checksum)
            new approach only requires running diff in the server; the
            client can handle everything without invoking an external
            program.  */
-	if (! rcs_diff_patches)
-	{
+	if (!rcs_diff_patches)
 	    /* We use -c, not -u, because that is what CVS has
 	       traditionally used.  Kind of a moot point, now that
 	       Rcs-diff is preferred, so there is no point in making
 	       the compatibility issues worse.  */
-	    diff_options = "-c";
-	}
+	    run_add_arg_p (&dargc, &darg_allocated, &dargv, "-c");
 	else
-	{
 	    /* Now that diff is librarified, we could be passing -a if
 	       we wanted to.  However, it is unclear to me whether we
 	       would want to.  Does diff -a, in any significant
@@ -1751,10 +1728,11 @@ patch_file (finfo, vers_ts, docheckout, file_info, checksum)
 	       'binary'.  Conversely, do they tend to be much larger
 	       in the bad cases?  This needs some more
 	       thought/investigation, I suspect.  */
-
-	    diff_options = "-n";
-	}
-	retcode = diff_exec (file1, file2, NULL, NULL, diff_options, finfo->file);
+	    run_add_arg_p (&dargc, &darg_allocated, &dargv, "-n");
+	retcode = diff_exec (file1, file2, NULL, NULL, dargc, dargv,
+			     finfo->file);
+	run_arg_free_p (dargc, dargv);
+	free (dargv);
 
 	/* A retcode of 0 means no differences.  1 means some differences.  */
 	if (retcode != 0
@@ -1945,6 +1923,47 @@ write_letter (finfo, letter)
 
 
 
+/* Reregister a file after a merge.  */
+static void
+RegisterMerge PROTO((struct file_info *finfo, Vers_TS *vers,
+		     const char *backup, int has_conflicts));
+static void
+RegisterMerge (finfo, vers, backup, has_conflicts)
+    struct file_info *finfo;
+    Vers_TS *vers;
+    const char *backup;
+    int has_conflicts;
+{
+    /* This file is the result of a merge, which means that it has
+       been modified.  We use a special timestamp string which will
+       not compare equal to any actual timestamp.  */
+    char *cp = NULL;
+
+    if (has_conflicts)
+    {
+	time (&last_register_time);
+	cp = time_stamp (finfo->file);
+    }
+    Register (finfo->entries, finfo->file, vers->vn_rcs ? vers->vn_rcs : "0",
+	      "Result of merge", vers->options, vers->tag, vers->date, cp);
+    if (cp)
+	free (cp);
+
+#ifdef SERVER_SUPPORT
+    /* Send the new contents of the file before the message.  If we
+       wanted to be totally correct, we would have the client write
+       the message only after the file has safely been written.  */
+    if (server_active)
+    {
+        server_copy_file (finfo->file, finfo->update_dir, finfo->repository,
+			  backup);
+	server_updated (finfo, vers, SERVER_MERGED, (mode_t) -1, NULL, NULL);
+    }
+#endif
+}
+
+
+
 /*
  * Do all the magic associated with a file which needs to be merged
  */
@@ -1997,13 +2016,21 @@ merge_file (finfo, vers)
 	   thought needs to go into this, and in the meantime it is safe
 	   to treat any such mismatch as an automatic conflict. -twp */
 
-#ifdef SERVER_SUPPORT
-	if (server_active)
-	    server_copy_file (finfo->file, finfo->update_dir,
-			      finfo->repository, backup);
-#endif
+	retcode = RCS_checkout (finfo->rcs, finfo->file,
+				vers->vn_rcs, vers->tag,
+				vers->options, NULL, NULL, NULL);
+	if (retcode)
+	{
+	    error (0, 0, "failed to check out `%s' file", finfo->fullname);
+	    error (0, 0, "restoring `%s' from backup file `%s'",
+		   finfo->fullname, backup);
+	    rename_file (backup, finfo->file);
+	    retval = 1;
+	    goto out;
+	}
+	xchmod (finfo->file, 1);
 
-	status = checkout_file (finfo, vers, 0, 1, 1);
+	RegisterMerge (finfo, vers, backup, 1);
 
 	/* Is there a better term than "nonmergeable file"?  What we
 	   really mean is, not something that CVS cannot or does not
@@ -2037,24 +2064,6 @@ merge_file (finfo, vers)
     if (strcmp (vers->options, "-V4") == 0)
 	vers->options[0] = '\0';
 
-    /* This file is the result of a merge, which means that it has
-       been modified.  We use a special timestamp string which will
-       not compare equal to any actual timestamp.  */
-    {
-	char *cp = 0;
-
-	if (status)
-	{
-	    (void) time (&last_register_time);
-	    cp = time_stamp (finfo->file);
-	}
-	Register (finfo->entries, finfo->file, vers->vn_rcs,
-		  "Result of merge", vers->options, vers->tag,
-		  vers->date, cp);
-	if (cp)
-	    free (cp);
-    }
-
     /* fix up the vers structure, in case it is used by join */
     if (join_rev1)
     {
@@ -2065,19 +2074,7 @@ merge_file (finfo, vers)
 	vers->vn_user = xstrdup (vers->vn_rcs);
     }
 
-#ifdef SERVER_SUPPORT
-    /* Send the new contents of the file before the message.  If we
-       wanted to be totally correct, we would have the client write
-       the message only after the file has safely been written.  */
-    if (server_active)
-    {
-        server_copy_file (finfo->file, finfo->update_dir, finfo->repository,
-			  backup);
-	server_updated (finfo, vers, SERVER_MERGED,
-			(mode_t) -1, (unsigned char *) NULL,
-			(struct buffer *) NULL);
-    }
-#endif
+    RegisterMerge (finfo, vers, backup, status);
 
     /* FIXME: the noexec case is broken.  RCS_merge could be doing the
        xcmp on the temporary files without much hassle, I think.  */
@@ -2225,6 +2222,7 @@ join_file (finfo, vers)
     if (rev2 == NULL || RCS_isdead (vers->srcfile, rev2))
     {
 	char *mrev;
+	short conflict = 0;
 
 	if (rev2 != NULL)
 	    free (rev2);
@@ -2275,8 +2273,7 @@ join_file (finfo, vers)
 	    || vers->vn_user[0] == '-'
 	    || RCS_isdead (vers->srcfile, vers->vn_user))
 	{
-	    if (rev1 != NULL)
-		free (rev1);
+	    free (rev1);
 	    return;
 	}
 
@@ -2285,55 +2282,106 @@ join_file (finfo, vers)
 	   resolve.  No_Difference will already have been called in
 	   this case, so comparing the timestamps is sufficient to
 	   determine whether the file is locally modified.  */
-	if (strcmp (vers->vn_user, "0") == 0
-	    || (vers->ts_user != NULL
-		&& strcmp (vers->ts_user, vers->ts_rcs) != 0))
+	if (/* may have changed on destination branch */
+	    /* file added locally */
+	    !strcmp (vers->vn_user, "0")
+	    || /* destination branch modified in repository */
+	       strcmp (rev1, vers->vn_user)
+	    || /* locally modified */
+	       vers->ts_user && strcmp (vers->ts_user, vers->ts_rcs))
 	{
-	    if (jdate2 != NULL)
+	    /* The removal should happen if either the file has never changed
+	     * on the destination or the file has changed to be identical to
+	     * the first join revision.
+	     *
+	     * ------R-----------D
+	     *       |
+	     *       \----J1---J2-----S
+	     *
+	     * So:
+	     *
+	     * J2 is dead.
+	     * D is destination.
+	     * R is source branch root/GCA.
+	     * if J1 == D       removal should happen
+	     * if D == R        removal should happen
+	     * otherwise, fail.
+	     *
+	     * (In the source, J2 = REV2, D = user file (potentially VN_USER),
+	     * R = GCA computed below)
+	     */
+	    char *gca_rev1 = gca (rev1, vers->vn_user);
+#ifdef SERVER_SUPPORT
+	    if (server_active && !isreadable (finfo->file))
+	    {
+		int retcode;
+		/* The file is up to date.  Need to check out the current
+		 * contents.
+		 */
+		/* FIXME - see the FIXME comment above the call to RCS_checkout
+		 * in the patch_file function.
+		 */
+		retcode = RCS_checkout (vers->srcfile, finfo->file,
+					vers->vn_user, vers->tag,
+					NULL, RUN_TTY, NULL, NULL);
+		if (retcode)
+		    error (1, 0,
+			   "failed to check out %s file", finfo->fullname);
+	    }
+#endif
+	    if (/* genuinely changed on destination branch */
+	        RCS_cmp_file (vers->srcfile, gca_rev1, NULL,
+			      NULL, vers->options, finfo->file)
+	        && /* genuinely different from REV1 */
+		   RCS_cmp_file (vers->srcfile, rev1, NULL,
+				 NULL, vers->options, finfo->file))
+		conflict = 1;
+	}
+
+	free (rev1);
+
+	if (conflict)
+	{
+	    char *cp;
+
+	    if (jdate2)
 		error (0, 0,
-		       "file %s is locally modified, but has been removed in revision %s as of %s",
+		       "file %s has been removed in revision %s as of %s, but the destination is incompatibly modified",
 		       finfo->fullname, jrev2, jdate2);
 	    else
 		error (0, 0,
-		       "file %s is locally modified, but has been removed in revision %s",
+		       "file %s has been removed in revision %s, but the destination is incompatibly modified",
 		       finfo->fullname, jrev2);
 
-	    /* FIXME: Should we arrange to return a non-zero exit
-               status?  */
+	    /* Register the conflict with the client.  */
 
-	    if (rev1 != NULL)
-		free (rev1);
-
-	    return;
-	}
-
-	/* If only one join tag was specified, and the user file has
-           been changed since the greatest common ancestor (rev1),
-           then there is a conflict we can not resolve.  See above for
-           the rationale.  */
-	if (join_rev2 == NULL
-	    && strcmp (rev1, vers->vn_user) != 0)
-	{
-	    if (jdate2 != NULL)
-		error (0, 0,
-		       "file %s has been modified, but has been removed in revision %s as of %s",
-		       finfo->fullname, jrev2, jdate2);
+	    /* FIXME: vers->ts_user should always be set here but sometimes
+	     * isn't, namely when checkout_file() has just created the file,
+	     * but simply setting it in checkout_file() appears to cause other
+	     * problems.
+	     */
+	    if (isfile (finfo->file))
+		cp = time_stamp (finfo->file);
 	    else
-		error (0, 0,
-		       "file %s has been modified, but has been removed in revision %s",
-		       finfo->fullname, jrev2);
+		cp = xstrdup (vers->ts_user);
 
-	    /* FIXME: Should we arrange to return a non-zero exit
-               status?  */
+	    Register (finfo->entries, finfo->file, vers->vn_user,
+		      "Result of merge", vers->options, vers->tag, vers->date,
+		      cp);
+	    write_letter (finfo, 'C');
+	    free (cp);
 
-	    if (rev1 != NULL)
-		free (rev1);
+#ifdef SERVER_SUPPORT
+	    /* Abuse server_checked_in() to send the updated entry without
+	     * needing to update the file.
+	     */
+	    if (server_active)
+		server_checked_in (finfo->file, finfo->update_dir,
+				   finfo->repository);
+#endif
 
 	    return;
 	}
-
-	if (rev1 != NULL)
-	    free (rev1);
 
 	/* The user file exists and has not been modified.  Mark it
            for removal.  FIXME: If we are doing a checkout, this has
@@ -2671,31 +2719,7 @@ join_file (finfo, vers)
        RCS_checkout above, and we aren't running as the server.
        However, that is not the normal case, and calling Register
        again won't cost much in that case.  */
-    {
-	char *cp = 0;
-
-	if (status)
-	{
-	    (void) time (&last_register_time);
-	    cp = time_stamp (finfo->file);
-	}
-	Register (finfo->entries, finfo->file,
-		  vers->vn_rcs ? vers->vn_rcs : "0", "Result of merge",
-		  vers->options, vers->tag, vers->date, cp);
-	if (cp)
-	    free(cp);
-    }
-
-#ifdef SERVER_SUPPORT
-    if (server_active)
-    {
-	server_copy_file (finfo->file, finfo->update_dir, finfo->repository,
-			  backup);
-	server_updated (finfo, vers, SERVER_MERGED,
-			(mode_t) -1, (unsigned char *) NULL,
-			(struct buffer *) NULL);
-    }
-#endif
+    RegisterMerge (finfo, vers, backup, status);
 
 out:
     free (rev1);

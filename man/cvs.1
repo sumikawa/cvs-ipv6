@@ -1,3 +1,5 @@
+\fBimport\fR.
+.\" $FreeBSD: head/contrib/cvs/man/cvs.1 175281 2008-01-13 06:14:29Z obrien $
 .de Id
 .ds Rv \\$3
 .ds Dt \\$4
@@ -227,6 +229,16 @@ Same effect as if the
 .SM CVSREAD
 environment variable is set.
 .TP
+.B \-R
+Turns on read-only repository mode.  This allows one to check out from a
+read-only repository, such as within an anoncvs server, or from a CDROM
+repository.
+Same effect as if the
+.SM CVSREADONLYFS
+environment variable is set.  Using
+.B \-R
+can also considerably speed up checkout's over NFS.
+.TP
 .B \-v [ --version ]
 Displays version and copyright information for
 .BR cvs .
@@ -236,6 +248,25 @@ Makes new working files read-write (default).
 Overrides the setting of the
 .SM CVSREAD
 environment variable.
+.TP
+.B \-g
+Forces group-write perms on working files.  This option is typically
+used when you have multiple users sharing a single checked out source
+tree, allowing them to operate their shells with a less dangerous umask.
+To use this feature, create a directory to hold the checked-out source
+tree, set it to a private group, and set up the directory such that
+files created under it inherit the group id of the directory.  This occurs 
+automatically with FreeBSD.  With SysV you must typically set the SGID bit
+on the directory.  The users who are to share the checked out tree must
+be placed in that group.  Note that the sharing of a single checked-out
+source tree is very different from giving several users access to a common
+CVS repository.  Access to a common CVS repository already maintains shared
+group-write perms and does not require this option.
+
+To use the option transparently, simply place the line 'cvs -g' in your
+~/.cvsrc file.  Doing this is not recommended unless you firewall all your
+source checkouts within a private group or within a private mode 0700
+directory.
 .TP
 .B \-x
 Encrypt all communication between the client and the server.  As of
@@ -489,8 +520,8 @@ is available with these commands:
 Alter the default
 processing of keywords.
 The \fB\-k\fP option is available with the
-.BR add ", " checkout ", " diff ", " export ", "
-.BR rdiff ", and " update
+.BR add ", " checkout ", " diff ", " rdiff ", " export ", and "
+BR update
 commands.  Your \fIkflag\fP specification is ``sticky'' when you use
 it to create a private copy of a source file; that is, when you use
 this option with the \fBcheckout\fP or \fBupdate\fP commands,
@@ -520,7 +551,7 @@ run any
 program.  (A program can be specified to run on each of these
 activities, in the modules database; this option bypasses it.)
 Available with the
-.BR checkout ", " commit ", " export ", and "
+.BR checkout ", " export ", and "
 .B rtag
 commands.
 .I Warning:
@@ -550,6 +581,16 @@ or
 .B \-D
 options of
 .BR checkout " and " export .
+.TP
+.B \-T
+Create/Update CVS/Template by copying it from the (local) repository.
+This option is useful for developers maintaining a local cvs repository
+but committing to a remote repository.  By maintaining CVS/Template the
+remote commits will still be able to bring up the proper template in the
+commit editor session.
+Available with the
+.BR checkout " and " update
+commands.
 .TP
 .B \-p
 Pipe the files retrieved from the repository to standard output,
@@ -581,6 +622,9 @@ continues to use it on future \fBupdate\fP commands, until you specify
 otherwise.
 .I tag
 can be either a symbolic or numeric tag.
+When a command expects a specific revision,
+the name of a branch is interpreted as the most recent
+revision on that branch.
 Specifying the
 .B \-q
 global option along with the
@@ -590,9 +634,9 @@ command option is often useful, to suppress the warning messages when the
 file does not contain the specified tag.
 .B \-r
 is available with the
-.BR checkout ", " commit ", " diff ", "
-.BR history ", " export ", "
-.BR rdiff ", " rtag ", and " update
+.BR annotate ", " checkout ", " 
+.BR commit ", " diff ", " history ", " export ", " rdiff ", "
+.BR rtag ", and " update
 commands.
 .I Warning:
 this is not the same
@@ -847,6 +891,9 @@ options.  (If you get a working file using one of the
 corresponding tag, date, or \fIkflag\fP and continues using it on
 future updates; use the \fB\-A\fP option to make \fBcvs\fP forget these
 specifications, and retrieve the ``head'' version of the file).
+Does not reset sticky
+.B \-k
+options on modified files.
 .SP
 The
 .BI \-j " branch"
@@ -905,7 +952,7 @@ the
 .B \-s
 option within the modules file. 
 .TP
-\fBcommit\fP [\fB\-lnR\fP] [\fB\-m\fP '\fIlog_message\fP' | \fB\-F\fP \fIfile\fP] [\fB\-r\fP \fIrevision\fP] [\fIfiles.\|.\|.\fP]
+\fBcommit\fP [\fB\-lR\fP] [\fB\-m\fP '\fIlog_message\fP' | \fB\-F\fP \fIfile\fP] [\fB\-r\fP \fIrevision\fP] [\fIfiles.\|.\|.\fP]
 .I Requires:
 working directory, repository.
 .br
@@ -1038,7 +1085,7 @@ Others would simply do
 .` "cvs checkout -rEXPR1 whatever_module"
 to work with you on the experimental change.
 .TP
-\fBdiff\fP [\fB\-kl\fP] [\fIformat_options\fP] [[\fB\-r\fP \fIrev1\fP | \fB\-D\fP \fIdate1\fP] [\fB\-r\fP \fIrev2\fP | \fB\-D\fP \fIdate2\fP]] [\fIfiles.\|.\|.\fP]
+\fBdiff\fP [\fB\-kl\fP] [\fIformat_options\fP] [[\fB\-r\fP \fIrev1\fP | \fB\-D\fP \fIdate1\fP | \fB\-j\fP \fIrev1:date1\fP] [\fB\-r\fP \fIrev2\fP | \fB\-D\fP \fIdate2\fP | \fB\-j\fP \fIrev2:date2\fP]] [\fIfiles.\|.\|.\fP]
 .I Requires:
 working directory, repository.
 .br
@@ -1061,11 +1108,16 @@ twice, you can see differences between two revisions in the
 repository.
 You can also specify
 .B \-D
-options to diff against a revision in the past.
+options to diff against a revision (on the head branch) in the past, and
+you can also specify
+.B \-j
+options to diff against a revision relative to a branch tag in the past.
 The
 .B \-r
 and
 .B \-D
+and
+.B \-j
 options can be mixed together with at most two options ever specified.
 .SP
 See
@@ -1309,9 +1361,12 @@ identify the collection of source.  \fIvendortag\fP is a tag for the
 entire branch (e.g., for
 .` "1.1.1").
 You must also specify at
-least one \fIreleasetag\fP to identify the files at the leaves created
-each time you execute
+least one \fIreleasetag\fR to uniquely identify the files at
+the leaves created each time you execute
 .` "cvs import".
+The
+\fIreleasetag\fR should be new, not previously existing in the
+repository file, and uniquely identify the imported release.
 .SP
 One of the standard
 .B cvs
@@ -1717,8 +1772,8 @@ to indicate the status of the file:
 .TP 1i
 \fBU\fP \fIfile\fP
 The file was brought \fIup to date\fP with respect to the repository.
-This is done for any file that exists in the repository but not in
-your source, and for files that you haven't changed but are not the most
+This is done for any file that exists in the repository but not in your
+working directory, and for files that you haven't changed but are not the most
 recent versions available in the repository.
 .TP 1i
 \fBP\fP \fIfile\fP
@@ -2008,7 +2063,7 @@ A read lock.
 .TP
 #cvs.wfl.\fIpid\fP
 A write lock.
-.SH "ENVIRONMENT VARIABLES"
+.SH "ENVIRONMENT"
 .TP
 .SM CVSROOT
 Should contain the full pathname to the root of the
@@ -2023,9 +2078,7 @@ supply it on the command line:
 .` "cvs \-d \fIcvsroot cvs_command\fP\|.\|.\|."
 You may not need to set
 .SM CVSROOT
-if your \fBcvs\fP binary has the right path compiled in; use
-.` "cvs \-v"
-to display all compiled-in paths.
+if your \fBcvs\fP binary has the right path compiled in.
 .TP
 .SM CVSREAD
 If this is set,
@@ -2035,6 +2088,13 @@ and
 will try hard to make the files in your working directory read-only.
 When this is not set, the default behavior is to permit modification
 of your working files.
+.TP
+.SM CVSREADONLYFS
+If this is set, the
+.B \-R
+option is assumed, and
+.B cvs
+operates in read-only repository mode.
 .TP
 .SM RCSBIN
 Specifies the full pathname where to find
@@ -2057,10 +2117,23 @@ If neither is set, a system-dependent default editor (e.g.,
 .BR vi )
 is used.
 .TP
+.SM CVS_CLIENT_PORT
+If this variable is set then
+.B cvs
+will use this port in
+\fIpserver mode\fP
+rather than the default port (cvspserver 2401).
+.TP
 .SM CVS_IGNORE_REMOTE_ROOT
 If this variable is set then
 .B cvs
 will ignore all references to remote repositories in the CVS/Root file.
+.TP
+.SM CVS_OPTIONS
+Specifies a set of default options for
+.B cvs.
+These options are interpreted before the startup file (\fI~/.cvsrc\fP) is read
+and can be overridden by explicit command line parameters.
 .TP
 .SM CVS_RSH
 .B cvs
@@ -2068,7 +2141,7 @@ uses the contents of this variable to determine the name of the
 remote shell command to use when starting a
 .B cvs
 server.  If this variable is not set then
-.` "rsh"
+.` "ssh"
 is used.
 .TP
 .SM CVS_SERVER
@@ -2123,8 +2196,7 @@ command or it may be available as cvs.ps (postscript), cvs.texinfo
 For CVS updates, more information on documentation, software related
 to CVS, development of CVS, and more, see:
 .in +1i
-.B http://cvshome.org
-.B http://www.loria.fr/~molli/cvs-index.html
+.B http://cvs.nongnu.org
 .in -1i
 .SP
 .BR ci ( 1 ),

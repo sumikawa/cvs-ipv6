@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ * Copyright (C) 1986-2008 The Free Software Foundation, Inc.
  *
  * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
  *                                  and others.
@@ -9,6 +9,8 @@
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
+ *
+ * $FreeBSD: head/contrib/cvs/src/parseinfo.c 177399 2008-03-19 15:05:27Z obrien $
  */
 
 #include "cvs.h"
@@ -245,6 +247,7 @@ parse_config (cvsroot)
     /* FIXME-reentrancy: If we do a multi-threaded server, this would need
        to go to the per-connection data structures.  */
     static int parsed = 0;
+    int ignore_unknown_config_keys = 0;
 
     /* Authentication code and serve_root might both want to call us.
        Let this happen smoothly.  */
@@ -357,6 +360,25 @@ parse_config (cvsroot)
 		goto error_return;
 	    }
 	}
+	else if (strcmp (line, "tag") == 0) {
+		RCS_setlocalid(p);
+	}
+	else if (strcmp (line, "umask") == 0) {
+	    cvsumask = (mode_t)(strtol(p, NULL, 8) & 0777);
+	}
+        else if (strcmp (line, "dlimit") == 0) {
+#ifdef BSD
+#include <sys/resource.h>
+	    struct rlimit rl;
+
+	    if (getrlimit(RLIMIT_DATA, &rl) != -1) {
+		rl.rlim_cur = atoi(p);
+		rl.rlim_cur *= 1024;
+
+		(void) setrlimit(RLIMIT_DATA, &rl);
+	    }
+#endif /* BSD */
+	}
 	else if (strcmp (line, "PreservePermissions") == 0)
 	{
 	    if (strcmp (p, "no") == 0)
@@ -415,6 +437,33 @@ warning: this CVS does not support PreservePermissions");
 	    else if (strcmp (p, "stat") == 0)
 	      RereadLogAfterVerify = LOGMSG_REREAD_STAT;
 	}
+	else if (strcmp(line, "LocalKeyword") == 0)
+	{
+	    /* Recognize cvs-1.12-style keyword control rather than erroring out. */
+	    RCS_setlocalid(p);
+	}
+	else if (strcmp(line, "KeywordExpand") == 0)
+	{
+	    /* Recognize cvs-1.12-style keyword control rather than erroring out. */
+	    RCS_setincexc(p);
+	}
+	else if (strcmp (line, "IgnoreUnknownConfigKeys") == 0)
+	{
+	    if (strcmp (p, "no") == 0 || strcmp (p, "false") == 0
+		|| strcmp (p, "off") == 0 || strcmp (p, "0") == 0)
+		ignore_unknown_config_keys = 0;
+	    else if (strcmp (p, "yes") == 0 || strcmp (p, "true") == 0
+		     || strcmp (p, "on") == 0 || strcmp (p, "1") == 0)
+		ignore_unknown_config_keys = 1;
+	    else
+	    {
+		error (0, 0, "%s: unrecognized value '%s' for '%s'",
+		       infopath, p, line);
+		goto error_return;
+	    }
+	}
+	else if (ignore_unknown_config_keys)
+	    ;
 	else
 	{
 	    /* We may be dealing with a keyword which was added in a

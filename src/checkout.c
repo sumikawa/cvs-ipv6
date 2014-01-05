@@ -38,6 +38,10 @@
  * edited by the user, if necessary (when the repository is moved, e.g.)
  */
 
+/*
+ * $FreeBSD: head/contrib/cvs/src/checkout.c 175265 2008-01-13 06:00:42Z obrien $
+ */
+
 #include <assert.h>
 #include "cvs.h"
 
@@ -55,6 +59,7 @@ static const char *const checkout_usage[] =
     "\t-N\tDon't shorten module paths if -d specified.\n",
     "\t-P\tPrune empty directories.\n",
     "\t-R\tProcess directories recursively.\n",
+    "\t-T\tCreate Template file from local repository for remote commit.\n",
     "\t-c\t\"cat\" the module database.\n",
     "\t-f\tForce a head revision match if tag/date not found.\n",
     "\t-l\tLocal directory only, not recursive\n",
@@ -72,13 +77,13 @@ static const char *const checkout_usage[] =
 
 static const char *const export_usage[] =
 {
-    "Usage: %s %s [-NRfln] [-r rev] [-D date] [-d dir] [-k kopt] module...\n",
+    "Usage: %s %s [-NRfln] [-r tag] [-D date] [-d dir] [-k kopt] module...\n",
     "\t-N\tDon't shorten module paths if -d specified.\n",
     "\t-f\tForce a head revision match if tag/date not found.\n",
     "\t-l\tLocal directory only, not recursive\n",
     "\t-R\tProcess directories recursively (default).\n",
     "\t-n\tDo not run module program (if any).\n",
-    "\t-r rev\tExport revision or tag.\n",
+    "\t-r tag\tExport tagged revisions.\n",
     "\t-D date\tExport revisions as of date.\n",
     "\t-d dir\tExport into dir instead of module name.\n",
     "\t-k kopt\tUse RCS kopt -k option on checkout.\n",
@@ -97,6 +102,7 @@ static char *date;
 static char *join_rev1;
 static char *join_rev2;
 static int join_tags_validated;
+static int pull_template;
 static char *preload_update_dir;
 static char *history_name;
 static enum mtype m_type;
@@ -144,7 +150,7 @@ checkout (argc, argv)
     else
     {
         m_type = CHECKOUT;
-	valid_options = "+ANnk:d:flRpQqcsr:D:j:P";
+	valid_options = "+ANnk:d:flRpTQqcsr:D:j:P";
 	valid_usage = checkout_usage;
     }
 
@@ -173,13 +179,14 @@ checkout (argc, argv)
 	    case 'n':
 		run_module_prog = 0;
 		break;
+	    case 'T':
+		pull_template = 1;
+		break;
 	    case 'Q':
 	    case 'q':
-#ifdef SERVER_SUPPORT
 		/* The CVS 1.5 client sends these options (in addition to
 		   Global_option requests), so we must ignore them.  */
 		if (!server_active)
-#endif
 		    error (1, 0,
 			   "-q or -Q must be specified before \"%s\"",
 			   cvs_cmd_name);
@@ -433,10 +440,8 @@ safe_location (where)
 			CLIENT_SERVER_STR,
 			where ? where : "(null)");
 
-#ifdef CLIENT_SUPPORT
     /* Don't compare remote CVSROOTs to our destination directory. */
-    if ( current_parsed_root->isremote ) return 1;
-#endif /* CLIENT_SUPPORT */
+    if (current_parsed_root->isremote) return 1;
 
     /* set current - even if where is set we'll need to cd back... */
     current = xgetwd ();
@@ -1102,8 +1107,7 @@ internal error: %s doesn't start with %s in checkout_proc",
 			  force_tag_match, 0 /* !local */ ,
 			  1 /* update -d */ , aflag, checkout_prune_dirs,
 			  pipeout, which, join_rev1, join_rev2,
-			  preload_update_dir, m_type == CHECKOUT,
-			  repository);
+			  preload_update_dir, pull_template, repository);
 	goto out;
     }
 
@@ -1159,8 +1163,7 @@ internal error: %s doesn't start with %s in checkout_proc",
     err += do_update (argc - 1, argv + 1, options, tag, date,
 		      force_tag_match, local_specified, 1 /* update -d */,
 		      aflag, checkout_prune_dirs, pipeout, which, join_rev1,
-		      join_rev2, preload_update_dir, m_type == CHECKOUT,
-		      repository);
+		      join_rev2, preload_update_dir, pull_template, repository);
 out:
     free (preload_update_dir);
     preload_update_dir = oldupdate;

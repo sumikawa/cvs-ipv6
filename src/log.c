@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ * Copyright (C) 1986-2008 The Free Software Foundation, Inc.
  *
  * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
  *                                  and others.
@@ -15,6 +15,8 @@
  * Prints the RCS "log" (rlog) information for the specified files.  With no
  * argument, prints the log information for all the files in the directory
  * (recursive by default).
+ *
+ * $FreeBSD: head/contrib/cvs/src/log.c 177397 2008-03-19 14:56:41Z obrien $
  */
 
 #include "cvs.h"
@@ -87,7 +89,7 @@ struct log_data
     /* Nonzero if the -N option was seen, meaning that tag information
        should not be printed.  */
     int notags;
-    /* Nonzero if the -b option was seen, meaning that only revisions
+    /* Nonzero if the -b option was seen, meaning that revisions
        on the default branch should be printed.  */
     int default_branch;
     /* Nonzero if the -S option was seen, meaning that the header/name
@@ -156,11 +158,12 @@ static const char *const log_usage[] =
     "Usage: %s %s [-lRhtNb] [-r[revisions]] [-d dates] [-s states]\n",
     "    [-w[logins]] [files...]\n",
     "\t-l\tLocal directory only, no recursion.\n",
-    "\t-b\tOnly list revisions on the default branch.\n",
+    "\t-b\tList revisions on the default branch.\n",
     "\t-h\tOnly print header.\n",
     "\t-R\tOnly print name of RCS file.\n",
     "\t-t\tOnly print header and descriptive text.\n",
     "\t-N\tDo not list tags.\n",
+    "\t-n\tList tags (default).\n",
     "\t-S\tDo not print name/header if no revisions selected.  -d, -r,\n",
     "\t\t-s, & -w have little effect in conjunction with -b, -h, -R, and\n",
     "\t\t-t without this option.\n",
@@ -242,7 +245,7 @@ cvslog (argc, argv)
     prl = &log_data.revlist;
 
     optind = 0;
-    while ((c = getopt (argc, argv, "+bd:hlNSRr::s:tw::")) != -1)
+    while ((c = getopt (argc, argv, "+bd:hlNnSRr::s:tw::")) != -1)
     {
 	switch (c)
 	{
@@ -260,6 +263,9 @@ cvslog (argc, argv)
 		break;
 	    case 'N':
 		log_data.notags = 1;
+		break;
+	    case 'n':
+		log_data.notags = 0;
 		break;
 	    case 'S':
 		log_data.sup_header = 1;
@@ -316,6 +322,7 @@ cvslog (argc, argv)
 	{
 	    p = log_data.datelist;
 	    log_data.datelist = p->next;
+	    assert (p->start != NULL && p->end != NULL);
 	    send_to_server ("Argument -d\012", 0);
 	    send_to_server ("Argument ", 0);
 	    date_to_internet (datetmp, p->start);
@@ -327,23 +334,21 @@ cvslog (argc, argv)
 	    date_to_internet (datetmp, p->end);
 	    send_to_server (datetmp, 0);
 	    send_to_server ("\012", 0);
-	    if (p->start)
-		free (p->start);
-	    if (p->end)
-		free (p->end);
+	    free (p->start);
+	    free (p->end);
 	    free (p);
 	}
 	while (log_data.singledatelist != NULL)
 	{
 	    p = log_data.singledatelist;
 	    log_data.singledatelist = p->next;
+	    assert (p->end != NULL);
 	    send_to_server ("Argument -d\012", 0);
 	    send_to_server ("Argument ", 0);
 	    date_to_internet (datetmp, p->end);
 	    send_to_server (datetmp, 0);
 	    send_to_server ("\012", 0);
-	    if (p->end)
-		free (p->end);
+	    free (p->end);
 	    free (p);
 	}
 	    
@@ -1093,6 +1098,8 @@ log_expand_revlist (rcs, baserev, revlist, default_branch)
 	{
 	    char *branch;
 
+	    assert (r->first != NULL);
+
 	    /* Print just the head of the branch.  */
 	    if (isdigit ((unsigned char) r->first[0]))
 		nr->first = RCS_getbranch (rcs, r->first, 1);
@@ -1643,8 +1650,8 @@ log_version (log_data, revlist, rcs, ver, trunk)
 		   &sec);
     if (year < 1900)
 	year += 1900;
-    sprintf (buf, "%04d/%02d/%02d %02d:%02d:%02d", year, mon, mday,
-	     hour, min, sec);
+    sprintf (buf, "%04d%c%02d%c%02d %02d:%02d:%02d",
+	     year, datesep, mon, datesep, mday, hour, min, sec);
     cvs_output (buf, 0);
 
     cvs_output (";  author: ", 0);

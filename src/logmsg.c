@@ -9,6 +9,8 @@
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
+ *
+ * $FreeBSD: head/contrib/cvs/src/logmsg.c 175274 2008-01-13 06:09:41Z obrien $
  */
 
 #include <assert.h>
@@ -201,11 +203,7 @@ do_editor (dir, messagep, repository, changes)
     struct stat pre_stbuf, post_stbuf;
     int retcode = 0;
 
-#ifdef CLIENT_SUPPORT
     assert (!current_parsed_root->isremote != !repository);
-#else
-    assert (repository);
-#endif
 
     if (noexec || reuse_log_message)
 	return;
@@ -231,6 +229,8 @@ do_editor (dir, messagep, repository, changes)
 	    (*messagep)[strlen (*messagep) - 1] != '\n')
 	    (void) fprintf (fp, "\n");
     }
+    else
+	(void) fprintf (fp, "\n");
 
     if (repository != NULL)
 	/* tack templates on if necessary */
@@ -295,12 +295,7 @@ do_editor (dir, messagep, repository, changes)
     if (editinfo_editor)
 	free (editinfo_editor);
     editinfo_editor = (char *) NULL;
-#ifdef CLIENT_SUPPORT
-    if (current_parsed_root->isremote)
-	; /* nothing, leave editinfo_editor NULL */
-    else
-#endif
-    if (repository != NULL)
+    if (!current_parsed_root->isremote && repository != NULL)
 	(void) Parse_Info (CVSROOTADM_EDITINFO, repository, editinfo_proc, 0);
 
     /* run the editor */
@@ -427,11 +422,9 @@ do_verify (messagep, repository)
 
     struct stat pre_stbuf, post_stbuf;
 
-#ifdef CLIENT_SUPPORT
     if (current_parsed_root->isremote)
 	/* The verification will happen on the server.  */
 	return;
-#endif
 
     /* FIXME? Do we really want to skip this on noexec?  What do we do
        for the other administrative files?  */
@@ -450,7 +443,8 @@ do_verify (messagep, repository)
        temp file, and close the file.  */
 
     if ((fp = cvs_temp_file (&fname)) == NULL)
-	error (1, errno, "cannot create temporary file %s", fname);
+	error (1, errno, "cannot create temporary file %s",
+	       fname ? fname : "(null)");
 
     if (*messagep != NULL)
 	fputs (*messagep, fp);
@@ -556,7 +550,7 @@ do_verify (messagep, repository)
     if (unlink_file (fname) < 0)
 	error (0, errno, "cannot remove %s", fname);
     free (fname);
-    free( verifymsg_script );
+    free (verifymsg_script);
     verifymsg_script = NULL;
 }
 

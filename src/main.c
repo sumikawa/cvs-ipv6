@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ * Copyright (C) 1986-2008 The Free Software Foundation, Inc.
  *
- * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ * Portions Copyright (C) 1998-2006 Derek Price, Ximbiot <http://ximbiot.com>,
  *                                  and others.
  *
  * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
@@ -15,10 +15,12 @@
  * Credit to Dick Grune, Vrije Universiteit, Amsterdam, for writing
  * the shell-script CVS system that this is based on.
  *
+ * $FreeBSD: head/contrib/cvs/src/main.c 177398 2008-03-19 15:00:43Z obrien $
  */
 
 #include <assert.h>
 #include "cvs.h"
+#include "prepend_args.h"
 
 #ifdef HAVE_WINSOCK_H
 #include <winsock.h>
@@ -46,7 +48,15 @@ int really_quiet = 0;
 int quiet = 0;
 int trace = 0;
 int noexec = 0;
+int readonlyfs = 0;
+int require_real_user = 0;
 int logoff = 0;
+
+/*
+ * Zero if compression isn't supported or requested; non-zero to indicate
+ * a compression level to request from gzip.
+ */
+int gzip_level;
 
 /* Set if we should be writing CVSADM directories at top level.  At
    least for now we'll make the default be off (the CVS 1.9, not CVS
@@ -102,7 +112,7 @@ static const struct cmd
 {
     { "add",      "ad",       "new",       add,       CVS_CMD_MODIFIES_REPOSITORY | CVS_CMD_USES_WORK_DIR },
     { "admin",    "adm",      "rcs",       admin,     CVS_CMD_MODIFIES_REPOSITORY | CVS_CMD_USES_WORK_DIR },
-    { "annotate", "ann",      NULL,        annotate,  CVS_CMD_USES_WORK_DIR },
+    { "annotate", "ann",      "blame",     annotate,  CVS_CMD_USES_WORK_DIR },
     { "checkout", "co",       "get",       checkout,  0 },
     { "commit",   "ci",       "com",       commit,    CVS_CMD_MODIFIES_REPOSITORY | CVS_CMD_USES_WORK_DIR },
     { "diff",     "di",       "dif",       diff,      CVS_CMD_USES_WORK_DIR },
@@ -183,8 +193,7 @@ static const char *const usg[] =
        version control means.  */
 
     "For CVS updates and additional information, see\n",
-    "    the CVS home page at http://www.cvshome.org/ or\n",
-    "    Pascal Molli's CVS site at http://www.loria.fr/~molli/cvs-index.html\n",
+    "    the CVS home page at http://cvs.nongnu.org/\n",
     NULL,
 };
 
@@ -243,8 +252,10 @@ static const char *const opt_usage[] =
     "    -q           Cause CVS to be somewhat quiet.\n",
     "    -r           Make checked-out files read-only.\n",
     "    -w           Make checked-out files read-write (default).\n",
+    "    -g           Force group-write perms on checked-out files.\n",
     "    -n           Do not execute anything that will change the disk.\n",
     "    -t           Show trace of program execution -- try with -n.\n",
+    "    -R           Assume repository is read-only, such as CDROM\n",
     "    -v           CVS version and copyright.\n",
     "    -T tmpdir    Use 'tmpdir' for temporary files.\n",
     "    -e editor    Use 'editor' for editing log information.\n",
@@ -402,7 +413,7 @@ main (argc, argv)
     int help = 0;		/* Has the user asked for help?  This
 				   lets us support the `cvs -H cmd'
 				   convention to give help for cmd. */
-    static const char short_options[] = "+Qqrwtnvb:T:e:d:Hfz:s:xa";
+    static const char short_options[] = "+QqgrwtnRvb:T:e:d:Hfz:s:xaU";
     static struct option long_options[] =
     {
         {"help", 0, NULL, 'H'},
@@ -459,6 +470,12 @@ main (argc, argv)
 	Editor = cp;
     if (getenv (CVSREAD_ENV) != NULL)
 	cvswrite = 0;
+    if (getenv (CVSREADONLYFS_ENV) != NULL) {
+	readonlyfs = 1;
+	logoff = 1;
+    }
+
+    prepend_default_options (getenv ("CVS_OPTIONS"), &argc, &argv);
 
     /* Set this to 0 to force getopt initialization.  getopt() sets
        this to 1 internally.  */
@@ -521,8 +538,19 @@ main (argc, argv)
 	    case 'w':
 		cvswrite = 1;
 		break;
+	    case 'g':
+		/*
+		 * force full group write perms (used for shared checked-out
+		 * source trees, see manual page)
+		 */
+		umask(umask(077) & 007);
+		break;
 	    case 't':
 		trace = 1;
+		break;
+	    case 'R':
+		readonlyfs = 1;
+		logoff = 1;
 		break;
 	    case 'n':
 		noexec = 1;
@@ -533,7 +561,7 @@ main (argc, argv)
 		version (0, (char **) NULL);    
 		(void) fputs ("\n", stdout);
 		(void) fputs ("\
-Copyright (C) 2005 Free Software Foundation, Inc.\n\
+Copyright (C) 2006 Free Software Foundation, Inc.\n\
 \n\
 Senior active maintainers include Larry Jones, Derek R. Price,\n\
 and Mark D. Baushke.  Please see the AUTHORS and README files from the CVS\n\
@@ -546,6 +574,12 @@ distribution kit for a complete list of contributors and copyrights.\n",
 
 		(void) fputs ("Specify the --help option for further information about CVS\n", stdout);
 
+#ifdef SYSTEM_CLEANUP
+		/* Hook for OS-specific behavior, for example socket subsystems
+		 * on NT and OS2 or dealing with windows and arguments on Mac.
+		 */
+		SYSTEM_CLEANUP ();
+#endif
 		exit (0);
 		break;
 	    case 'b':
@@ -578,12 +612,10 @@ distribution kit for a complete list of contributors and copyrights.\n",
 		use_cvsrc = 0; /* unnecessary, since we've done it above */
 		break;
 	    case 'z':
-#ifdef CLIENT_SUPPORT
 		gzip_level = strtol (optarg, &end, 10);
 		if (*end != '\0' || gzip_level < 0 || gzip_level > 9)
 		  error (1, 0,
 			 "gzip compression level must be between 0 and 9");
-#endif /* CLIENT_SUPPORT */
 		/* If no CLIENT_SUPPORT, we just silently ignore the gzip
 		 * level, so that users can have it in their .cvsrc and not
 		 * cause any trouble.
@@ -613,6 +645,11 @@ distribution kit for a complete list of contributors and copyrights.\n",
                    have it in their .cvsrc and not cause any trouble.
                    We will issue an error later if stream
                    authentication is not supported.  */
+		break;
+	    case 'U':
+#ifdef SERVER_SUPPORT
+		require_real_user = 1;
+#endif
 		break;
 	    case '?':
 	    default:
@@ -707,21 +744,18 @@ distribution kit for a complete list of contributors and copyrights.\n",
 	    cvs_cmd_name = "server";
 	}
 # endif /* AUTH_SERVER_SUPPORT || HAVE_GSSAPI */
+#endif /* SERVER_SUPPORT */
 
 	server_active = strcmp (cvs_cmd_name, "server") == 0;
-
-#endif /* SERVER_SUPPORT */
 
 	/* This is only used for writing into the history file.  For
 	   remote connections, it might be nice to have hostname
 	   and/or remote path, on the other hand I'm not sure whether
 	   it is worth the trouble.  */
 
-#ifdef SERVER_SUPPORT
 	if (server_active)
 	    CurDir = xstrdup ("<remote>");
 	else
-#endif
 	{
 	    CurDir = xgetwd ();
             if (CurDir == NULL)
@@ -742,6 +776,12 @@ distribution kit for a complete list of contributors and copyrights.\n",
 	    (void) sprintf (env, "%s=%s", TMPDIR_ENV, Tmpdir);
 	    (void) putenv (env);
 	    /* do not free env, as putenv has control of it */
+	}
+	{
+	    char *env;
+	    env = xmalloc (sizeof "CVS_PID=" + 32); /* XXX pid < 10^32 */
+	    (void) sprintf (env, "CVS_PID=%ld", (long) getpid ());
+	    (void) putenv (env);
 	}
 #endif
 
@@ -780,13 +820,11 @@ distribution kit for a complete list of contributors and copyrights.\n",
 	if (use_cvsrc)
 	    read_cvsrc (&argc, &argv, cvs_cmd_name);
 
-#ifdef SERVER_SUPPORT
 	/* Fiddling with CVSROOT doesn't make sense if we're running
 	 * in server mode, since the client will send the repository
 	 * directory after the connection is made.
 	 */
 	if (!server_active)
-#endif
 	{
 	    /* First check if a root was set via the command line.  */
 	    if (CVSroot_cmdline)
@@ -873,20 +911,14 @@ distribution kit for a complete list of contributors and copyrights.\n",
 	   once).  To get out of the loop, we perform a "break" at the
 	   end of things.  */
 
-	while (
-#ifdef SERVER_SUPPORT
-	       server_active ||
-#endif
-	       walklist (root_directories, set_root_directory, NULL)
-	       )
+	while (server_active ||
+	       walklist (root_directories, set_root_directory, NULL))
 	{
-#ifdef SERVER_SUPPORT
 	    /* Fiddling with CVSROOT doesn't make sense if we're running
 	       in server mode, since the client will send the repository
 	       directory after the connection is made. */
 
 	    if (!server_active)
-#endif
 	    {
 		/* Now we're 100% sure that we have a valid CVSROOT
 		   variable.  Parse it to see if we're supposed to do
@@ -899,9 +931,7 @@ distribution kit for a complete list of contributors and copyrights.\n",
 		/*
 		 * Check to see if the repository exists.
 		 */
-#ifdef CLIENT_SUPPORT
 		if (!current_parsed_root->isremote)
-#endif	/* CLIENT_SUPPORT */
 		{
 		    char *path;
 		    int save_errno;
@@ -927,7 +957,6 @@ distribution kit for a complete list of contributors and copyrights.\n",
 		{
 		    static char *prev;
 		    char *env;
-		    size_t dummy;
 
 		    env = xmalloc (strlen (CVSROOT_ENV)
 				   + strlen (current_parsed_root->original)
@@ -951,20 +980,16 @@ distribution kit for a complete list of contributors and copyrights.\n",
 	       predetermine whether CVSROOT/config overrides things from
 	       read_cvsrc and other such places or vice versa.  That sort
 	       of thing probably needs more thought.  */
-	    if (1
-#ifdef SERVER_SUPPORT
-		&& !server_active
-#endif
-#ifdef CLIENT_SUPPORT
-		&& !current_parsed_root->isremote
-#endif
-		)
+	    if (!server_active && !current_parsed_root->isremote)
 	    {
 		/* If there was an error parsing the config file, parse_config
 		   already printed an error.  We keep going.  Why?  Because
 		   if we didn't, then there would be no way to check in a new
 		   CVSROOT/config file to fix the broken one!  */
 		parse_config (current_parsed_root->directory);
+
+		/* Now is a convenient time to read CVSROOT/options */
+		parseopts(current_parsed_root->directory);
 	    }
 
 #ifdef CLIENT_SUPPORT
@@ -988,9 +1013,7 @@ distribution kit for a complete list of contributors and copyrights.\n",
                active, our list will be empty -- don't try and
                remove it from the list. */
 
-#ifdef SERVER_SUPPORT
 	    if (!server_active)
-#endif /* SERVER_SUPPORT */
 	    {
 		Node *n = findnode (root_directories,
 				    current_parsed_root->original);
@@ -1001,13 +1024,11 @@ distribution kit for a complete list of contributors and copyrights.\n",
 		current_parsed_root = NULL;
 	    }
 
-#ifdef SERVER_SUPPORT
 	    if (server_active)
 	    {
 		server_active = 0;
 		break;
 	    }
-#endif
 	} /* end of loop for cvsroot values */
 
 	dellist (&root_directories);
@@ -1155,4 +1176,65 @@ usage (cpp)
     for (; *cpp; cpp++)
 	(void) fprintf (stderr, *cpp);
     error_exit ();
+}
+
+void
+parseopts(root)
+    const char *root;
+{
+    char path[PATH_MAX];
+    int save_errno;
+    char buf[1024];
+    const char *p;
+    char *q;
+    FILE *fp;
+
+    if (root == NULL) {
+	printf("no CVSROOT in parseopts\n");
+	return;
+    }
+    p = strchr (root, ':');
+    if (p)
+	p++;
+    else
+	p = root;
+    if (p == NULL) {
+	printf("mangled CVSROOT in parseopts\n");
+	return;
+    }
+    (void) sprintf (path, "%s/%s/%s", p, CVSROOTADM, CVSROOTADM_OPTIONS);
+    if ((fp = fopen(path, "r")) != NULL) {
+	while (fgets(buf, sizeof buf, fp) != NULL) {
+	    if (buf[0] == '#')
+		continue;
+	    q = strrchr(buf, '\n');
+	    if (q)
+		*q = '\0';
+
+	    if (!strcmp(buf, "iso8601")) {
+		datesep = '-';
+	    }
+	    if (!strncmp(buf, "tag=", 4)) {
+		char *what;
+		char *rcs_localid;
+
+		rcs_localid = buf + 4;
+		RCS_setlocalid(rcs_localid);
+	    }
+	    if (!strncmp(buf, "tagexpand=", 10)) {
+		char *what;
+		char *rcs_incexc;
+
+		rcs_incexc = buf + 10;
+		RCS_setincexc(rcs_incexc);
+	    }
+	    /*
+	     * OpenBSD has a "umask=" and "dlimit=" command, we silently
+	     * ignore them here since they are not much use to us.  cvsumask
+	     * defaults to 002 already, and the dlimit (data size limit)
+	     * should really be handled elsewhere (eg: login.conf).
+	     */
+	}
+	fclose(fp);
+    }
 }

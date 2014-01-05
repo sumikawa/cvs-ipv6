@@ -14,6 +14,7 @@
 /*
  * basic information used in all source files
  *
+ * $FreeBSD: head/contrib/cvs/src/cvs.h 177403 2008-03-19 15:10:20Z obrien $
  */
 
 
@@ -199,6 +200,7 @@ extern int errno;
 #define CVSROOTADM_WRITERS	"writers"
 #define CVSROOTADM_PASSWD	"passwd"
 #define CVSROOTADM_CONFIG	"config"
+#define CVSROOTADM_OPTIONS	"options"
 
 #define CVSNULLREPOS		"Emptydir"	/* an empty directory */
 
@@ -212,6 +214,8 @@ extern int errno;
 #define	CVSATTIC	"Attic"
 
 #define	CVSLCK		"#cvs.lock"
+#define	CVSHISTORYLCK	"#cvs.history.lock"
+#define	CVSVALTAGSLCK	"#cvs.val-tags.lock"
 #define	CVSRFL		"#cvs.rfl"
 #define	CVSWFL		"#cvs.wfl"
 #define CVSRFLPAT	"#cvs.rfl.*"	/* wildcard expr to match read locks */
@@ -267,6 +271,8 @@ extern int errno;
 /* Environment variable used by CVS */
 #define	CVSREAD_ENV	"CVSREAD"	/* make files read-only */
 #define	CVSREAD_DFLT	0		/* writable files by default */
+
+#define	CVSREADONLYFS_ENV "CVSREADONLYFS" /* repository is read-only */
 
 #define	TMPDIR_ENV	"TMPDIR"	/* Temporary directory */
 
@@ -380,6 +386,7 @@ extern int really_quiet, quiet;
 extern int use_editor;
 extern int cvswrite;
 extern mode_t cvsumask;
+extern char *RCS_citag;
 
 
 
@@ -398,7 +405,9 @@ extern int safe_location PROTO ((char *));
 
 extern int trace;		/* Show all commands */
 extern int noexec;		/* Don't modify disk anywhere */
+extern int readonlyfs;		/* fail on all write locks; succeed all read locks */
 extern int logoff;		/* Don't write history entry */
+extern int require_real_user;	/* skip CVSROOT/passwd, /etc/passwd users only*/
 
 extern int top_level_admin;
 
@@ -429,14 +438,16 @@ int RCS_merge PROTO((RCSNode *, const char *, const char *, const char *,
 #define RCS_FLAGS_KEEPFILE 16
 #define RCS_FLAGS_USETIME 32
 
-extern int RCS_exec_rcsdiff PROTO ((RCSNode *rcsfile,
-				    const char *opts, const char *options,
+extern int RCS_exec_rcsdiff PROTO ((RCSNode *rcsfile, int diff_argc,
+				    char *const *diff_argv,
+				    const char *options,
 				    const char *rev1, const char *rev1_cache,
                                     const char *rev2, const char *label1,
                                     const char *label2, const char *workfile));
 extern int diff_exec PROTO ((const char *file1, const char *file2,
 			     const char *label1, const char *label2,
-			     const char *options, const char *out));
+			     int diff_argc, char *const *diff_argv,
+			     const char *out));
 
 
 #include "error.h"
@@ -498,6 +509,7 @@ char *get_homedir PROTO ((void));
 char *strcat_filename_onto_homedir PROTO ((const char *, const char *));
 char *cvs_temp_name PROTO ((void));
 FILE *cvs_temp_file PROTO ((char **filename));
+void parseopts PROTO ((const char *root));
 
 int numdots PROTO((const char *s));
 char *increment_revnum PROTO ((const char *));
@@ -568,6 +580,14 @@ void lock_tree_for_write PROTO ((int argc, char **argv, int local, int which,
 /* See lock.c for description.  */
 extern void lock_dir_for_write PROTO ((char *));
 
+/* Get a write lock for the history file.  */
+int history_lock PROTO ((const char *));
+void clear_history_lock PROTO ((void));
+
+/* Get a write lock for the val-tags file.  */
+int val_tags_lock PROTO ((const char *));
+void clear_val_tags_lock PROTO ((void));
+
 /* LockDir setting from CVSROOT/config.  */
 extern char *lock_dir;
 
@@ -576,6 +596,7 @@ void ParseTag PROTO((char **tagp, char **datep, int *nonbranchp));
 void WriteTag PROTO ((const char *dir, const char *tag, const char *date,
                       int nonbranch, const char *update_dir,
                       const char *repository));
+void WriteTemplate PROTO ((const char *dir, const char *update_dir));
 void cat_module PROTO((int status));
 void check_entries PROTO((char *dir));
 void close_module PROTO((DBM * db));
@@ -667,8 +688,6 @@ int SIG_inCrSect PROTO((void));
 void read_cvsrc PROTO((int *argc, char ***argv, const char *cmdname));
 
 char *make_message_rcslegal PROTO((const char *message));
-extern int file_has_conflict PROTO ((const struct file_info *,
-				     const char *ts_conflict));
 extern int file_has_markers PROTO ((const struct file_info *));
 extern void get_file PROTO ((const char *, const char *, const char *,
 			     char **, size_t *, size_t *));
@@ -686,6 +705,8 @@ void sleep_past PROTO ((time_t desttime));
 #define	RUN_SIGIGNORE         0x0010    /* ignore interrupts for command */
 #define	RUN_TTY               (char *)0 /* for the benefit of lint */
 
+void run_add_arg_p PROTO ((int *, size_t *, char ***, const char *s));
+void run_arg_free_p PROTO ((int, char **));
 void run_arg PROTO((const char *s));
 void run_print PROTO((FILE * fp));
 void run_setup PROTO ((const char *prog));
@@ -694,7 +715,7 @@ int run_exec PROTO((const char *stin, const char *stout, const char *sterr,
 
 /* other similar-minded stuff from run.c.  */
 FILE *run_popen PROTO((const char *, const char *));
-int piped_child PROTO((const char **, int *, int *));
+int piped_child PROTO((const char **, int *, int *, int));
 void close_on_exec PROTO((int));
 
 pid_t waitpid PROTO((pid_t, int *, int));
@@ -904,6 +925,7 @@ char *descramble PROTO ((char *str));
 
 #ifdef AUTH_CLIENT_SUPPORT
 char *get_cvs_password PROTO((void));
+void free_cvs_password PROTO((char *str));
 int get_cvs_port_number PROTO((const cvsroot_t *root));
 char *normalize_cvsroot PROTO((const cvsroot_t *root));
 #endif /* AUTH_CLIENT_SUPPORT */

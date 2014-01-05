@@ -1,4 +1,18 @@
 /*
+ * Copyright (C) 1994-2005 The Free Software Foundation, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
  * Release: "cancel" a checkout in the history log.
  * 
  * - Enter a line in the history log indicating the "release". - If asked to,
@@ -178,7 +192,7 @@ release (argc, argv)
 
 	if (!really_quiet)
 	{
-	    int line_length;
+	    int line_length, status;
 
 	    /* The "release" command piggybacks on "update", which
 	       does the real work of finding out if anything is not
@@ -205,9 +219,10 @@ release (argc, argv)
 	       complain and go on to the next arg.  Especially, we do
 	       not want to delete the local copy, since it's obviously
 	       not what the user thinks it is.  */
-	    if ((pclose (fp)) != 0)
+	    status = pclose (fp);
+	    if (status != 0)
 	    {
-		error (0, 0, "unable to release `%s'", thisarg);
+		error (0, 0, "unable to release `%s' (%d)", thisarg, status);
 		if (restore_cwd (&cwd, NULL))
 		    error_exit ();
 		continue;
@@ -236,7 +251,7 @@ release (argc, argv)
            through release-23. */
 
 	if (restore_cwd (&cwd, NULL))
-	    exit (EXIT_FAILURE);
+	    error_exit ();
 
 	if (1
 #ifdef CLIENT_SUPPORT
@@ -253,7 +268,7 @@ release (argc, argv)
 	    argv[2] = NULL;
 	    err += unedit (argc, argv);
             if (restore_cwd (&cwd, NULL))
-                exit (EXIT_FAILURE);
+                error_exit ();
 	}
 
 #ifdef CLIENT_SUPPORT
@@ -291,7 +306,7 @@ release (argc, argv)
             err += get_server_responses ();
 
             if (restore_cwd (&cwd, NULL))
-                exit (EXIT_FAILURE);
+                error_exit ();
         }
 #endif /* CLIENT_SUPPORT */
     }

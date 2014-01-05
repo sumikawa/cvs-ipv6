@@ -12,6 +12,9 @@
    GNU General Public License for more details.
 
    */
+/*
+ * $FreeBSD: head/contrib/cvs/diff/diff3.c 128269 2004-04-15 01:17:28Z peter $
+ */
 
 /* Written by Randy Smith */
 /* Librarification by Tim Pierce */

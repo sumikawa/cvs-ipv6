@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ * Copyright (C) 1986-2008 The Free Software Foundation, Inc.
  *
  * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
  *                                  and others.
@@ -23,7 +23,7 @@
 
 const char method_names[][16] = {
     "undefined", "local", "server (rsh)", "pserver",
-    "kserver", "gserver", "ext", "fork"
+    "kserver", "gserver", "ext", "extssh", "fork"
 };
 
 #ifndef DEBUG
@@ -112,11 +112,7 @@ Name_Root (dir, update_dir)
 	goto out;
     }
 
-    if (
-#ifdef CLIENT_SUPPORT
-        !ret->isremote &&
-#endif
-        !isdir (ret->directory))
+    if (!ret->isremote && !isdir (ret->directory))
     {
 	error (0, 0, "in directory %s:", xupdate_dir);
 	error (0, 0,
@@ -185,6 +181,12 @@ Create_Root (dir, rootdir)
 static int root_allow_count;
 static char **root_allow_vector;
 static int root_allow_size;
+
+int
+root_allow_used ()
+{
+    return root_allow_count;
+}
 
 void
 root_allow_add (arg)
@@ -294,6 +296,7 @@ new_cvsroot_t ()
 
     newroot->original = NULL;
     newroot->method = null_method;
+    newroot->isremote = 0;
 #ifdef CLIENT_SUPPORT
     newroot->username = NULL;
     newroot->password = NULL;
@@ -302,7 +305,6 @@ new_cvsroot_t ()
     newroot->directory = NULL;
     newroot->proxy_hostname = NULL;
     newroot->proxy_port = 0;
-    newroot->isremote = 0;
 #endif /* CLIENT_SUPPORT */
 
     return newroot;
@@ -414,7 +416,7 @@ parse_cvsroot (root_in)
 	 * We don't handle these, but we like to try and warn the user that
 	 * they are being ignored.
 	 */
-	if (p = strchr (method, ';'))	
+	if ((p = strchr (method, ';')) != NULL)
 	{
 	    *p++ = '\0';
 	    if (!really_quiet)
@@ -442,6 +444,8 @@ parse_cvsroot (root_in)
 	    newroot->method = server_method;
 	else if (strcmp (method, "ext") == 0)
 	    newroot->method = ext_method;
+	else if (strcmp (method, "extssh") == 0)
+	    newroot->method = extssh_method;
 	else if (strcmp (method, "fork") == 0)
 	    newroot->method = fork_method;
 	else
@@ -460,10 +464,7 @@ parse_cvsroot (root_in)
 			  : local_method);
     }
 
-#ifdef CLIENT_SUPPORT
     newroot->isremote = (newroot->method != local_method);
-#endif /* CLIENT_SUPPORT */
-
 
     if ((newroot->method != local_method)
 	&& (newroot->method != fork_method))
@@ -674,6 +675,7 @@ parse_cvsroot (root_in)
 # endif
     case server_method:
     case ext_method:
+    case extssh_method:
 	no_port = 1;
 	/* no_password already set */
 	check_hostname = 1;

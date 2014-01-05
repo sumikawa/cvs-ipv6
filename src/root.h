@@ -22,6 +22,7 @@ typedef enum {
     kserver_method,
     gserver_method,
     ext_method,
+    extssh_method,
     fork_method
 } CVSmethod;
 extern const char method_names[][16];	/* change this in root.c if you change
@@ -31,6 +32,7 @@ typedef struct cvsroot_s {
     char *original;		/* The complete source CVSroot string. */
     CVSmethod method;		/* One of the enum values above. */
     char *directory;		/* The directory name. */
+    unsigned char isremote;	/* Nonzero if we are doing remote access. */
 #ifdef CLIENT_SUPPORT
     char *username;		/* The username or NULL if method == local. */
     char *password;		/* The password or NULL if method == local. */
@@ -41,7 +43,6 @@ typedef struct cvsroot_s {
 				 * used.
 				 */
     int proxy_port;		/* The port of the proxy or zero, as above. */
-    unsigned char isremote;	/* Nonzero if we are doing remote access. */
 #endif /* CLIENT_SUPPORT */
 } cvsroot_t;
 
@@ -53,3 +54,4 @@ void Create_Root PROTO((const char *dir, const char *rootdir));
 void root_allow_add PROTO ((char *));
 void root_allow_free PROTO ((void));
 int root_allow_ok PROTO ((char *));
+int root_allow_used PROTO ((void));
