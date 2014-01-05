@@ -157,6 +157,9 @@
 /* Define to 1 if you have the `krb_get_err_text' function. */
 #undef HAVE_KRB_GET_ERR_TEXT
 
+/* Define if IPv6 is supported.  */
+#undef ENABLE_IPV6
+
 /* Define to 1 if you have the `krb' library (-lkrb). */
 #undef HAVE_LIBKRB
 
@@ -177,6 +180,15 @@
 
 /* Define to 1 if you support file names longer than 14 characters. */
 #undef HAVE_LONG_FILE_NAMES
+
+/* Define if you have the getaddrinfo function.  */
+#undef HAVE_GETADDRINFO
+
+/* Define if you have the getgroups function.  */
+#undef HAVE_GETGROUPS
+
+/* Define if you have the getnameinfo function.  */
+#undef HAVE_GETNAMEINFO
 
 /* Define if you have memchr (always for CVS). */
 #undef HAVE_MEMCHR

@@ -18,6 +18,10 @@
 # include "config.h"
 #endif /* HAVE_CONFIG_H */
 
+#ifdef HAVE_KERBEROS
+# error kerberos is not supported with the IPv6 patch
+#endif
+
 #include <assert.h>
 #include "cvs.h"
 #include "getline.h"
@@ -63,6 +67,8 @@ extern char *strerror ();
 #   endif
 # endif /* ! SOCK_STRERROR */
 
+#include "addrinfo.h"
+
 # if HAVE_KERBEROS
 
 #   include <krb.h>
@@ -85,7 +91,7 @@ static Key_schedule sched;
 /* This is needed for GSSAPI encryption.  */
 static gss_ctx_id_t gcontext;
 
-static int connect_to_gserver PROTO((cvsroot_t *, int, struct hostent *));
+static int connect_to_gserver PROTO((cvsroot_t *, int, const char *));
 
 # endif /* HAVE_GSSAPI */
 
@@ -149,7 +155,7 @@ static void handle_notified PROTO((char *, int));
 static size_t try_read_from_server PROTO ((char *, size_t));
 
 static void auth_server PROTO ((cvsroot_t *, struct buffer *, struct buffer *,
-				int, int, struct hostent *));
+				int, int, struct addrinfo *));
 
 /* We need to keep track of the list of directories we've sent to the
    server.  This list, along with the current CVSROOT, will help us
@@ -3607,6 +3613,8 @@ init_sockaddr (name, hostname, port)
 
 
 
+static int auth_server_port_number PROTO ((void));
+
 /* Generic function to do port number lookup tasks.
  *
  * In order of precedence, will return:
@@ -3779,33 +3787,53 @@ connect_to_pserver (root, to_server_p, from_server_p, verify_only, do_gssapi)
 {
     int sock;
     int port_number;
-    struct sockaddr_in client_sai;
-    struct hostent *hostinfo;
+    char *username;			/* the username we use to connect */
+    struct addrinfo hints, *res, *res0 = NULL;
+    char pbuf[10], aibuf[NI_MAXHOST];
+    int e;
     struct buffer *to_server, *from_server;
 
-    sock = socket (AF_INET, SOCK_STREAM, 0);
-    if (sock == -1)
-    {
-	error (1, 0, "cannot create socket: %s", SOCK_STRERROR (SOCK_ERRNO));
-    }
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = PF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_CANONNAME;
     port_number = get_cvs_port_number (root);
-    hostinfo = init_sockaddr (&client_sai, root->hostname, port_number);
-    if (trace)
+    snprintf(pbuf, sizeof(pbuf), "%d", port_number);
+    e = getaddrinfo(root->hostname, pbuf, &hints, &res0);
+    if (e)
     {
-	fprintf (stderr, " -> Connecting to %s(%s):%d\n",
-		 root->hostname,
-		 inet_ntoa (client_sai.sin_addr), port_number);
+	error (1, 0, "%s", gai_strerror(e));
     }
-    if (connect (sock, (struct sockaddr *) &client_sai, sizeof (client_sai))
-	< 0)
-	error (1, 0, "connect to %s(%s):%d failed: %s",
-	       root->hostname,
-	       inet_ntoa (client_sai.sin_addr),
-	       port_number, SOCK_STRERROR (SOCK_ERRNO));
+    sock = -1;
+    for (res = res0; res; res = res->ai_next) {
+	sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	getnameinfo(res->ai_addr, res->ai_addr->sa_len,
+		    aibuf, sizeof(aibuf), NULL, 0, NI_NUMERICHOST);
+	if (sock < 0)
+	    continue;
+
+	if (trace)
+	{
+	    fprintf (stderr, " -> Connecting to %s(%s):%d\n",
+		     root->hostname, aibuf, port_number);
+	}
+	if (connect(sock, res->ai_addr, res->ai_addrlen) < 0) {
+	    close(sock);
+	    sock = -1;
+	    continue;
+	}
+	break;
+    }
+    if (sock < 0)
+    {
+	error (1, 0, "connect to %s(%s):%s failed: %s", 
+	       root->hostname, aibuf, pbuf,
+	       SOCK_STRERROR (SOCK_ERRNO));
+    }
 
     make_bufs_from_fds (sock, sock, 0, &to_server, &from_server, 1);
 
-    auth_server (root, to_server, from_server, verify_only, do_gssapi, hostinfo);
+    auth_server (root, to_server, from_server, verify_only, do_gssapi, res0);
 
     if (verify_only)
     {
@@ -3832,20 +3860,21 @@ connect_to_pserver (root, to_server_p, from_server_p, verify_only, do_gssapi)
 	*to_server_p = to_server;
 	*from_server_p = from_server;
     }
-
+    if (res0)
+	freeaddrinfo(res0);
     return;
 }
 
 
 
 static void
-auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, hostinfo)
+auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, res0)
     cvsroot_t *root;
     struct buffer *lto_server;
     struct buffer *lfrom_server;
     int verify_only;
     int do_gssapi;
-    struct hostent *hostinfo;
+    struct addrinfo *res0;
 {
     char *username = "";		/* the username we use to connect */
     char no_passwd = 0;			/* gets set if no password found */
@@ -3875,7 +3904,8 @@ auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, hostinfo)
 	    error (1, 0, "gserver currently only enabled for socket connections");
 	}
 
-	if (! connect_to_gserver (root, fd, hostinfo))
+	if (! connect_to_gserver (root, fd,
+				  res0->ai_canonname ? res0->ai_canonname : root->hostname))
 	{
 	    error (1, 0,
 		    "authorization failed: server %s rejected access to %s",
@@ -4176,10 +4206,10 @@ recv_bytes (sock, buf, need)
  */
 #define BUFSIZE 1024
 static int
-connect_to_gserver (root, sock, hostinfo)
+connect_to_gserver (root, sock, hostname)
     cvsroot_t *root;
-    int sock;
-    struct hostent *hostinfo;
+     int sock;
+     const char *hostname;
 {
     char *str;
     char buf[BUFSIZE];
@@ -4192,9 +4222,9 @@ connect_to_gserver (root, sock, hostinfo)
     if (send (sock, str, strlen (str), 0) < 0)
 	error (1, 0, "cannot send: %s", SOCK_STRERROR (SOCK_ERRNO));
 
-    if (strlen (hostinfo->h_name) > BUFSIZE - 5)
+    if (strlen (hostname) > BUFSIZE - 5)
 	error (1, 0, "Internal error: hostname exceeds length of buffer");
-    sprintf (buf, "cvs@%s", hostinfo->h_name);
+    sprintf (buf, "cvs@%s", hostname);
     tok_in.length = strlen (buf);
     tok_in.value = buf;
     gss_import_name (&stat_min, &tok_in, GSS_C_NT_HOSTBASED_SERVICE,

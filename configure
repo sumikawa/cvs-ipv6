@@ -1311,6 +1311,8 @@ Optional Features:
 			  (and sometimes confusing) to the casual installer
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
+  --enable-ipv6		Enable ipv6 (with ipv4) support
+  --disable-ipv6		Disable ipv6 support
   --enable-cvs-ndbm       Use the NDBM library distributed with CVS rather
                           than attempting to use a system NDBM library.
                           Disabling this may not work. (default)
@@ -12339,6 +12341,523 @@ echo "${ECHO_T}$with_tmpdir" >&6; }
 echo "$as_me: WARNING: User supplied temporary directory ('$with_tmpdir') does not
      exist or lacks sufficient permissions for read/write." >&2;}
 fi
+
+CFLAGS="$CFLAGS -Dss_family=__ss_family -Dss_len=__ss_len"
+echo "$as_me:$LINENO: checking whether to enable ipv6" >&5
+echo $ECHO_N "checking whether to enable ipv6... $ECHO_C" >&6
+# Check whether --enable-ipv6 or --disable-ipv6 was given.
+if test "${enable_ipv6+set}" = set; then
+  enableval="$enable_ipv6"
+   case "$enableval" in
+  no)
+       echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+       ipv6=no
+       ;;
+  *)   echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+       cat >>confdefs.h <<\_ACEOF
+#define ENABLE_IPV6 1
+_ACEOF
+
+       ipv6=yes
+       ;;
+  esac
+else
+  if test "$cross_compiling" = yes; then
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+  ipv6=no
+
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+ /* AF_INET6 avalable check */
+#include <sys/types.h>
+#include <sys/socket.h>
+main()
+{
+  exit(0);
+ if (socket(AF_INET6, SOCK_STREAM, 0) < 0)
+   exit(1);
+ else
+   exit(0);
+}
+
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+  cat >>confdefs.h <<\_ACEOF
+#define ENABLE_IPV6 1
+_ACEOF
+
+  ipv6=yes
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+( exit $ac_status )
+echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+  ipv6=no
+fi
+rm -f core core.* *.core conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+fi;
+
+ipv6type=unknown
+ipv6lib=none
+ipv6trylibc=yes
+
+if test "$ipv6" = "yes"; then
+	echo "$as_me:$LINENO: checking ipv6 stack type" >&5
+echo $ECHO_N "checking ipv6 stack type... $ECHO_C" >&6
+	for i in inria kame linux-glibc linux-inet6 toshiba v6d zeta; do
+		case $i in
+		inria)
+						cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+dnl
+#include <netinet/in.h>
+#ifdef IPV6_INRIA_VERSION
+yes
+#endif
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  egrep "yes" >/dev/null 2>&1; then
+  ipv6type=$i;
+				CFLAGS="-DINET6 $CFLAGS"
+fi
+rm -f conftest*
+
+			;;
+		kame)
+						cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+dnl
+#include <netinet/in.h>
+#ifdef __KAME__
+yes
+#endif
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  egrep "yes" >/dev/null 2>&1; then
+  ipv6type=$i;
+				ipv6lib=inet6;
+				ipv6libdir=/usr/local/v6/lib;
+				ipv6trylibc=yes
+				CFLAGS="-DINET6 $CFLAGS"
+fi
+rm -f conftest*
+
+			;;
+		linux-glibc)
+						cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+dnl
+#include <features.h>
+#if defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1
+yes
+#endif
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  egrep "yes" >/dev/null 2>&1; then
+  ipv6type=$i;
+			CFLAGS="-DINET6 $CFLAGS"
+fi
+rm -f conftest*
+
+			;;
+		linux-inet6)
+						if test -d /usr/inet6; then
+				ipv6type=$i
+				ipv6lib=inet6
+				ipv6libdir=/usr/inet6/lib
+				CFLAGS="-DINET6 -I/usr/inet6/include $CFLAGS"
+			fi
+			;;
+		toshiba)
+			cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+dnl
+#include <sys/param.h>
+#ifdef _TOSHIBA_INET6
+yes
+#endif
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  egrep "yes" >/dev/null 2>&1; then
+  ipv6type=$i;
+				ipv6lib=inet6;
+				ipv6libdir=/usr/local/v6/lib;
+				CFLAGS="-DINET6 $CFLAGS"
+fi
+rm -f conftest*
+
+			;;
+		v6d)
+			cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+dnl
+#include </usr/local/v6/include/sys/v6config.h>
+#ifdef __V6D__
+yes
+#endif
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  egrep "yes" >/dev/null 2>&1; then
+  ipv6type=$i;
+				ipv6lib=v6;
+				ipv6libdir=/usr/local/v6/lib;
+				CFLAGS="-I/usr/local/v6/include $CFLAGS"
+fi
+rm -f conftest*
+
+			;;
+		zeta)
+			cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+dnl
+#include <sys/param.h>
+#ifdef _ZETA_MINAMI_INET6
+yes
+#endif
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  egrep "yes" >/dev/null 2>&1; then
+  ipv6type=$i;
+				ipv6lib=inet6;
+				ipv6libdir=/usr/local/v6/lib;
+				CFLAGS="-DINET6 $CFLAGS"
+fi
+rm -f conftest*
+
+			;;
+		esac
+		if test "$ipv6type" != "unknown"; then
+			break
+		fi
+	done
+	echo "$as_me:$LINENO: result: $ipv6type" >&5
+echo "${ECHO_T}$ipv6type" >&6
+fi
+
+if test "$ipv6" = "yes" -a "$ipv6lib" != "none"; then
+	if test -d $ipv6libdir -a -f $ipv6libdir/lib$ipv6lib.a; then
+		LIBS="-L$ipv6libdir -l$ipv6lib $LIBS"
+		echo "You have $ipv6lib library, using it"
+	else
+		if test "$ipv6trylibc" = "yes"; then
+			echo "You do not have $ipv6lib library, using libc"
+		else
+			echo 'Fatal: no $ipv6lib library found.  cannot continue.'
+			echo "You need to fetch lib$ipv6lib.a from appropriate"
+			echo 'ipv6 kit and compile beforehand.'
+			exit 1
+		fi
+	fi
+fi
+
+echo "$as_me:$LINENO: checking getaddrinfo bug" >&5
+echo $ECHO_N "checking getaddrinfo bug... $ECHO_C" >&6
+if test "$cross_compiling" = yes; then
+  echo "$as_me:$LINENO: result: buggy" >&5
+echo "${ECHO_T}buggy" >&6
+buggygetaddrinfo=yes
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+
+#include <sys/types.h>
+#include <netdb.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+main()
+{
+  int passive, gaierr, inet4 = 0, inet6 = 0;
+  struct addrinfo hints, *ai, *aitop;
+  char straddr[INET6_ADDRSTRLEN], strport[16];
+
+  for (passive = 0; passive <= 1; passive++) {
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_flags = passive ? AI_PASSIVE : 0;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    if ((gaierr = getaddrinfo(NULL, "54321", &hints, &aitop)) != 0) {
+      (void)gai_strerror(gaierr);
+      goto bad;
+    }
+    for (ai = aitop; ai; ai = ai->ai_next) {
+      if (ai->ai_addr == NULL ||
+          ai->ai_addrlen == 0 ||
+          getnameinfo(ai->ai_addr, ai->ai_addrlen,
+                      straddr, sizeof(straddr), strport, sizeof(strport),
+                      NI_NUMERICHOST|NI_NUMERICSERV) != 0) {
+        goto bad;
+      }
+      switch (ai->ai_family) {
+      case AF_INET:
+        if (strcmp(strport, "54321") != 0) {
+          goto bad;
+        }
+        if (passive) {
+          if (strcmp(straddr, "0.0.0.0") != 0) {
+            goto bad;
+          }
+        } else {
+          if (strcmp(straddr, "127.0.0.1") != 0) {
+            goto bad;
+          }
+        }
+        inet4++;
+        break;
+      case AF_INET6:
+        if (strcmp(strport, "54321") != 0) {
+          goto bad;
+        }
+        if (passive) {
+          if (strcmp(straddr, "::") != 0) {
+            goto bad;
+          }
+        } else {
+          if (strcmp(straddr, "::1") != 0) {
+            goto bad;
+          }
+        }
+        inet6++;
+        break;
+      case AF_UNSPEC:
+        goto bad;
+        break;
+      default:
+        /* another family support? */
+        break;
+      }
+    }
+  }
+
+  if (!(inet4 == 0 || inet4 == 2))
+    goto bad;
+  if (!(inet6 == 0 || inet6 == 2))
+    goto bad;
+
+  if (aitop)
+    freeaddrinfo(aitop);
+  exit(0);
+
+ bad:
+  if (aitop)
+    freeaddrinfo(aitop);
+  exit(1);
+}
+
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  echo "$as_me:$LINENO: result: good" >&5
+echo "${ECHO_T}good" >&6
+buggygetaddrinfo=no
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+( exit $ac_status )
+echo "$as_me:$LINENO: result: buggy" >&5
+echo "${ECHO_T}buggy" >&6
+buggygetaddrinfo=yes
+fi
+rm -f core core.* *.core conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+
+if test "$buggygetaddrinfo" = "yes"; then
+	if test "$ipv6" = "yes"; then
+		echo 'Fatal: You must get working getaddrinfo() function.'
+		echo '       or you can specify "--disable-ipv6"'.
+		exit 1
+	fi
+fi
+
+
+for ac_func in getaddrinfo getnameinfo
+do
+as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
+echo "$as_me:$LINENO: checking for $ac_func" >&5
+echo $ECHO_N "checking for $ac_func... $ECHO_C" >&6
+if eval "test \"\${$as_ac_var+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char $ac_func (); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char $ac_func ();
+char (*f) ();
+
+#ifdef F77_DUMMY_MAIN
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+#endif
+int
+main ()
+{
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_$ac_func) || defined (__stub___$ac_func)
+choke me
+#else
+f = $ac_func;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  eval "$as_ac_var=yes"
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+eval "$as_ac_var=no"
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_var'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_var'}'`" >&6
+if test `eval echo '${'$as_ac_var'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_$ac_func" | $as_tr_cpp` 1
+_ACEOF
+
+else
+  LIBOBJS="$LIBOBJS $ac_func.$ac_objext"
+fi
+done
+
+
+
+echo "$as_me:$LINENO: checking for gethostname" >&5
+echo $ECHO_N "checking for gethostname... $ECHO_C" >&6
+if test "${ac_cv_func_gethostname+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+#include "confdefs.h"
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char gethostname (); below.  */
+#include <assert.h>
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char gethostname ();
+char (*f) ();
+
+#ifdef F77_DUMMY_MAIN
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+#endif
+int
+main ()
+{
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_gethostname) || defined (__stub___gethostname)
+choke me
+#else
+f = gethostname;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_func_gethostname=yes
+else
+  echo "$as_me: failed program was:" >&5
+cat conftest.$ac_ext >&5
+ac_cv_func_gethostname=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_func_gethostname" >&5
+echo "${ECHO_T}$ac_cv_func_gethostname" >&6
+if test $ac_cv_func_gethostname = yes; then
+  :
+else
+  LIBOBJS="$LIBOBJS hostname.o"
+fi
+
 
 
 cat >>confdefs.h <<_ACEOF
