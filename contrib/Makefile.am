@@ -1,7 +1,11 @@
 ## Process this file with automake to produce Makefile.in
 # Makefile for GNU CVS contributed sources.
 # Do not use this makefile directly, but only from `../Makefile'.
-# Copyright (C) 1986, 1988-1990 Free Software Foundation, Inc.
+#
+# Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+#
+# Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+#                                  and others.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,21 +17,10 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-# DISTFILES = \
-# 	ChangeLog README .cvsignore intro.doc \
-# 	Makefile.in clmerge.pl cln_hist.pl commit_prep.pl cvs2vendor.sh \
-# 	cvs_acls.pl cvscheck.sh cvscheck.man cvshelp.man debug_check_log.sh \
-# 	descend.sh \
-# 	descend.man dirfns.shar log.pl log_accum.pl mfpipe.pl rcs-to-cvs.sh \
-# 	rcs2log.sh rcslock.pl sccs2rcs.csh rcs2sccs.sh
-
-# files installed in $(pkgdatadir)
-#
-# CONTRIB_FILES = README intro.doc cvscheck.man
-
 contribdir = $(pkgdatadir)/contrib
 
 contrib_SCRIPTS = \
+	check_cvs \
 	clmerge \
 	cln_hist \
 	commit_prep \
@@ -38,6 +31,7 @@ contrib_SCRIPTS = \
 	log \
 	log_accum \
 	mfpipe \
+	pvcs2rcs \
 	rcs-to-cvs \
 	rcs2log \
 	rcslock \
@@ -60,6 +54,7 @@ EXTRA_DIST = \
 	cvs2vendor.sh \
 	cvscheck.sh \
 	cvshelp.man \
+	cvs_acls.html \
 	debug_check_log.sh \
 	descend.sh \
 	descend.man \
@@ -72,14 +67,14 @@ CLEANFILES = $(bin_SCRIPTS) $(contrib_SCRIPTS)
 
 # we'd rather have a link here rather than two copies of a script
 install-data-local:
-	# FIXME - this path should be determined dynamically from bindir
-	# & contribdir
+	: FIXME - this path should be determined dynamically from bindir
+	: and contribdir
 	@$(NORMAL_INSTALL)
 	$(mkinstalldirs) $(DESTDIR)$(bindir)
 	@list='$(bin_LINKS)'; for p in $$list; do \
-	    echo "test ! -e $(DESTDIR)$(bindir)/`echo $$p|sed '$(transform)'`"; \
+	    echo "test ! -f $(DESTDIR)$(bindir)/`echo $$p|sed '$(transform)'`"; \
 	    echo "  && cd $(DESTDIR)$(bindir) && $(LN_S) ../share/$(PACKAGE)/contrib/`echo $$p|sed '$(transform)'` ."; \
-	    (test ! -e $(DESTDIR)$(bindir)/`echo $$p|sed '$(transform)'` \
+	    (test ! -f $(DESTDIR)$(bindir)/`echo $$p|sed '$(transform)'` \
 	        && cd $(DESTDIR)$(bindir) && $(LN_S) ../share/$(PACKAGE)/contrib/`echo $$p|sed '$(transform)'` .) \
 	      || (echo "Link creation failed" && if test -f $$p; then \
 	           echo " $(INSTALL_SCRIPT) $$p $(DESTDIR)$(bindir)/`echo $$p|sed '$(transform)'`"; \

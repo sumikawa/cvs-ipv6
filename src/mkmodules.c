@@ -1,13 +1,24 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2008 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS kit.  */
 
+#include <assert.h>
 #include "cvs.h"
-#include "savecwd.h"
 #include "getline.h"
+#include "history.h"
+#include "savecwd.h"
+
+#ifdef HAVE_PROCESS_H
+# include <process.h>
+#endif
 
 #ifndef DBLKSIZ
 #define	DBLKSIZ	4096			/* since GNU ndbm doesn't define it */
@@ -197,7 +208,7 @@ static const char *const checkoutlist_contents[] = {
     "#\n",
     "# File format:\n",
     "#\n",
-    "#	[<whitespace>]<filename><whitespace><error message><end-of-line>\n",
+    "#	[<whitespace>]<filename>[<whitespace><error message>]<end-of-line>\n",
     "#\n",
     "# comment lines begin with '#'\n",
     NULL
@@ -206,10 +217,12 @@ static const char *const checkoutlist_contents[] = {
 static const char *const cvswrappers_contents[] = {
     "# This file affects handling of files based on their names.\n",
     "#\n",
+#if 0    /* see comments in wrap_add in wrapper.c */
     "# The -t/-f options allow one to treat directories of files\n",
     "# as a single file, or to transform a file in other ways on\n",
     "# its way in and out of CVS.\n",
     "#\n",
+#endif
     "# The -m option specifies whether CVS attempts to merge files.\n",
     "#\n",
     "# The -k option specifies keyword expansion (e.g. -kb for binary).\n",
@@ -242,7 +255,7 @@ static const char *const notify_contents[] = {
     "# \"ALL\" or \"DEFAULT\" can be used in place of the regular expression.\n",
     "#\n",
     "# For example:\n",
-    "#ALL mail %s -s \"CVS notification\"\n",
+    "#ALL mail -s \"CVS notification\" %s\n",
     NULL
 };
 
@@ -253,7 +266,6 @@ static const char *const modules_contents[] = {
     "#	key [options] directory files...\n",
     "#\n",
     "# Where \"options\" are composed of:\n",
-    "#	-i prog		Run \"prog\" on \"cvs commit\" from top-level of module.\n",
     "#	-o prog		Run \"prog\" on \"cvs checkout\" of module.\n",
     "#	-e prog		Run \"prog\" on \"cvs export\" of module.\n",
     "#	-t prog		Run \"prog\" on \"cvs rtag\" of module.\n",
@@ -278,16 +290,40 @@ static const char *const modules_contents[] = {
 
 static const char *const config_contents[] = {
     "# Set this to \"no\" if pserver shouldn't check system users/passwords\n",
-    "#SystemAuth=no\n",
+    "#SystemAuth=yes\n",
     "\n",
+    "# Set `IgnoreUnknownConfigKeys' to `yes' to ignore unknown config\n",
+    "# keys which are supported in a future version of CVS.\n",
+    "# This option is intended to be useful as a transition for read-only\n",
+    "# mirror sites when sites may need to be updated later than the\n",
+    "# primary CVS repository.\n",
+    "#IgnoreUnknownConfigKeys=no\n",
+    "\n",
+    "# Put CVS lock files in this directory rather than directly in the repository.\n",
+    "#LockDir=/var/lock/cvs\n",
+    "\n",
+#ifdef PRESERVE_PERMISSIONS_SUPPORT
     "# Set `PreservePermissions' to `yes' to save file status information\n",
     "# in the repository.\n",
     "#PreservePermissions=no\n",
     "\n",
+#endif
     "# Set `TopLevelAdmin' to `yes' to create a CVS directory at the top\n",
     "# level of the new working directory when using the `cvs checkout'\n",
     "# command.\n",
     "#TopLevelAdmin=no\n",
+    "\n",
+    "# Set `LogHistory' to `all' or `" ALL_HISTORY_REC_TYPES "' to log all transactions to the\n",
+    "# history file, or a subset as needed (ie `TMAR' logs all write operations)\n",
+    "#LogHistory=" ALL_HISTORY_REC_TYPES "\n",
+    "\n",
+    "# Set `RereadLogAfterVerify' to `always' (the default) to allow the verifymsg\n",
+    "# script to change the log message.  Set it to `stat' to force CVS to verify\n",
+    "# that the file has changed before reading it (this can take up to an extra\n",
+    "# second per directory being committed, so it is not recommended for large\n",
+    "# repositories.  Set it to `never' (the previous CVS behavior) to prevent\n",
+    "# verifymsg scripts from changing the log message.\n",
+    "#RereadLogAfterVerify=always\n",
     NULL
 };
 
@@ -372,6 +408,9 @@ mkmodules (dir)
     size_t line_allocated = 0;
     const struct admin_file *fileptr;
 
+    if (noexec)
+	return 0;
+
     if (save_cwd (&cwd))
 	error_exit ();
 
@@ -433,12 +472,13 @@ mkmodules (dir)
 	free (temp);
     }
 
+    errno = 0; /* Standard C doesn't require errno be set on error */
     fp = CVS_FOPEN (CVSROOTADM_CHECKOUTLIST, "r");
     if (fp)
     {
 	/*
 	 * File format:
-	 *  [<whitespace>]<filename><whitespace><error message><end-of-line>
+	 *  [<whitespace>]<filename>[<whitespace><error message>]<end-of-line>
 	 *
 	 * comment lines begin with '#'
 	 */
@@ -469,12 +509,13 @@ mkmodules (dir)
 	    }
 	    else
 	    {
+		/* Skip leading white space before the error message.  */
 		for (cp++;
-		     cp < last && *last && isspace ((unsigned char) *last);
+		     cp < last && *cp && isspace ((unsigned char) *cp);
 		     cp++)
 		    ;
 		if (cp < last && *cp)
-		    error (0, 0, cp, fname);
+		    error (0, 0, "%s", cp);
 	    }
 	    if (unlink_file (temp) < 0
 		&& !existence_error (errno))
@@ -552,7 +593,17 @@ checkout_file (file, temp)
 	free (rcs);
 	return (1);
     }
+
     rcsnode = RCS_parsercsfile (rcs);
+    if (!rcsnode)
+    {
+	/* Probably not necessary (?); RCS_parsercsfile already printed a
+	   message.  */
+	error (0, 0, "Failed to parse `%s'.", rcs);
+	free (rcs);
+	return 1;
+    }
+
     retcode = RCS_checkout (rcsnode, NULL, NULL, NULL, NULL, temp,
 			    (RCSCHECKOUTPROC) NULL, (void *) NULL);
     if (retcode != 0)
@@ -807,6 +858,41 @@ rename_rcsfile (temp, real)
 
     free (bak);
 }
+
+/*
+ * Walk PATH backwards to the root directory looking for the root of a
+ * repository.
+ */
+static char *
+in_repository (const char *path)
+{
+    char *cp = xstrdup (path);
+
+    for (;;)
+    {
+	if (isdir (cp))
+	{
+	    int foundit;
+	    char *adm = xmalloc (strlen(cp) + strlen(CVSROOTADM) + 2);
+	    sprintf (adm, "%s/%s", cp, CVSROOTADM);
+	    foundit = isdir (adm);
+	    free (adm);
+	    if (foundit) return cp;
+	}
+
+	/* If last_component() returns the empty string, then cp either
+	 * points at the system root or is the empty string itself.
+	 */
+	if (!*last_component (cp) || !strcmp (cp, ".")
+	    || last_component(cp) == cp)
+	    break;
+
+	cp[strlen(cp) - strlen(last_component(cp)) - 1] = '\0';
+    }
+
+    return NULL;
+}
+
 
 const char *const init_usage[] = {
     "Usage: %s %s\n",
@@ -826,9 +912,12 @@ init (argc, argv)
     /* Name of ,v file for this administrative file.  */
     char *info_v;
     /* Exit status.  */
-    int err;
+    int err = 0;
 
+    char *root_dir;
     const struct admin_file *fileptr;
+
+    assert (!server_active);
 
     umask (cvsumask);
 
@@ -836,7 +925,7 @@ init (argc, argv)
 	usage (init_usage);
 
 #ifdef CLIENT_SUPPORT
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
 	start_server ();
 
@@ -846,16 +935,22 @@ init (argc, argv)
     }
 #endif /* CLIENT_SUPPORT */
 
+    root_dir = in_repository (current_parsed_root->directory);
+
+    if (root_dir && strcmp (root_dir, current_parsed_root->directory))
+	error (1, 0,
+	       "Cannot initialize repository under existing CVSROOT: `%s'",
+	       root_dir);
+    free (root_dir);
+
     /* Note: we do *not* create parent directories as needed like the
        old cvsinit.sh script did.  Few utilities do that, and a
        non-existent parent directory is as likely to be a typo as something
        which needs to be created.  */
-    mkdir_if_needed (CVSroot_directory);
+    mkdir_if_needed (current_parsed_root->directory);
 
-    adm = xmalloc (strlen (CVSroot_directory) + sizeof (CVSROOTADM) + 10);
-    strcpy (adm, CVSroot_directory);
-    strcat (adm, "/");
-    strcat (adm, CVSROOTADM);
+    adm = xmalloc (strlen (current_parsed_root->directory) + sizeof (CVSROOTADM) + 2);
+    sprintf (adm, "%s/%s", current_parsed_root->directory, CVSROOTADM);
     mkdir_if_needed (adm);
 
     /* This is needed because we pass "fileptr->filename" not "info"
@@ -864,6 +959,9 @@ init (argc, argv)
        closely (e.g. see wrappers calls within add_rcs_file).  */
     if ( CVS_CHDIR (adm) < 0)
 	error (1, errno, "cannot change to directory %s", adm);
+
+    /* Make Emptydir so it's there if we need it */
+    mkdir_if_needed (CVSNULLREPOS);
 
     /* 80 is long enough for all the administrative file names, plus
        "/" and so on.  */
@@ -926,6 +1024,29 @@ init (argc, argv)
 	fp = open_file (info, "w");
 	if (fclose (fp) < 0)
 	    error (1, errno, "cannot close %s", info);
+ 
+        /* Make the new history file world-writeable, since every CVS
+           user will need to be able to write to it.  We use chmod()
+           because xchmod() is too shy. */
+        chmod (info, 0666);
+    }
+
+    /* Make an empty val-tags file to prevent problems creating it later.  */
+    strcpy (info, adm);
+    strcat (info, "/");
+    strcat (info, CVSROOTADM_VALTAGS);
+    if (!isfile (info))
+    {
+	FILE *fp;
+
+	fp = open_file (info, "w");
+	if (fclose (fp) < 0)
+	    error (1, errno, "cannot close %s", info);
+ 
+        /* Make the new val-tags file world-writeable, since every CVS
+           user will need to be able to write to it.  We use chmod()
+           because xchmod() is too shy. */
+        chmod (info, 0666);
     }
 
     free (info);
@@ -934,5 +1055,5 @@ init (argc, argv)
     mkmodules (adm);
 
     free (adm);
-    return 0;
+    return err;
 }

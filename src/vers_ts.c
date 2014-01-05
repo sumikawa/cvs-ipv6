@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -9,8 +14,10 @@
 #include "cvs.h"
 
 #ifdef SERVER_SUPPORT
-static void time_stamp_server PROTO((char *, Vers_TS *, Entnode *));
+static void time_stamp_server PROTO((const char *, Vers_TS *, Entnode *));
 #endif
+
+
 
 /* Fill in and return a Vers_TS structure for the file FINFO.  TAG and
    DATE are from the command line.  */
@@ -33,6 +40,7 @@ Version_TS (finfo, options, tag, date, force_tag_match, set_time)
     Vers_TS *vers_ts;
     struct stickydirtag *sdtp;
     Entnode *entdata;
+    char *rcsexpand = NULL;
 
 #ifdef UTIME_EXPECTS_WRITABLE
     int change_it_back = 0;
@@ -55,13 +63,13 @@ Version_TS (finfo, options, tag, date, force_tag_match, set_time)
     else
     {
 	p = findnode_fn (finfo->entries, finfo->file);
-	sdtp = (struct stickydirtag *) finfo->entries->list->data; /* list-private */
+	sdtp = finfo->entries->list->data; /* list-private */
     }
 
     entdata = NULL;
     if (p != NULL)
     {
-	entdata = (Entnode *) p->data;
+	entdata = p->data;
 
 	if (entdata->type == ENT_SUBDIR)
 	{
@@ -87,50 +95,56 @@ Version_TS (finfo, options, tag, date, force_tag_match, set_time)
 	    vers_ts->vn_user = xstrdup (entdata->version);
 	    vers_ts->ts_rcs = xstrdup (entdata->timestamp);
 	    vers_ts->ts_conflict = xstrdup (entdata->conflict);
-	    if (!tag)
+	    if (!(tag || date) && !(sdtp && sdtp->aflag))
 	    {
-		if (!(sdtp && sdtp->aflag))
-		    vers_ts->tag = xstrdup (entdata->tag);
-	    }
-	    if (!date)
-	    {
-		if (!(sdtp && sdtp->aflag))
-		    vers_ts->date = xstrdup (entdata->date);
+		vers_ts->tag = xstrdup (entdata->tag);
+		vers_ts->date = xstrdup (entdata->date);
 	    }
 	    vers_ts->entdata = entdata;
 	}
 	/* Even if we don't have an "entries line" as such
 	   (vers_ts->entdata), we want to pick up options which could
 	   have been from a Kopt protocol request.  */
-	if (!options || (options && *options == '\0'))
+	if (!options || *options == '\0')
 	{
 	    if (!(sdtp && sdtp->aflag))
 		vers_ts->options = xstrdup (entdata->options);
 	}
     }
 
+    /* Always look up the RCS keyword mode when we have an RCS archive.  It
+     * will either be needed as a default or to avoid allowing the -k options
+     * specified on the command line from overriding binary mode (-kb).
+     */
+    if (finfo->rcs != NULL)
+	rcsexpand = RCS_getexpand (finfo->rcs);
+
     /*
      * -k options specified on the command line override (and overwrite)
-     * options stored in the entries file
+     * options stored in the entries file and default options from the RCS
+     * archive, except for binary mode (-kb).
      */
     if (options && *options != '\0')
-	vers_ts->options = xstrdup (options);
-    else if (!vers_ts->options || *vers_ts->options == '\0')
     {
-	if (finfo->rcs != NULL)
-	{
-	    /* If no keyword expansion was specified on command line,
-	       use whatever was in the rcs file (if there is one).  This
-	       is how we, if we are the server, tell the client whether
-	       a file is binary.  */
-	    char *rcsexpand = RCS_getexpand (finfo->rcs);
-	    if (rcsexpand != NULL)
-	    {
-		vers_ts->options = xmalloc (strlen (rcsexpand) + 3);
-		strcpy (vers_ts->options, "-k");
-		strcat (vers_ts->options, rcsexpand);
-	    }
-	}
+	if (vers_ts->options != NULL)
+	    free (vers_ts->options);
+	if (rcsexpand != NULL && strcmp (rcsexpand, "b") == 0)
+	    vers_ts->options = xstrdup ("-kb");
+	else
+	    vers_ts->options = xstrdup (options);
+    }
+    else if ((!vers_ts->options || *vers_ts->options == '\0')
+             && rcsexpand != NULL)
+    {
+	/* If no keyword expansion was specified on command line,
+	   use whatever was in the rcs file (if there is one).  This
+	   is how we, if we are the server, tell the client whether
+	   a file is binary.  */
+	if (vers_ts->options != NULL)
+	    free (vers_ts->options);
+	vers_ts->options = xmalloc (strlen (rcsexpand) + 3);
+	strcpy (vers_ts->options, "-k");
+	strcat (vers_ts->options, rcsexpand);
     }
     if (!vers_ts->options)
 	vers_ts->options = xstrdup ("");
@@ -207,11 +221,10 @@ Version_TS (finfo, options, tag, date, force_tag_match, set_time)
 		struct utimbuf t;
 
 		memset (&t, 0, sizeof (t));
-		t.modtime =
-		    RCS_getrevtime (rcsdata, vers_ts->vn_rcs, 0, 0);
+		t.modtime = RCS_getrevtime (rcsdata, vers_ts->vn_rcs, 0, 0);
 		if (t.modtime != (time_t) -1)
 		{
-		    t.actime = t.modtime;
+		    (void) time (&t.actime);
 
 #ifdef UTIME_EXPECTS_WRITABLE
 		    if (!iswritable (finfo->file))
@@ -226,10 +239,10 @@ Version_TS (finfo, options, tag, date, force_tag_match, set_time)
 		       set_time if noexec, but didn't used to).  I
 		       think maybe now it doesn't (server_modtime does
 		       not like those kinds of cases).  */
-		    (void) utime (finfo->file, &t);
+		    (void) CVS_UTIME (finfo->file, &t);
 
 #ifdef UTIME_EXPECTS_WRITABLE
-		    if (change_it_back == 1)
+		    if (change_it_back)
 		    {
 			xchmod (finfo->file, 0);
 			change_it_back = 0;
@@ -264,7 +277,7 @@ Version_TS (finfo, options, tag, date, force_tag_match, set_time)
 
 static void
 time_stamp_server (file, vers_ts, entdata)
-    char *file;
+    const char *file;
     Vers_TS *vers_ts;
     Entnode *entdata;
 {
@@ -289,7 +302,14 @@ time_stamp_server (file, vers_ts, entdata)
 	else if (entdata->timestamp
 		 && entdata->timestamp[0] == '=')
 	    mark_unchanged (vers_ts);
-	else if (entdata->timestamp != NULL
+	else if (entdata->conflict
+		 && entdata->conflict[0] == '=')
+	{
+	    /* These just need matching content.  Might as well minimize it.  */
+	    vers_ts->ts_user = xstrdup ("");
+	    vers_ts->ts_conflict = xstrdup ("");
+	}
+	else if (entdata->timestamp
 		 && (entdata->timestamp[0] == 'M'
 		     || entdata->timestamp[0] == 'D')
 		 && entdata->timestamp[1] == '\0')
@@ -305,7 +325,6 @@ time_stamp_server (file, vers_ts, entdata)
     else
     {
         struct tm *tm_p;
-        struct tm local_tm;
 
 	vers_ts->ts_user = xmalloc (25);
 	/* We want to use the same timestamp format as is stored in the
@@ -316,16 +335,15 @@ time_stamp_server (file, vers_ts, entdata)
 	   stored in local time, and therefore it is not possible to cause
 	   st_mtime to be out of sync by changing the timezone.  */
 	tm_p = gmtime (&sb.st_mtime);
-	if (tm_p)
-	{
-	    memcpy (&local_tm, tm_p, sizeof (local_tm));
-	    cp = asctime (&local_tm);	/* copy in the modify time */
-	}
-	else
-	    cp = ctime (&sb.st_mtime);
-
+	cp = tm_p ? asctime (tm_p) : ctime (&sb.st_mtime);
 	cp[24] = 0;
+	/* Fix non-standard format.  */
+	if (cp[8] == '0') cp[8] = ' ';
 	(void) strcpy (vers_ts->ts_user, cp);
+#ifdef DEBUG_TIMESTAMPS
+	printf("sb.st_mtime = %llu, 0x%llX, %s\n", 
+	        sb.st_mtime, sb.st_mtime, cp);
+#endif
     }
 }
 
@@ -336,20 +354,34 @@ time_stamp_server (file, vers_ts, entdata)
  */
 char *
 time_stamp (file)
-    char *file;
+    const char *file;
 {
     struct stat sb;
     char *cp;
-    char *ts;
+    char *ts = NULL;
+    time_t mtime = 0L;
 
-    if (CVS_LSTAT (file, &sb) < 0)
+    if (!CVS_LSTAT (file, &sb))
     {
-	ts = NULL;
+	mtime = sb.st_mtime;
     }
-    else
+    else if (! existence_error (errno))
+	error (0, errno, "cannot lstat %s", file);
+
+    /* If it's a symlink, return whichever is the newest mtime of
+       the link and its target, for safety.
+    */
+    if (!CVS_STAT (file, &sb))
+    {
+        if (mtime < sb.st_mtime)
+	    mtime = sb.st_mtime;
+    }
+    else if (! existence_error (errno))
+	error (0, errno, "cannot stat %s", file);
+
+    if (mtime)
     {
 	struct tm *tm_p;
-        struct tm local_tm;
 	ts = xmalloc (25);
 	/* We want to use the same timestamp format as is stored in the
 	   st_mtime.  For unix (and NT I think) this *must* be universal
@@ -358,17 +390,16 @@ time_stamp (file)
 	   systems where gmtime returns NULL, the modification time is
 	   stored in local time, and therefore it is not possible to cause
 	   st_mtime to be out of sync by changing the timezone.  */
-	tm_p = gmtime (&sb.st_mtime);
-	if (tm_p)
-	{
-	    memcpy (&local_tm, tm_p, sizeof (local_tm));
-	    cp = asctime (&local_tm);	/* copy in the modify time */
-	}
-	else
-	    cp = ctime(&sb.st_mtime);
-
+	tm_p = gmtime (&mtime);
+	cp = tm_p ? asctime (tm_p) : ctime (&mtime);
 	cp[24] = 0;
+	/* Fix non-standard format.  */
+	if (cp[8] == '0') cp[8] = ' ';
 	(void) strcpy (ts, cp);
+#ifdef DEBUG_TIMESTAMPS
+	printf("sb.st_mtime = %llu, 0x%llX, %s\n",
+		sb.st_mtime, sb.st_mtime, cp);
+#endif
     }
 
     return (ts);

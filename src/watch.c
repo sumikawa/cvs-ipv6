@@ -17,14 +17,14 @@
 
 const char *const watch_usage[] =
 {
-    "Usage: %s %s [on|off|add|remove] [-lR] [-a action] [files...]\n",
-    "on/off: turn on/off read-only checkouts of files\n",
-    "add/remove: add or remove notification on actions\n",
-    "-l (on/off/add/remove): Local directory only, not recursive\n",
-    "-R (on/off/add/remove): Process directories recursively\n",
-    "-a (add/remove): Specify what actions, one of\n",
-    "    edit,unedit,commit,all,none\n",
-    "(Specify the --help global option for a list of other help options)\n",
+    "Usage: %s %s {on|off|add|remove} [-lR] [-a <action>]... [<path>]...\n",
+    "on/off: Turn on/off read-only checkouts of files.\n",
+    "add/remove: Add or remove notification on actions.\n",
+    "-l (on/off/add/remove): Local directory only, not recursive.\n",
+    "-R (on/off/add/remove): Process directories recursively (default).\n",
+    "-a (add/remove): Specify what actions, one of: `edit', `unedit',\n",
+    "                 `commit', `all', or `none' (defaults to `all').\n",
+    "(Specify the --help global option for a list of other help options.)\n",
     NULL
 };
 
@@ -32,7 +32,7 @@ static struct addremove_args the_args;
 
 void
 watch_modify_watchers (file, what)
-    char *file;
+    const char *file;
     struct addremove_args *what;
 {
     char *curattr = fileattr_get0 (file, "_watchers");
@@ -225,15 +225,17 @@ addremove_fileproc (callerdat, finfo)
     return 0;
 }
 
-static int addremove_filesdoneproc PROTO ((void *, int, char *, char *,
-					   List *));
+
+
+static int addremove_filesdoneproc PROTO ((void *, int, const char *,
+                                           const char *, List *));
 
 static int
 addremove_filesdoneproc (callerdat, err, repository, update_dir, entries)
     void *callerdat;
     int err;
-    char *repository;
-    char *update_dir;
+    const char *repository;
+    const char *update_dir;
     List *entries;
 {
     if (the_args.setting_default)
@@ -308,7 +310,7 @@ watch_addremove (argc, argv)
     }
 
 #ifdef CLIENT_SUPPORT
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
 	start_server ();
 	ign_setup ();
@@ -318,25 +320,14 @@ watch_addremove (argc, argv)
 	/* FIXME: copes poorly with "all" if server is extended to have
 	   new watch types and client is still running an old version.  */
 	if (the_args.edit)
-	{
-	    send_arg ("-a");
-	    send_arg ("edit");
-	}
+	    option_with_arg ("-a", "edit");
 	if (the_args.unedit)
-	{
-	    send_arg ("-a");
-	    send_arg ("unedit");
-	}
+	    option_with_arg ("-a", "unedit");
 	if (the_args.commit)
-	{
-	    send_arg ("-a");
-	    send_arg ("commit");
-	}
+	    option_with_arg ("-a", "commit");
 	if (!the_args.edit && !the_args.unedit && !the_args.commit)
-	{
-	    send_arg ("-a");
-	    send_arg ("none");
-	}
+	    option_with_arg ("-a", "none");
+	send_arg ("--");
 	send_files (argc, argv, local, 0, SEND_NO_CONTENTS);
 	send_file_names (argc, argv, SEND_EXPAND_WILD);
 	send_to_server (the_args.adding ?
@@ -348,12 +339,12 @@ watch_addremove (argc, argv)
 
     the_args.setting_default = (argc <= 0);
 
-    lock_tree_for_write (argc, argv, local, 0);
+    lock_tree_for_write (argc, argv, local, W_LOCAL, 0);
 
     err = start_recursion (addremove_fileproc, addremove_filesdoneproc,
 			   (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-			   argc, argv, local, W_LOCAL, 0, 0, (char *)NULL,
-			   1);
+			   argc, argv, local, W_LOCAL, 0, CVS_LOCK_NONE,
+			   (char *) NULL, 1, (char *) NULL);
 
     Lock_Cleanup ();
     return err;
@@ -415,10 +406,10 @@ watch (argc, argv)
 
 static const char *const watchers_usage[] =
 {
-    "Usage: %s %s [-lR] [files...]\n",
-    "\t-l\tProcess this directory only (not recursive).\n",
-    "\t-R\tProcess directories recursively.\n",
-    "(Specify the --help global option for a list of other help options)\n",
+    "Usage: %s %s [-lR] [<file>]...\n",
+    "-l\tProcess this directory only (not recursive).\n",
+    "-R\tProcess directories recursively (default).\n",
+    "(Specify the --help global option for a list of other help options.)\n",
     NULL
 };
 
@@ -473,6 +464,7 @@ watchers_fileproc (callerdat, finfo)
 	cvs_output ("\n", 1);
     }
   out:;
+    free (them);
     return 0;
 }
 
@@ -508,13 +500,14 @@ watchers (argc, argv)
     argv += optind;
 
 #ifdef CLIENT_SUPPORT
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
 	start_server ();
 	ign_setup ();
 
 	if (local)
 	    send_arg ("-l");
+	send_arg ("--");
 	send_files (argc, argv, local, 0, SEND_NO_CONTENTS);
 	send_file_names (argc, argv, SEND_EXPAND_WILD);
 	send_to_server ("watchers\012", 0);
@@ -524,6 +517,6 @@ watchers (argc, argv)
 
     return start_recursion (watchers_fileproc, (FILESDONEPROC) NULL,
 			    (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-			    argc, argv, local, W_LOCAL, 0, 1, (char *)NULL,
-			    1);
+			    argc, argv, local, W_LOCAL, 0, CVS_LOCK_READ,
+			    (char *) NULL, 1, (char *) NULL);
 }

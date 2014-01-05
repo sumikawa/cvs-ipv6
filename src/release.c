@@ -1,4 +1,18 @@
 /*
+ * Copyright (C) 1994-2005 The Free Software Foundation, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
  * Release: "cancel" a checkout in the history log.
  * 
  * - Enter a line in the history log indicating the "release". - If asked to,
@@ -67,7 +81,6 @@ release (argc, argv)
 {
     FILE *fp;
     int i, c;
-    char *repository;
     char *line = NULL;
     size_t line_allocated = 0;
     char *update_cmd;
@@ -94,7 +107,7 @@ release (argc, argv)
 	    case 'q':
 		error (1, 0,
 		       "-q or -Q must be specified before \"%s\"",
-		       command_name);
+		       cvs_cmd_name);
 		break;
 	    case 'd':
 		delete_flag++;
@@ -116,16 +129,25 @@ release (argc, argv)
      * up to the user to take note of them, at least currently
      * (ignore-193 in testsuite)).
      */
-    /* Construct the update command. */
+    /* Construct the update command.  Be sure to add authentication and
+       encryption if we are using them currently, else our child process may
+       not be able to communicate with the server.  */
     update_cmd = xmalloc (strlen (program_path)
-			  + strlen (CVSroot_original)
-			  + 20);
-    sprintf (update_cmd, "%s -n -q -d %s update",
-             program_path, CVSroot_original);
+                        + strlen (current_parsed_root->original)
+                        + 1 + 3 + 3 + 16 + 1);
+    sprintf (update_cmd, "%s %s%s-n -q -d %s update",
+             program_path,
+#if defined (CLIENT_SUPPORT) || defined (SERVER_SUPPORT)
+             cvsauthenticate ? "-a " : "",
+             cvsencrypt ? "-x " : "",
+#else
+	     "", "",
+#endif
+             current_parsed_root->original);
 
 #ifdef CLIENT_SUPPORT
     /* Start the server; we'll close it after looping. */
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
 	start_server ();
 	ign_setup ();
@@ -168,11 +190,9 @@ release (argc, argv)
 	    continue;
 	}
 
-	repository = Name_Repository ((char *) NULL, (char *) NULL);
-
 	if (!really_quiet)
 	{
-	    int line_length;
+	    int line_length, status;
 
 	    /* The "release" command piggybacks on "update", which
 	       does the real work of finding out if anything is not
@@ -190,7 +210,7 @@ release (argc, argv)
 	    {
 		if (strchr ("MARCZ", *line))
 		    c++;
-		(void) printf (line);
+		(void) fputs (line, stdout);
 	    }
 	    if (line_length < 0 && !feof (fp))
 		error (0, errno, "cannot read from subprocess");
@@ -199,10 +219,10 @@ release (argc, argv)
 	       complain and go on to the next arg.  Especially, we do
 	       not want to delete the local copy, since it's obviously
 	       not what the user thinks it is.  */
-	    if ((pclose (fp)) != 0)
+	    status = pclose (fp);
+	    if (status != 0)
 	    {
-		error (0, 0, "unable to release `%s'", thisarg);
-		free (repository);
+		error (0, 0, "unable to release `%s' (%d)", thisarg, status);
 		if (restore_cwd (&cwd, NULL))
 		    error_exit ();
 		continue;
@@ -216,33 +236,43 @@ release (argc, argv)
 	    if (c)			/* "No" */
 	    {
 		(void) fprintf (stderr, "** `%s' aborted by user choice.\n",
-				command_name);
-		free (repository);
+				cvs_cmd_name);
 		if (restore_cwd (&cwd, NULL))
 		    error_exit ();
 		continue;
 	    }
 	}
 
+        /* Note:  client.c doesn't like to have other code
+           changing the current directory on it.  So a fair amount
+           of effort is needed to make sure it doesn't get confused
+           about the directory and (for example) overwrite
+           CVS/Entries file in the wrong directory.  See release-17
+           through release-23. */
+
+	if (restore_cwd (&cwd, NULL))
+	    error_exit ();
+
 	if (1
 #ifdef CLIENT_SUPPORT
-	    && !(client_active
+	    && !(current_parsed_root->isremote
 		 && (!supported_request ("noop")
 		     || !supported_request ("Notify")))
 #endif
 	    )
 	{
-	    /* We are chdir'ed into the directory in question.  
-	       So don't pass args to unedit.  */
-	    int argc = 1;
+	    int argc = 2;
 	    char *argv[3];
 	    argv[0] = "dummy";
-	    argv[1] = NULL;
+	    argv[1] = thisarg;
+	    argv[2] = NULL;
 	    err += unedit (argc, argv);
+            if (restore_cwd (&cwd, NULL))
+                error_exit ();
 	}
 
 #ifdef CLIENT_SUPPORT
-        if (client_active)
+        if (current_parsed_root->isremote)
         {
 	    send_to_server ("Argument ", 0);
 	    send_to_server (thisarg, 0);
@@ -255,11 +285,6 @@ release (argc, argv)
 	    history_write ('F', thisarg, "", thisarg, ""); /* F == Free */
         }
 
-        free (repository);
-
-	if (restore_cwd (&cwd, NULL))
-	    error_exit ();
-
 	if (delete_flag)
 	{
 	    /* FIXME?  Shouldn't this just delete the CVS-controlled
@@ -271,8 +296,18 @@ release (argc, argv)
 	}
 
 #ifdef CLIENT_SUPPORT
-        if (client_active)
-	    err += get_server_responses ();
+        if (current_parsed_root->isremote)
+        {
+	    /* FIXME:
+	     * Is there a good reason why get_server_responses() isn't
+	     * responsible for restoring its initial directory itself when
+	     * finished?
+	     */
+            err += get_server_responses ();
+
+            if (restore_cwd (&cwd, NULL))
+                error_exit ();
+        }
 #endif /* CLIENT_SUPPORT */
     }
 
@@ -281,7 +316,7 @@ release (argc, argv)
     free_cwd (&cwd);
 
 #ifdef CLIENT_SUPPORT
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
 	/* Unfortunately, client.c doesn't offer a way to close
 	   the connection without waiting for responses.  The extra

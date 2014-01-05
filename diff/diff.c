@@ -22,7 +22,12 @@ GNU General Public License for more details.
 #include "diff.h"
 #include <signal.h>
 #include "getopt.h"
-#include "fnmatch.h"
+
+#ifdef HAVE_FNMATCH
+# include <fnmatch.h> /* This is supposed to be available on Posix systems */
+#else /* HAVE_FNMATCH */
+# include "fnmatch.h" /* Our substitute */
+#endif /* HAVE_FNMATCH */
 
 #ifndef DEFAULT_WIDTH
 #define DEFAULT_WIDTH 130
@@ -153,7 +158,7 @@ add_exclude_file (name)
   f.desc = (strcmp (optarg, "-") == 0
 	    ? STDIN_FILENO
 	    : open (optarg, O_RDONLY, 0));
-  if (f.desc < 0 || fstat (f.desc, &f.stat) != 0)
+  if (f.desc < 0 || CVS_FSTAT (f.desc, &f.stat) != 0)
     return -1;
 
   sip (&f, 1);
@@ -228,11 +233,13 @@ static struct option const longopts[] =
   {0, 0, 0, 0}
 };
 
+
+
 int
 diff_run (argc, argv, out, callbacks_arg)
      int argc;
      char *argv[];
-     char *out;
+     const char *out;
      const struct diff_callbacks *callbacks_arg;
 {
   int val;
@@ -247,11 +254,21 @@ diff_run (argc, argv, out, callbacks_arg)
 
   /* Do our initializations.  */
   initialize_main (&argc, &argv);
-
-  /* Decode the options.  */
-
   optind_old = optind;
   optind = 0;
+
+  /* Set the jump buffer, so that diff may abort execution without
+     terminating the process. */
+  val = setjmp (diff_abort_buf);
+  if (val != 0)
+    {
+      optind = optind_old;
+      if (opened_file)
+	fclose (outfile);
+      return val;
+    }
+
+  /* Decode the options.  */
   while ((c = getopt_long (argc, argv,
 			   "0123456789abBcC:dD:efF:hHiI:lL:nNpPqrsS:tTuU:vwW:x:X:y",
 			   longopts, 0)) != EOF)
@@ -686,17 +703,6 @@ diff_run (argc, argv, out, callbacks_arg)
 	}
     }
 
-  /* Set the jump buffer, so that diff may abort execution without
-     terminating the process. */
-  val = setjmp (diff_abort_buf);
-  if (val != 0)
-    {
-      optind = optind_old;
-      if (opened_file)
-	fclose (outfile);
-      return val;
-    }
-
   val = compare_files (0, argv[optind], 0, argv[optind + 1], 0);
 
   /* Print any messages that were saved up for last.  */
@@ -776,7 +782,7 @@ static char const * const option_help[] = {
 "-e  --ed  Output an ed script.",
 "-n  --rcs  Output an RCS format diff.",
 "-y  --side-by-side  Output in two columns.",
-"  -w NUM  --width=NUM  Output at most NUM (default 130) characters per line.",
+"  -W NUM  --width=NUM  Output at most NUM (default 130) characters per line.",
 "  --left-column  Output only the left column of common lines.",
 "  --suppress-common-lines  Do not output common lines.",
 "-DNAME  --ifdef=NAME  Output merged file to show `#ifdef NAME' diffs.",
@@ -990,7 +996,7 @@ compare_files (dir0, name0, dir1, name1, depth)
 	  else if (strcmp (inf[i].name, "-") == 0)
 	    {
 	      inf[i].desc = STDIN_FILENO;
-	      stat_result = fstat (STDIN_FILENO, &inf[i].stat);
+	      stat_result = CVS_FSTAT (STDIN_FILENO, &inf[i].stat);
 	      if (stat_result == 0 && S_ISREG (inf[i].stat.st_mode))
 		{
 		  off_t pos = lseek (STDIN_FILENO, (off_t) 0, SEEK_CUR);
@@ -1008,7 +1014,7 @@ compare_files (dir0, name0, dir1, name1, depth)
 		}
 	    }
 	  else
-	    stat_result = stat (inf[i].name, &inf[i].stat);
+	    stat_result = CVS_STAT (inf[i].name, &inf[i].stat);
 
 	  if (stat_result != 0)
 	    {
@@ -1043,7 +1049,7 @@ compare_files (dir0, name0, dir1, name1, depth)
       if (strcmp (fnm, "-") == 0)
 	fatal ("can't compare - to a directory");
 
-      if (stat (filename, &inf[dir_arg].stat) != 0)
+      if (CVS_STAT (filename, &inf[dir_arg].stat) != 0)
 	{
 	  perror_with_name (filename);
 	  failed = 1;
@@ -1147,13 +1153,15 @@ compare_files (dir0, name0, dir1, name1, depth)
 	    failed = 1;
 	  }
       if (inf[1].desc == -2)
-	if (same_files)
-	  inf[1].desc = inf[0].desc;
-	else if ((inf[1].desc = open (inf[1].name, O_RDONLY, 0)) < 0)
-	  {
-	    perror_with_name (inf[1].name);
-	    failed = 1;
-	  }
+	{
+	  if (same_files)
+	    inf[1].desc = inf[0].desc;
+	  else if ((inf[1].desc = open (inf[1].name, O_RDONLY, 0)) < 0)
+	    {
+	      perror_with_name (inf[1].name);
+	      failed = 1;
+	    }
+	}
 
 #if HAVE_SETMODE
       if (binary_I_O)

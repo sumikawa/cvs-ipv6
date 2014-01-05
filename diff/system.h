@@ -61,12 +61,32 @@ GNU General Public License for more details.
 #if !defined(S_ISFIFO) && defined(S_IFFIFO)
 #define S_ISFIFO(mode) (((mode) & S_IFMT) == S_IFFIFO)
 #endif
-#if !defined(S_ISSOCK) && defined(S_IFSOCK)
-#define S_ISSOCK(mode) (((mode) & S_IFMT) == S_IFSOCK)
-#endif
+
+#ifndef S_ISSOCK
+# if defined( S_IFSOCK )
+#   ifdef S_IFMT
+#     define S_ISSOCK(mode) (((mode) & S_IFMT) == S_IFSOCK)
+#   else
+#     define S_ISSOCK(mode) ((mode) & S_IFSOCK)
+#   endif /* S_IFMT */
+# elif defined( S_ISNAM )
+    /* SCO OpenServer 5.0.6a */
+#   define S_ISSOCK S_ISNAM
+# endif /* !S_IFSOCK && S_ISNAM */
+#endif /* !S_ISSOCK */
 
 #if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+
+#ifdef HAVE_IO_H
+# include <io.h>
+#endif
+
+#ifdef HAVE_FCNTL_H
+# include <fcntl.h>
+#else
+# include <sys/file.h>
 #endif
 
 #ifndef SEEK_SET
@@ -122,7 +142,7 @@ GNU General Public License for more details.
 #endif
 
 #ifndef STAT_BLOCKSIZE
-#if HAVE_ST_BLKSIZE
+#if HAVE_STRUCT_STAT_ST_BLKSIZE
 #define STAT_BLOCKSIZE(s) (s).st_blksize
 #else
 #define STAT_BLOCKSIZE(s) (8 * 1024)
@@ -155,9 +175,9 @@ GNU General Public License for more details.
 #else
 VOID *malloc ();
 VOID *realloc ();
-#endif
 #ifndef getenv
 char *getenv ();
+#endif
 #endif
 
 #if HAVE_LIMITS_H
@@ -268,4 +288,23 @@ extern int errno;
 	} \
     *(q)++ = '\''; \
   }
+#endif
+
+/* these come from CVS's lib/system.h, but I wasn't sure how to include that
+ * properly or even if I really should
+ */
+#ifndef CVS_OPENDIR
+#define CVS_OPENDIR opendir
+#endif
+#ifndef CVS_READDIR
+#define CVS_READDIR readdir
+#endif
+#ifndef CVS_CLOSEDIR
+#define CVS_CLOSEDIR closedir
+#endif
+#ifndef CVS_STAT
+#define CVS_STAT stat
+#endif
+#ifndef CVS_FSTAT
+#define CVS_FSTAT fstat
 #endif

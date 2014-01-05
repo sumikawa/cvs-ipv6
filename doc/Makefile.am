@@ -1,6 +1,10 @@
 ## Process this file with automake to produce Makefile.in
 # Makefile for GNU CVS documentation (excluding man pages - see ../man).
-# Copyright (C) 1986, 1988-1990, 2000 Free Software Foundation, Inc.
+#
+# Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+#
+# Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+#                                  and others.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,29 +16,17 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-#DISTFILES = \
-#	.cvsignore \
-#	RCSFILES \
-
-# AUTOMAKE_OPTIONS = no-texinfo.tex
-
-# FIXME - these rebuild every 'make dist' with some BSD makes due to a bug
-# that prevents make from searching VPATH for targets.  There is some
-# machinery in place in configure.in to work around this for some targets
-# (see the CVSvn.texi target below) now, but fixing the two info_TEXINFOS
-# targets below is probably going to require work on Automake
 info_TEXINFOS = cvs.texinfo cvsclient.texi
-cvs_TEXINFOS = CVSvn.texi
-cvsclient_TEXINFOS = CVSvn.texi
+man_MANS = $(srcdir)/cvs.1
 
-POSTSCRIPTS = \
+PSS = \
 	cvs.ps \
 	cvs-paper.ps \
 	cvsclient.ps
 
 PDFS = \
-	cvs-paper.pdf \
 	cvs.pdf \
+	$(srcdir)/cvs-paper.pdf \
 	cvsclient.pdf
 
 TXTS = \
@@ -42,32 +34,28 @@ TXTS = \
 	cvsclient.txt
 
 EXTRA_DIST = \
-	$(POSTSCRIPTS) \
 	.cvsignore \
-	CVSvn.texi.in \
 	ChangeLog.fsf \
 	RCSFILES \
+	mdate-sh \
+	$(srcdir)/cvs.1 \
 	cvs-paper.ms \
-	cvs.aux \
-	cvsclient.aux
+	cvs.man.header \
+	cvs.man.footer \
+	$(PDFS)
 
-# Listing cvs.cps & cvs.fns here is a workaround for an Automake deficiency
-MOSTLYCLEANFILES = \
-	cvs.cps \
-	cvs.fns
+MOSTLYCLEANFILES =
 
 CLEANFILES = \
-	$(PDFS) \
+	$(PSS) \
 	$(TXTS)
 
 MAINTAINERCLEANFILES = \
-	cvs-paper.ps
+	$(PDFS) \
+	$(srcdir)/cvs.1
 
-doc ps: $(POSTSCRIPTS)
-.PHONY: doc ps
-
-pdf: $(PDFS)
-.PHONY: pdf
+doc: info pdf
+.PHONY: doc
 
 txt: $(TXTS)
 .PHONY: txt
@@ -75,83 +63,59 @@ txt: $(TXTS)
 dvi: cvs.dvi cvsclient.dvi
 .PHONY: dvi
 
-cvs.aux cvs.pdf cvs.txt: cvs.texinfo $(cvs_TEXINFOS)
-cvsclient.aux cvsclient.pdf cvsclient.txt: cvsclient.texi $(cvsclient_TEXINFOS)
+# FIXME-AUTOMAKE:
+# For some reason if I remove version.texi, it doesn't get built automatically.
+# This needs to be fixed in automake.
+cvs.txt: cvs.texinfo $(srcdir)/version.texi
+cvsclient.txt: cvsclient.texi $(srcdir)/version-client.texi
 
-# These targets need to be very specific so that the other PDFs get generated correctly.
-# If they are more generic and cvs.ps is made before cvs.pdf, then cvs.pdf will be
-# generated from the generic target and the PS source, which contains less information
-# than the usual texinfo source.
-cvs-paper.pdf: cvs-paper.ps
-	$(ROFF) -t -p -ms -Tps $< > $@-t
-	mv $@-t $@
-
+# The cvs-paper.pdf target needs to be very specific so that the other PDFs get
+# generated correctly.  If a more generic .ps.pdf implicit target is defined,
+# and cvs.ps is made before cvs.pdf, then cvs.pdf can be generated from the
+# .ps.pdf target and the PS source, which contains less information (hyperlinks
+# and such) than the usual texinfo source.
+#
+# It is possible that an implicit .ms.ps target could be safely defined.  I
+# don't recall looking into it.
 cvs-paper.ps: cvs-paper.ms
-	$(PS2PDF) $< $@
+	$(ROFF) -t -p -ms -Tps $(srcdir)/cvs-paper.ms >cvs-paper.ps-t
+	cp cvs-paper.ps-t $@
+	-@rm -f cvs-paper.ps-t
 
-SUFFIXES = .aux .txt .pdf
+# This rule introduces some redundancy, but `make distcheck' requires that
+# Nothing in $(srcdir) be rebuilt, and this will always be rebuilt when it
+# is dependant on cvs-paper.ps and cvs-paper.ps isn't distributed.
+$(srcdir)/cvs-paper.pdf: cvs-paper.ms
+	$(ROFF) -t -p -ms -Tps $(srcdir)/cvs-paper.ms >cvs-paper.ps-t
+	ps2pdf cvs-paper.ps-t cvs-paper.pdf-t
+	cp cvs-paper.pdf-t $@
+	-@rm -f cvs-paper.pdf-t cvs-paper.ps-t
+
+MOSTLYCLEANFILES += cvs-paper.pdf-t cvs-paper.ps-t
+
+# Targets to build a man page from cvs.texinfo.
+$(srcdir)/cvs.1: @MAINTAINER_MODE_TRUE@ mkman cvs.man.header cvs.texinfo cvs.man.footer
+	$(PERL) ./mkman $(srcdir)/cvs.man.header $(srcdir)/cvs.texinfo \
+		$(srcdir)/cvs.man.footer >cvs.tmp
+	cp cvs.tmp $(srcdir)/cvs.1
+	-@rm -f cvs.tmp
 
 # texinfo based targets automake neglects to include
-.texinfo.pdf:
-	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(TEXI2DVI) --pdf $<
-.txi.pdf:
-	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(TEXI2DVI) --pdf $<
-.texi.pdf:
-	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(TEXI2DVI) --pdf $<
-
-.texinfo.aux:
-	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(TEXI2DVI) $<
-.txi.aux:
-	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(TEXI2DVI) $<
-.texi.aux:
-	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(TEXI2DVI) $<
-
+SUFFIXES = .txt
 .texinfo.txt:
-	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(MAKEINFO) $< --no-headers -o $@
+	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) -I $(srcdir) \
+	 --no-headers -o $@ `test -f '$<' || echo '$(srcdir)/'`$<
 .txi.txt:
-	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(MAKEINFO) $< --no-headers -o $@
+	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) -I $(srcdir) \
+	 --no-headers -o $@ `test -f '$<' || echo '$(srcdir)/'`$<
 .texi.txt:
-	TEXINPUTS=$(srcdir):$$TEXINPUTS \
-	  MAKEINFO='$(MAKEINFO) -I $(srcdir)' $(MAKEINFO) $< --no-headers -o $@
+	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) -I $(srcdir) \
+	 --no-headers -o $@ `test -f '$<' || echo '$(srcdir)/'`$<
 
+##
 ## MAINTAINER Targets
+##
 
-## CVSvn.texi ##
-# - CVSvn.texi needs to be updated only once, since it depends on
-#   configure.in, not on the results of a 'configure' run.
-# - It is guaranteed (with GNU Make) that when the version in configure.in
-#   is changed, acversion.m4 is built only after the new version number is
-#   propagated to the Makefile.  (Libtool uses the same guarantee.)
-# - Of the next three targets, only the next one or the following two should be
-#   enabled, not all three
-if MAKE_TARGETS_IN_VPATH
-# - This is the target for systems without the BSD VPATH bug in make or with
-#   $(srcdir) = $(builddir)
-CVSvn.texi: $(srcdir)/CVSvn.texi.in $(top_srcdir)/configure.in
-	sed 's,@VERSION\@,$(VERSION),g' $(srcdir)/CVSvn.texi.in >$(srcdir)/CVSvn.ttexi
-	mv $(srcdir)/CVSvn.ttexi $(srcdir)/CVSvn.texi
-else
-# - The next two targets are a workaround for the fact that some BSD makes
-#   don't look through VPATH for targets, but only for sources.
-# - They should be disabled on systems without the bug and in environments
-#   where $(srcdir) = $(builddir)
-CVSvn.texi: $(srcdir)/CVSvn.texi
-	# use cat so the time stamp gets set properly
-	cat $(srcdir)/CVSvn.texi >$@
-$(srcdir)/CVSvn.texi: $(srcdir)/CVSvn.texi.in $(top_srcdir)/configure.in
-	sed 's,@VERSION\@,$(VERSION),g' $(srcdir)/CVSvn.texi.in >$(srcdir)/CVSvn.ttexi
-	mv $(srcdir)/CVSvn.ttexi $(srcdir)/CVSvn.texi
-endif
-
-## realclean ##
 # for backwards compatibility with the old makefiles
 realclean: maintainer-clean
 .PHONY: realclean

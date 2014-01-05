@@ -37,7 +37,7 @@ happening, is fine but it isn't an "easy fix", unfortunately, as it is
 rarely clear to me whether a particular submission will improve things
 or not.
 
-Send bug reports to bug-cvs@gnu.org.
+Send bug reports to bug-cvs@nongnu.org.
 
 As of May 1996, this port passed all of the tests in src/sanity.sh,
 save the one that deals with reserved all-upper-case tags (BASE and
@@ -64,13 +64,13 @@ In particular, microlib seems to have versions of GNU tar and gzip
 which support long file names, which you will need to unpack the CVS
 source distribution.
 
-The CYGWIN32 package is a port of various GNU tools for NT, providing
+The Cygwin project is a port of various GNU tools for NT, providing
 bash as the shell and gcc as the compiler.  Basically, you don't want
-the stuff in this directory for CVS running under cygwin32; you want
+the stuff in this directory for CVS running under Cygwin; you want
 the same stuff as for unix (../configure, Makefile.in, &c).  For
-cygwin32 information see
+Cygwin information see
 
-	http://www.cygnus.com/misc/gnu-win32/
+	http://www.cygwin.com/
 
 Morten Hindsholm's port of CVS 1.4A2 to Windows NT may be useful if
 you're modifying CVS itself:

@@ -20,6 +20,9 @@
 #endif
 
 #include <stdio.h>
+#ifndef SEEK_CUR
+#define SEEK_CUR 1
+#endif
 #include <termios.h>
 #include <unistd.h>
 #include "getline.h"
@@ -34,7 +37,12 @@
 #endif
 
 char *
+#if __STDC__
 getpass (const char *prompt)
+#else
+getpass (prompt)
+     const char *prompt;
+#endif
 {
   FILE *in, *out;
   struct termios s, t;
@@ -83,8 +91,11 @@ getpass (const char *prompt)
 	  /* Remove the newline.  */
 	  buf[nread - 1] = '\0';
 	  if (tty_changed)
-	    /* Write the newline that was not echoed.  */
-	    putc ('\n', out);
+	    {
+	      /* Write the newline that was not echoed.  */
+	      if (out == in) fseek (out, 0, SEEK_CUR);
+	      putc ('\n', out);
+	    }
 	}
     }
 

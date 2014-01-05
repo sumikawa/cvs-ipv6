@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -10,8 +15,8 @@
 
 #include "cvs.h"
 
-static Dtype status_dirproc PROTO ((void *callerdat, char *dir,
-				    char *repos, char *update_dir,
+static Dtype status_dirproc PROTO ((void *callerdat, const char *dir,
+				    const char *repos, const char *update_dir,
 				    List *entries));
 static int status_fileproc PROTO ((void *callerdat, struct file_info *finfo));
 static int tag_list_proc PROTO((Node * p, void *closure));
@@ -67,37 +72,39 @@ cvsstatus (argc, argv)
     wrap_setup ();
 
 #ifdef CLIENT_SUPPORT
-    if (client_active) {
-      start_server ();
+    if (current_parsed_root->isremote)
+    {
+	start_server ();
 
-      ign_setup ();
+	ign_setup ();
 
-      if (long_format)
-	send_arg("-v");
-      if (local)
-	send_arg("-l");
+	if (long_format)
+	    send_arg("-v");
+	if (local)
+	    send_arg("-l");
+	send_arg ("--");
 
-      /* For a while, we tried setting SEND_NO_CONTENTS here so this
-	 could be a fast operation.  That prevents the
-	 server from updating our timestamp if the timestamp is
-	 changed but the file is unmodified.  Worse, it is user-visible
-	 (shows "locally modified" instead of "up to date" if
-	 timestamp is changed but file is not).  And there is no good
-	 workaround (you might not want to run "cvs update"; "cvs -n
-	 update" doesn't update CVS/Entries; "cvs diff --brief" or
-	 something perhaps could be made to work but somehow that
-	 seems nonintuitive to me even if so).  Given that timestamps
-	 seem to have the potential to get munged for any number of
-	 reasons, it seems better to not rely too much on them.  */
+	/* For a while, we tried setting SEND_NO_CONTENTS here so this
+	   could be a fast operation.  That prevents the
+	   server from updating our timestamp if the timestamp is
+	   changed but the file is unmodified.  Worse, it is user-visible
+	   (shows "locally modified" instead of "up to date" if
+	   timestamp is changed but file is not).  And there is no good
+	   workaround (you might not want to run "cvs update"; "cvs -n
+	   update" doesn't update CVS/Entries; "cvs diff --brief" or
+	   something perhaps could be made to work but somehow that
+	   seems nonintuitive to me even if so).  Given that timestamps
+	   seem to have the potential to get munged for any number of
+	   reasons, it seems better to not rely too much on them.  */
 
-      send_files (argc, argv, local, 0, 0);
+	send_files (argc, argv, local, 0, 0);
 
-      send_file_names (argc, argv, SEND_EXPAND_WILD);
+	send_file_names (argc, argv, SEND_EXPAND_WILD);
 
-      send_to_server ("status\012", 0);
-      err = get_responses_and_close ();
+	send_to_server ("status\012", 0);
+	err = get_responses_and_close ();
 
-      return err;
+	return err;
     }
 #endif
 
@@ -105,7 +112,8 @@ cvsstatus (argc, argv)
     err = start_recursion (status_fileproc, (FILESDONEPROC) NULL,
 			   status_dirproc, (DIRLEAVEPROC) NULL, NULL,
 			   argc, argv, local,
-			   W_LOCAL, 0, 1, (char *) NULL, 1);
+			   W_LOCAL, 0, CVS_LOCK_READ, (char *) NULL, 1,
+			   (char *) NULL);
 
     return (err);
 }
@@ -134,15 +142,10 @@ status_fileproc (callerdat, finfo)
 	case T_CHECKOUT:
 	    sstat = "Needs Checkout";
 	    break;
-#ifdef SERVER_SUPPORT
 	case T_PATCH:
 	    sstat = "Needs Patch";
 	    break;
-#endif
 	case T_CONFLICT:
-	    /* I _think_ that "unresolved" is correct; that if it has
-	       been resolved then the status will change.  But I'm not
-	       sure about that.  */
 	    sstat = "Unresolved Conflict";
 	    break;
 	case T_ADDED:
@@ -152,9 +155,13 @@ status_fileproc (callerdat, finfo)
 	    sstat = "Locally Removed";
 	    break;
 	case T_MODIFIED:
-	    if (vers->ts_conflict)
+	    if (file_has_markers (finfo))
 		sstat = "File had conflicts on merge";
 	    else
+		/* Note that we do not re Register() the file when we spot
+		 * a resolved conflict like update_fileproc() does on the
+		 * premise that status should not alter the sandbox.
+		 */
 		sstat = "Locally Modified";
 	    break;
 	case T_REMOVE_ENTRY:
@@ -199,20 +206,15 @@ status_fileproc (callerdat, finfo)
     }
     else if (vers->vn_user[0] == '0' && vers->vn_user[1] == '\0')
 	cvs_output ("   Working revision:\tNew file!\n", 0);
-#ifdef SERVER_SUPPORT
-    else if (server_active)
-    {
-	cvs_output ("   Working revision:\t", 0);
-	cvs_output (vers->vn_user, 0);
-	cvs_output ("\n", 0);
-    }
-#endif
     else
     {
 	cvs_output ("   Working revision:\t", 0);
 	cvs_output (vers->vn_user, 0);
-	cvs_output ("\t", 0);
-	cvs_output (vers->ts_rcs, 0);
+	if (!server_active)
+	{
+	    cvs_output ("\t", 0);
+	    cvs_output (vers->ts_rcs, 0);
+	}
 	cvs_output ("\n", 0);
     }
 
@@ -288,20 +290,20 @@ status_fileproc (callerdat, finfo)
 	}
 	else if (!really_quiet)
 	    cvs_output ("   Sticky Options:\t(none)\n", 0);
+    }
 
-	if (long_format && vers->srcfile)
+    if (long_format && vers->srcfile)
+    {
+	List *symbols = RCS_symbols(vers->srcfile);
+
+	cvs_output ("\n   Existing Tags:\n", 0);
+	if (symbols)
 	{
-	    List *symbols = RCS_symbols(vers->srcfile);
-
-	    cvs_output ("\n   Existing Tags:\n", 0);
-	    if (symbols)
-	    {
-		xrcsnode = finfo->rcs;
-		(void) walklist (symbols, tag_list_proc, NULL);
-	    }
-	    else
-		cvs_output ("\tNo Tags Exist\n", 0);
+	    xrcsnode = finfo->rcs;
+	    (void) walklist (symbols, tag_list_proc, NULL);
 	}
+	else
+	    cvs_output ("\tNo Tags Exist\n", 0);
     }
 
     cvs_output ("\n", 0);
@@ -316,9 +318,9 @@ status_fileproc (callerdat, finfo)
 static Dtype
 status_dirproc (callerdat, dir, repos, update_dir, entries)
     void *callerdat;
-    char *dir;
-    char *repos;
-    char *update_dir;
+    const char *dir;
+    const char *repos;
+    const char *update_dir;
     List *entries;
 {
     if (!quiet)
@@ -344,7 +346,7 @@ tag_list_proc (p, closure)
 		   + (branch ? strlen (branch) : strlen (p->data)));
     sprintf (buf, "\t%-25s\t(%s: %s)\n", p->key,
 	     branch ? "branch" : "revision",
-	     branch ? branch : p->data);
+	     branch ? branch : (char *)p->data);
     cvs_output (buf, 0);
     free (buf);
 

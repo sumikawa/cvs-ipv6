@@ -1,5 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
+ * Copyright (C) 1986-2008 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -12,6 +18,7 @@
 #include "savecwd.h"
 #include "fileattr.h"
 #include "edit.h"
+#include <assert.h>
 
 static int do_dir_proc PROTO((Node * p, void *closure));
 static int do_file_proc PROTO((Node * p, void *closure));
@@ -33,8 +40,9 @@ struct recursion_frame {
     Dtype flags;
     int which;
     int aflag;
-    int readlock;
+    int locktype;
     int dosrcs;
+    char *repository;			/* Keep track of repository for rtag */
 };
 
 static int do_recursion PROTO ((struct recursion_frame *frame));
@@ -66,8 +74,8 @@ struct frame_and_entries {
    default to ".".  */
 int
 start_recursion (fileproc, filesdoneproc, direntproc, dirleaveproc, callerdat,
-		 argc, argv, local, which, aflag, readlock,
-		 update_preload, dosrcs)
+		 argc, argv, local, which, aflag, locktype,
+		 update_preload, dosrcs, repository_in)
     FILEPROC fileproc;
     FILESDONEPROC filesdoneproc;
     DIRENTPROC 	direntproc;
@@ -102,9 +110,18 @@ start_recursion (fileproc, filesdoneproc, direntproc, dirleaveproc, callerdat,
     int which;
 
     int aflag;
-    int readlock;
+    int locktype;
     char *update_preload;
     int dosrcs;
+    /* Keep track of the repository string.  This is only for the remote mode,
+     * specifically, r* commands (rtag, rdiff, co, ...) where xgetwd() was
+     * used to locate the repository.  Things would break when xgetwd() was
+     * used with a symlinked repository because xgetwd() would return the true
+     * path and in some cases this would cause the path to be printed as other
+     * than the user specified in error messages and in other cases some of
+     * CVS's security assertions would fail.
+     */
+    char *repository_in;
 {
     int i, err = 0;
 #ifdef CLIENT_SUPPORT
@@ -121,8 +138,28 @@ start_recursion (fileproc, filesdoneproc, direntproc, dirleaveproc, callerdat,
     frame.flags = local ? R_SKIP_DIRS : R_PROCESS;
     frame.which = which;
     frame.aflag = aflag;
-    frame.readlock = readlock;
+    frame.locktype = locktype;
     frame.dosrcs = dosrcs;
+
+    /* If our repository_in has a trailing "/.", remove it before storing it
+     * for do_recursion().
+     *
+     * FIXME: This is somewhat of a hack in the sense that many of our callers
+     * painstakingly compute and add the trailing '.' we now remove.
+     */
+    while (repository_in && strlen (repository_in) >= 2
+           && repository_in[strlen (repository_in) - 2] == '/'
+           && repository_in[strlen (repository_in) - 1] == '.')
+    {
+	/* Beware the case where the string is exactly "/." or "//.".
+	 * Paths with a leading "//" are special on some early UNIXes.
+	 */
+	if (strlen (repository_in) == 2 || strlen (repository_in) == 3)
+	    repository_in[strlen (repository_in) - 1] = '\0';
+	else
+	    repository_in[strlen (repository_in) - 2] = '\0';
+    }
+    frame.repository = repository_in;
 
     expand_wild (argc, argv, &argc, &argv);
 
@@ -157,22 +194,26 @@ start_recursion (fileproc, filesdoneproc, direntproc, dirleaveproc, callerdat,
 #ifdef CLIENT_SUPPORT
 	if (!just_subdirs
 	    && CVSroot_cmdline == NULL
-	    && client_active)
+	    && current_parsed_root->isremote)
 	{
-	    char *root = Name_Root (NULL, update_dir);
-	    if (root && strcmp (root, current_root) != 0)
-		/* We're skipping this directory because it is for
-		   a different root.  Therefore, we just want to
-		   do the subdirectories only.  Processing files would
-		   cause a working directory from one repository to be
-		   processed against a different repository, which could
-		   cause all kinds of spurious conflicts and such.
-
-		   Question: what about the case of "cvs update foo"
-		   where we process foo/bar and not foo itself?  That
-		   seems to be handled somewhere (else) but why should
-		   it be a separate case?  Needs investigation...  */
-		just_subdirs = 1;
+	    cvsroot_t *root = Name_Root (NULL, update_dir);
+	    if (root)
+	    {
+		if (strcmp (root->original, current_parsed_root->original))
+		    /* We're skipping this directory because it is for
+		     * a different root.  Therefore, we just want to
+		     * do the subdirectories only.  Processing files would
+		     * cause a working directory from one repository to be
+		     * processed against a different repository, which could
+		     * cause all kinds of spurious conflicts and such.
+		     *
+		     * Question: what about the case of "cvs update foo"
+		     * where we process foo/bar and not foo itself?  That
+		     * seems to be handled somewhere (else) but why should
+		     * it be a separate case?  Needs investigation...  */
+		    just_subdirs = 1;
+		free_cvsroot_t (root);
+	    }
 	}
 #endif
 
@@ -203,7 +244,7 @@ start_recursion (fileproc, filesdoneproc, direntproc, dirleaveproc, callerdat,
 		       program_name);
 	    }
 #ifdef CLIENT_SUPPORT
-	    else if (client_active && server_started)
+	    else if (current_parsed_root->isremote && server_started)
 	    {
 		/* In the the case "cvs update foo bar baz", a call to
 		   send_file_names in update.c will have sent the
@@ -246,7 +287,10 @@ start_recursion (fileproc, filesdoneproc, direntproc, dirleaveproc, callerdat,
 	   directories. */
 
 	if (!wrap_name_has (argv[i], WRAP_TOCVS) && isdir (argv[i]))
+	{
+	    strip_trailing_slashes (argv[i]);
 	    addlist (&dirlist, argv[i]);
+	}
 	else
 	{
 	    /* otherwise, split argument into directory and component names. */
@@ -257,7 +301,10 @@ start_recursion (fileproc, filesdoneproc, direntproc, dirleaveproc, callerdat,
 	    /* Now break out argv[i] into directory part (DIR) and file part (COMP).
 		   DIR and COMP will each point to a newly malloc'd string.  */
 	    dir = xstrdup (argv[i]);
-	    comp = last_component (dir);
+	    /* Its okay to discard the const below - we know we just allocated
+	     * dir ourselves.
+	     */
+	    comp = (char *)last_component (dir);
 	    if (comp == dir)
 	    {
 		/* no dir component.  What we have is an implied "./" */
@@ -287,11 +334,8 @@ start_recursion (fileproc, filesdoneproc, direntproc, dirleaveproc, callerdat,
 		addfile (&files_by_dir, dir, comp);
 	    else if (isdir (dir))
 	    {
-		if ((which & W_LOCAL) && isdir (CVSADM)
-#ifdef CLIENT_SUPPORT
-		    && !client_active
-#endif
-		    )
+		if ((which & W_LOCAL) && isdir (CVSADM) &&
+		    !current_parsed_root->isremote)
 		{
 		    /* otherwise, look for it in the repository. */
 		    char *tmp_update_dir;
@@ -362,8 +406,8 @@ start_recursion (fileproc, filesdoneproc, direntproc, dirleaveproc, callerdat,
 	/* FIXME (njc): in the multiroot case, we don't want to send
 	   argument commands for those top-level directories which do
 	   not contain any subdirectories which have files checked out
-	   from current_root.  If we do, and two repositories have a
-	   module with the same name, nasty things could happen.
+	   from current_parsed_root->original.  If we do, and two repositories
+	   have a module with the same name, nasty things could happen.
 
 	   This is hard.  Perhaps we should send the Argument commands
 	   later in this procedure, after we've had a chance to notice
@@ -439,7 +483,7 @@ start_recursion (fileproc, filesdoneproc, direntproc, dirleaveproc, callerdat,
 	   "Directory xxx" command, which forces the server to descend
 	   and serve the files there.  client.c (send_file_names) has
 	   also been modified to send only those arguments which are
-	   appropriate to current_root.
+	   appropriate to current_parsed_root->original.
 
 	*/
 		
@@ -498,16 +542,16 @@ do_recursion (frame)
 {
     int err = 0;
     int dodoneproc = 1;
-    char *srepository;
+    char *srepository = NULL;
     List *entries = NULL;
-    int should_readlock;
+    int locktype;
     int process_this_directory = 1;
 
     /* do nothing if told */
     if (frame->flags == R_SKIP_ALL)
 	return (0);
 
-    should_readlock = noexec ? 0 : frame->readlock;
+    locktype = noexec ? CVS_LOCK_NONE : frame->locktype;
 
     /* The fact that locks are not active here is what makes us fail to have
        the
@@ -545,11 +589,9 @@ do_recursion (frame)
     /*
      * Now would be a good time to check to see if we need to stop
      * generating data, to give the buffers a chance to drain to the
-     * remote client.  We should not have locks active at this point.
-     */
-    if (server_active
-	/* If there are writelocks around, we cannot pause here.  */
-	&& (should_readlock || noexec))
+     * remote client.  We should not have locks active at this point,
+     * but if there are writelocks around, we cannot pause here.  */
+    if (server_active && locktype != CVS_LOCK_WRITE)
 	server_pause_check();
 #endif
 
@@ -565,40 +607,41 @@ do_recursion (frame)
        directories, since we're guaranteed to have only one CVSROOT --
        our own.  */
 
-#ifdef SERVER_SUPPORT
-    if (! server_active
+    /* If -d was specified, it should override CVS/Root.
 
-	/* If -d was specified, it should override CVS/Root.
+       In the single-repository case, it is long-standing CVS behavior
+       and makes sense - the user might want another access method,
+       another server (which mounts the same repository), &c.
 
-	   In the single-repository case, it is long-standing CVS behavior
-	   and makes sense - the user might want another access method,
-	   another server (which mounts the same repository), &c.
-
-	   In the multiple-repository case, -d overrides all CVS/Root
-	   files.  That is the only plausible generalization I can
-	   think of.  */
-	&& CVSroot_cmdline == NULL)
-#endif
+       In the multiple-repository case, -d overrides all CVS/Root
+       files.  That is the only plausible generalization I can
+       think of.  */
+    if (CVSroot_cmdline == NULL && !server_active)
     {
-	char *this_root = Name_Root ((char *) NULL, update_dir);
+	cvsroot_t *this_root = Name_Root ((char *) NULL, update_dir);
 	if (this_root != NULL)
 	{
-	    if (findnode (root_directories, this_root) == NULL)
+	    if (findnode (root_directories, this_root->original))
+	    {
+		process_this_directory = !strcmp (current_parsed_root->original,
+						  this_root->original);
+		free_cvsroot_t (this_root);
+	    }
+	    else
 	    {
 		/* Add it to our list. */
 
 		Node *n = getnode ();
-		n->type = UNKNOWN;
-		n->key = xstrdup (this_root);
+		n->type = NT_UNKNOWN;
+		n->key = xstrdup (this_root->original);
+		n->data = this_root;
 
 		if (addnode (root_directories, n))
-		    error (1, 0, "cannot add new CVSROOT %s", this_root);
-	
+		    error (1, 0, "cannot add new CVSROOT %s",
+			   this_root->original);
+
+		process_this_directory = 0;
 	    }
-	
-	    process_this_directory = (strcmp (current_root, this_root) == 0);
-	
-	    free (this_root);
 	}
     }
 
@@ -608,17 +651,18 @@ do_recursion (frame)
     if (frame->which & W_LOCAL)
     {
 	if (isdir (CVSADM))
+	{
 	    repository = Name_Repository ((char *) NULL, update_dir);
+	    srepository = repository;		/* remember what to free */
+	}
 	else
 	    repository = NULL;
     }
     else
     {
-	repository = xgetwd ();
-	if (repository == NULL)
-	    error (1, errno, "could not get working directory");
+	repository = frame->repository;
+	assert (repository != NULL);
     }
-    srepository = repository;		/* remember what to free */
 
     fileattr_startdir (repository);
 
@@ -657,7 +701,11 @@ do_recursion (frame)
 	       repository at this point.  Name_Repository will give a
 	       reasonable error message.  */
 	    if (repository == NULL)
-		repository = Name_Repository ((char *) NULL, update_dir);
+	    {
+		Name_Repository ((char *) NULL, update_dir);
+		assert (!"Not reached.  Please report this problem to <"
+			PACKAGE_BUGREPORT ">");
+	    }
 
 	    /* find the files and fill in entries if appropriate */
 	    if (process_this_directory)
@@ -699,16 +747,24 @@ do_recursion (frame)
 	struct frame_and_file frfile;
 
 	/* read lock it if necessary */
-	if (should_readlock && repository && Reader_Lock (repository) != 0)
-	    error (1, 0, "read lock failed - giving up");
+	if (repository)
+	{
+	    if (locktype == CVS_LOCK_READ)
+	    {
+		if (Reader_Lock (repository) != 0)
+		    error (1, 0, "read lock failed - giving up");
+	    }
+	    else if (locktype == CVS_LOCK_WRITE)
+		lock_dir_for_write (repository);
+	}
 
 #ifdef CLIENT_SUPPORT
 	/* For the server, we handle notifications in a completely different
 	   place (server_notify).  For local, we can't do them here--we don't
 	   have writelocks in place, and there is no way to get writelocks
 	   here.  */
-	if (client_active)
-	    notify_check (repository, update_dir);
+	if (current_parsed_root->isremote)
+	    cvs_notify_check (repository, update_dir);
 #endif /* CLIENT_SUPPORT */
 
 	finfo_struct.repository = repository;
@@ -723,7 +779,10 @@ do_recursion (frame)
 	err += walklist (filelist, do_file_proc, &frfile);
 
 	/* unlock it */
-	if (should_readlock)
+	if (/* We only lock the repository above when repository is set */
+	    repository
+	    /* and when asked for a read or write lock. */
+	    && locktype != CVS_LOCK_NONE)
 	    Lock_Cleanup ();
 
 	/* clean up */
@@ -765,11 +824,13 @@ do_recursion (frame)
     if (srepository)
     {
 	free (srepository);
-	repository = (char *) NULL;
     }
+    repository = (char *) NULL;
 
-    return (err);
+    return err;
 }
+
+
 
 /*
  * Process each of the files in the list with the callback proc
@@ -782,18 +843,19 @@ do_file_proc (p, closure)
     struct frame_and_file *frfile = (struct frame_and_file *)closure;
     struct file_info *finfo = frfile->finfo;
     int ret;
+    char *tmp;
 
     finfo->file = p->key;
-    finfo->fullname = xmalloc (strlen (finfo->file)
+    tmp = xmalloc (strlen (finfo->file)
 			       + strlen (finfo->update_dir)
 			       + 2);
-    finfo->fullname[0] = '\0';
+    tmp[0] = '\0';
     if (finfo->update_dir[0] != '\0')
     {
-	strcat (finfo->fullname, finfo->update_dir);
-	strcat (finfo->fullname, "/");
+	strcat (tmp, finfo->update_dir);
+	strcat (tmp, "/");
     }
-    strcat (finfo->fullname, finfo->file);
+    strcat (tmp, finfo->file);
 
     if (frfile->frame->dosrcs && repository)
     {
@@ -808,26 +870,29 @@ do_file_proc (p, closure)
 	if (finfo->rcs == NULL
 	    && !(frfile->frame->which & W_LOCAL))
 	{
-	    error (0, 0, "could not read RCS file for %s", finfo->fullname);
-	    free (finfo->fullname);
+	    error (0, 0, "could not read RCS file for %s", tmp);
+	    free (tmp);
 	    cvs_flushout ();
 	    return 0;
 	}
     }
     else 
         finfo->rcs = (RCSNode *) NULL;
+    finfo->fullname = tmp;
     ret = frfile->frame->fileproc (frfile->frame->callerdat, finfo);
 
     freercsnode(&finfo->rcs);
-    free (finfo->fullname);
+    free (tmp);
 
     /* Allow the user to monitor progress with tail -f.  Doing this once
        per file should be no big deal, but we don't want the performance
        hit of flushing on every line like previous versions of CVS.  */
     cvs_flushout ();
 
-    return (ret);
+    return ret;
 }
+
+
 
 /*
  * Process each of the directories in the list (recursing as we go)
@@ -988,39 +1053,41 @@ but CVS uses %s for its own purposes; skipping %s directory",
     /* Only process this directory if the root matches.  This nearly
        duplicates code in do_recursion. */
 
-#ifdef SERVER_SUPPORT
-    if (! server_active
+    /* If -d was specified, it should override CVS/Root.
 
-	/* If -d was specified, it should override CVS/Root.
+       In the single-repository case, it is long-standing CVS behavior
+       and makes sense - the user might want another access method,
+       another server (which mounts the same repository), &c.
 
-	   In the single-repository case, it is long-standing CVS behavior
-	   and makes sense - the user might want another access method,
-	   another server (which mounts the same repository), &c.
-
-	   In the multiple-repository case, -d overrides all CVS/Root
-	   files.  That is the only plausible generalization I can
-	   think of.  */
-	&& CVSroot_cmdline == NULL)
-#endif
+       In the multiple-repository case, -d overrides all CVS/Root
+       files.  That is the only plausible generalization I can
+       think of.  */
+    if (CVSroot_cmdline == NULL && !server_active)
     {
-	char *this_root = Name_Root (dir, update_dir);
+	cvsroot_t *this_root = Name_Root (dir, update_dir);
 	if (this_root != NULL)
 	{
-	    if (findnode (root_directories, this_root) == NULL)
+	    if (findnode (root_directories, this_root->original))
+	    {
+		process_this_directory = !strcmp (current_parsed_root->original,
+						  this_root->original);
+		free_cvsroot_t (this_root);
+	    }
+	    else
 	    {
 		/* Add it to our list. */
 
 		Node *n = getnode ();
-		n->type = UNKNOWN;
-		n->key = xstrdup (this_root);
+		n->type = NT_UNKNOWN;
+		n->key = xstrdup (this_root->original);
+		n->data = this_root;
 
 		if (addnode (root_directories, n))
-		    error (1, 0, "cannot add new CVSROOT %s", this_root);
+		    error (1, 0, "cannot add new CVSROOT %s",
+			   this_root->original);
 
+		process_this_directory = 0;
 	    }
-
-	    process_this_directory = (strcmp (current_root, this_root) == 0);
-	    free (this_root);
 	}
     }
 
@@ -1060,7 +1127,7 @@ but CVS uses %s for its own purposes; skipping %s directory",
 	dirlist = NULL;
 
 	/* cd to the sub-directory */
-	if ( CVS_CHDIR (dir) < 0)
+	if (CVS_CHDIR (dir) < 0)
 	    error (1, errno, "could not chdir to %s", dir);
 
 	/* honor the global SKIP_DIRS (a.k.a. local) */
@@ -1077,7 +1144,30 @@ but CVS uses %s for its own purposes; skipping %s directory",
 	/* make the recursive call */
 	xframe = *frame;
 	xframe.flags = dir_return;
+	/* Keep track of repository, really just for r* commands (rtag, rdiff,
+	 * co, ...) to tag_check_valid, since all the other commands use
+	 * CVS/Repository to figure it out per directory.
+	 */
+	if (repository)
+	{
+	    if (strcmp (dir, ".") == 0)
+		xframe.repository = xstrdup (repository);
+	    else
+	    {
+		xframe.repository = xmalloc (strlen (repository)
+					     + strlen (dir)
+					     + 2);
+		sprintf (xframe.repository, "%s/%s", repository, dir);
+	    }
+	}
+	else
+	    xframe.repository = NULL;
 	err += do_recursion (&xframe);
+	if (xframe.repository)
+	{
+	    free (xframe.repository);
+	    xframe.repository = NULL;
+	}
 
 	/* put the `.' back if necessary */
 	if (stripped_dot)
@@ -1099,7 +1189,7 @@ but CVS uses %s for its own purposes; skipping %s directory",
     free (update_dir);
     update_dir = saved_update_dir;
 
-    return (err);
+    return err;
 }
 
 /*
@@ -1128,6 +1218,7 @@ addfile (listp, dir, file)
     char *file;
 {
     Node *n;
+    List *fl;
 
     /* add this dir. */
     addlist (listp, dir);
@@ -1140,7 +1231,9 @@ addfile (listp, dir, file)
     }
 
     n->type = DIRS;
-    addlist ((List **) &n->data, file);
+    fl = n->data;
+    addlist (&fl, file);
+    n->data = fl;
     return;
 }
 
@@ -1163,7 +1256,7 @@ unroll_files_proc (p, closure)
 	return (0);
 
     /* otherwise, call dorecusion for this list of files. */
-    filelist = (List *) p->data;
+    filelist = p->data;
     p->data = NULL;
     save_dirlist = dirlist;
     dirlist = NULL;
@@ -1200,6 +1293,7 @@ unroll_files_proc (p, closure)
     }
 
     dirlist = save_dirlist;
-    filelist = NULL;
+    if (filelist)
+	dellist (&filelist);
     return(err);
 }

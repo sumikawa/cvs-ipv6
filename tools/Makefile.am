@@ -1,7 +1,10 @@
 ## Process this file with automake to produce Makefile.in
 # Makefile for GNU CVS auxiliary tools.
-# Do not use this makefile directly, but only from `../Makefile'.
-# Copyright (C) 1986, 1988-1990, 2000 Free Software Foundation, Inc.
+#
+# Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+#
+# Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+#                                  and others.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

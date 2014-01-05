@@ -52,7 +52,7 @@ copy_file (from, to)
 
     if ((fdin = open (from, O_RDONLY | O_BINARY)) < 0)
 	error (1, errno, "cannot open %s for copying", from);
-    if (fstat (fdin, &sb) < 0)
+    if (CVS_FSTAT (fdin, &sb) < 0)
 	error (1, errno, "cannot fstat %s", from);
     if ((fdout = open (to, O_CREAT | O_TRUNC | O_RDWR | O_BINARY,
 		       (int) sb.st_mode & 07777)) < 0)
@@ -96,7 +96,7 @@ copy_file (from, to)
     memset ((char *) &t, 0, sizeof (t));
     t.actime = sb.st_atime;
     t.modtime = sb.st_mtime;
-    (void) utime (to, &t);
+    (void) CVS_UTIME (to, &t);
 }
 
 /* FIXME-krp: these functions would benefit from caching the char * &
@@ -112,7 +112,7 @@ isdir (file)
 {
     struct stat sb;
 
-    if (stat (file, &sb) < 0)
+    if (wnt_stat (file, &sb) < 0)
 	return (0);
     return (S_ISDIR (sb.st_mode));
 }
@@ -127,7 +127,7 @@ islink (file)
 #ifdef S_ISLNK
     struct stat sb;
 
-    if (lstat (file, &sb) < 0)
+    if (wnt_lstat (file, &sb) < 0)
 	return (0);
     return (S_ISLNK (sb.st_mode));
 #else
@@ -182,7 +182,7 @@ isaccessible (file, mode)
     int omask = 0;
     int uid;
     
-    if (stat(file, &sb) == -1)
+    if (wnt_stat(file, &sb) == -1)
 	return 0;
     if (mode == F_OK)
 	return 1;
@@ -250,7 +250,7 @@ make_directory (name)
 {
     struct stat sb;
 
-    if (stat (name, &sb) == 0 && (!S_ISDIR (sb.st_mode)))
+    if (wnt_stat (name, &sb) == 0 && (!S_ISDIR (sb.st_mode)))
 	    error (0, 0, "%s already exists but is not a directory", name);
     if (!noexec && mkdir (name) < 0)
 	error (1, errno, "cannot make directory %s", name);
@@ -291,7 +291,7 @@ make_directories (name)
    existed.  */
 int
 mkdir_if_needed (name)
-    char *name;
+    const char *name;
 {
     if (mkdir (name) < 0)
     {
@@ -320,13 +320,13 @@ mkdir_if_needed (name)
  */
 void
 xchmod (fname, writable)
-    char *fname;
+    const char *fname;
     int writable;
 {
     struct stat sb;
     mode_t mode, oumask;
 
-    if (stat (fname, &sb) < 0)
+    if (wnt_stat (fname, &sb) < 0)
     {
 	if (!noexec)
 	    error (0, errno, "cannot stat %s", fname);
@@ -474,9 +474,11 @@ unlink_file_dir (f)
     chmod (f, _S_IWRITE);
     if (unlink (f) != 0)
     {
-	/* under Windows NT, unlink returns EACCES if the path
-	   is a directory.  Under Windows 95, ENOENT.  */
-        if (errno == EISDIR || errno == EACCES || errno == ENOENT)
+	/* Under Windows NT, unlink returns EACCES if the path
+           is a directory.  Under Windows 95, it returns ENOENT.
+           Under Windows XP, it can return ENOTEMPTY. */
+        if (errno == EISDIR || errno == EACCES || errno == ENOENT
+            || errno == ENOTEMPTY)
                 return deep_remove_dir (f);
         else
 		/* The file wasn't a directory and some other
@@ -523,13 +525,15 @@ deep_remove_dir (path)
 	    if (unlink (buf) != 0 )
 	    {
 		/* Under Windows NT, unlink returns EACCES if the path
-		   is a directory.  Under Windows 95, ENOENT.  It
+		   is a directory.  Under Windows 95, it returns ENOENT.
+                   Under Windows XP, it can return ENOTEMPTY.  It
 		   isn't really clear to me whether checking errno is
 		   better or worse than using _stat to check for a directory.
 		   We aren't really trying to prevent race conditions here
 		   (e.g. what if something changes between readdir and
 		   unlink?)  */
-		if (errno == EISDIR || errno == EACCES || errno == ENOENT)
+		if (errno == EISDIR || errno == EACCES || errno == ENOENT
+                    || errno == ENOTEMPTY)
 		{
 		    if (deep_remove_dir (buf))
 		    {
@@ -606,9 +610,9 @@ xcmp (file1, file2)
 	error (1, errno, "cannot open file %s for comparing", file1);
     if ((fd2 = open (file2, O_RDONLY | O_BINARY)) < 0)
 	error (1, errno, "cannot open file %s for comparing", file2);
-    if (fstat (fd1, &sb1) < 0)
+    if (CVS_FSTAT (fd1, &sb1) < 0)
 	error (1, errno, "cannot fstat %s", file1);
-    if (fstat (fd2, &sb2) < 0)
+    if (CVS_FSTAT (fd2, &sb2) < 0)
 	error (1, errno, "cannot fstat %s", file2);
 
     /* A generic file compare routine might compare st_dev & st_ino here 
@@ -654,45 +658,122 @@ xcmp (file1, file2)
     return (ret);
 }
 
-
 /* Generate a unique temporary filename.  Returns a pointer to a newly
-   malloc'd string containing the name.  Returns successfully or not at
-   all.  */
+ * malloc'd string containing the name.  Returns successfully or not at
+ * all.
+ *
+ *     THIS FUNCTION IS DEPRECATED!!!  USE cvs_temp_file INSTEAD!!!
+ *
+ * and yes, I know about the way the rcs commands use temp files.  I think
+ * they should be converted too but I don't have time to look into it right
+ * now.
+ */
 char *
 cvs_temp_name ()
 {
-    char *retval;
+    char *fn;
+    FILE *fp;
 
-    retval = _tempnam (NULL, NULL);
-    if (retval == NULL)
-	error (1, errno, "cannot generate temporary filename");
-    return retval;
+    fp = cvs_temp_file (&fn);
+    if (fp == NULL)
+	error (1, errno, "Failed to create temporary file");
+    if (fclose (fp) == EOF)
+	error (0, errno, "Failed to close temporary file %s", fn);
+    return fn;
 }
-
-/* Return non-zero iff FILENAME is absolute.
-   Trivial under Unix, but more complicated under other systems.  */
-int
-isabsolute (filename)
-    const char *filename;
+
+/* Generate a unique temporary filename and return an open file stream
+ * to the truncated file by that name
+ *
+ *  INPUTS
+ *	filename	where to place the pointer to the newly allocated file
+ *   			name string
+ *
+ *  OUTPUTS
+ *	filename	dereferenced, will point to the newly allocated file
+ *			name string.  This value is undefined if the function
+ *			returns an error.
+ *
+ *  RETURNS
+ *	An open file pointer to a read/write mode empty temporary file with the
+ *	unique file name or NULL on failure.
+ *
+ *  ERRORS
+ *	on error, errno will be set to some value either by CVS_FOPEN or
+ *	whatever system function is called to generate the temporary file name
+ */
+FILE *cvs_temp_file (filename)
+    char **filename;
 {
-    /* FIXME: This routine seems to interact poorly with
-       strip_trailing_slashes.  For example, specify ":local:r:\" as
-       CVSROOT.  The CVS/Root file will contain ":local:r:" and then
-       isabsolute will complain about the root not being an absolute
-       pathname.  My guess is that strip_trailing_slashes is the right
-       place to fix this.  */
-    return (ISDIRSEP (filename[0])
-            || (filename[0] != '\0'
-                && filename[1] == ':'
-                && ISDIRSEP (filename[2])));
+    char *fn;
+    FILE *fp;
+
+    /* FIXME - I'd like to be returning NULL here in noexec mode, but I think
+     * some of the rcs & diff functions which rely on a temp file run in
+     * noexec mode too.
+     */
+
+    /* assert (filename != NULL); */
+
+    fn = _tempnam (Tmpdir, "cvs");
+    if (fn == NULL) fp = NULL;
+    else if ((fp = CVS_FOPEN (fn, "w+")) == NULL) free (fn);
+
+    /* tempnam returns a pointer to a newly malloc'd string, so there's
+     * no need for a xstrdup
+     */
+
+    *filename = fn;
+    return fp;
+}
+
+
+
+/* char *
+ * xresolvepath ( const char *path )
+ *
+ * Like xreadlink(), but resolve all links in a path.
+ *
+ * INPUTS
+ *  path	The original path.
+ *
+ * RETURNS
+ *  The path with any symbolic links expanded.
+ *
+ * ERRORS
+ *  This function exits with a fatal error if it fails to read the link for
+ *  any reason.
+ */
+char *
+xresolvepath ( path )
+    const char *path;
+{
+    char *hardpath;
+    char *owd;
+
+    /* assert ( isdir ( path ) ); */
+
+    /* FIXME - If HAVE_READLINK is defined, we should probably walk the path
+     * bit by bit calling xreadlink().
+     */
+
+    owd = xgetwd();
+    if ( CVS_CHDIR ( path ) < 0)
+	error ( 1, errno, "cannot chdir to %s", path );
+    if ( ( hardpath = xgetwd() ) == NULL )
+	error (1, errno, "cannot readlink %s", hardpath);
+    if ( CVS_CHDIR ( owd ) < 0)
+	error ( 1, errno, "cannot chdir to %s", owd );
+    free (owd);
+    return hardpath;
 }
 
 /* Return a pointer into PATH's last component.  */
-char *
-last_component (char *path)
+const char *
+last_component (const char *path)
 {
-    char *scan;
-    char *last = 0;
+    const char *scan;
+    const char *last = 0;
 
     for (scan = path; *scan; scan++)
         if (ISDIRSEP (*scan))
@@ -751,6 +832,27 @@ get_homedir ()
     }
     else
 	return NULL;
+}
+
+/* Compose a path to a file in the home directory.  This is necessary because
+ * of different behavior on UNIX, Windows, and VMS.  See more notes in
+ * vms/filesubr.c.
+ *
+ * A more clean solution would be something more along the lines of a
+ * "join a directory to a filename" kind of thing which was not specific to
+ * the homedir.  This should aid portability between UNIX, Mac, Windows, VMS,
+ * and possibly others.  This is already handled by Perl - it might be
+ * interesting to see how much of the code was written in C since Perl is under
+ * the GPL and the Artistic license - we might be able to use it.
+ */
+char *
+strcat_filename_onto_homedir (dir, file)
+    const char *dir;
+    const char *file;
+{
+    char *path = xmalloc (strlen (dir) + 1 + strlen(file) + 1);
+    sprintf (path, "%s\\%s", dir, file);
+    return path;
 }
 
 /* See cvs.h for description.  */
@@ -891,8 +993,55 @@ expand_wild (argc, argv, pargc, pargv)
     *pargv = new_argv;
 }
 
-static void check_statbuf (const char *file, struct stat *sb)
+/* FILETIME = number of 100-nanosecond ticks since midnight 1 Jan 1601 UTC. 
+ * time_t = number of 1-second ticks since midnight 1 Jan 1970 UTC. 
+ * To translate, we subtract a FILETIME representation of midnight, 
+ * 1 Jan 1970 from the FILETIME in question and divide by the number 
+ * of 100-ns ticks in one second.
+ */
+static BOOL UTCFileTimeToUnixTime(const FILETIME* ft, time_t* ut)
 {
+    /* One second = 10,000,000 * 100 nsec */
+    static const ULONGLONG tenmillion = 10000000ull;
+    static const ULONGLONG Jan1970    = 116444736000000000ull;
+
+    ULONGLONG itime;
+
+    *(FILETIME *)&itime = *ft;
+    if (itime < Jan1970) {
+	itime = (ULONGLONG)(-1LL);
+    } else {
+	itime -= Jan1970;
+	itime /= tenmillion;
+    }
+    *ut = itime;
+    return TRUE;
+}
+
+static void check_statbuf (const char *fileName, struct stat *sb)
+{
+    HANDLE     hFile;
+    FILETIME   ft1, ft2, ft3;
+
+    hFile = CreateFile(
+                fileName,
+                GENERIC_READ,
+                FILE_SHARE_READ,
+                NULL,        // hFile cannot be inherited
+                OPEN_EXISTING,
+                0,
+                NULL );      // no template file handle
+    if (hFile != INVALID_HANDLE_VALUE) {
+	BOOL success = GetFileTime(hFile, &ft1, &ft2, &ft3 );
+	(void) CloseHandle(hFile);
+	if (success) {
+	    /* GetFileTime returns UTC times, even for FAT file systems. */
+	    (void)UTCFileTimeToUnixTime(&ft1, &sb->st_ctime);
+	    (void)UTCFileTimeToUnixTime(&ft2, &sb->st_atime);
+	    (void)UTCFileTimeToUnixTime(&ft3, &sb->st_mtime);
+	}
+    }
+
     /* Win32 processes file times in a 64 bit format
        (see Win32 functions SetFileTime and GetFileTime).
        If the file time on a file doesn't fit into the
@@ -905,35 +1054,108 @@ static void check_statbuf (const char *file, struct stat *sb)
        on Win32 via GetFileTime, but that would be a lot of
        hair and I'm not sure there is much payoff.  */
     if (sb->st_mtime == (time_t) -1)
-	error (1, 0, "invalid modification time for %s", file);
+	error (1, 0, "invalid modification time for %s", fileName);
     if (sb->st_ctime == (time_t) -1)
 	/* I'm not sure what this means on windows.  It
 	   might be a creation time (unlike unix)....  */
-	error (1, 0, "invalid ctime for %s", file);
+	error (1, 0, "invalid ctime for %s", fileName);
     if (sb->st_atime == (time_t) -1)
-	error (1, 0, "invalid access time for %s", file);
+	error (1, 0, "invalid access time for %s", fileName);
 }
 
 int
-wnt_stat (const char *file, struct stat *sb)
+wnt_stat (const char *fileName, struct stat *sb)
 {
     int retval;
 
-    retval = stat (file, sb);
+    retval = stat (fileName, sb);
     if (retval < 0)
 	return retval;
-    check_statbuf (file, sb);
+    check_statbuf (fileName, sb);
     return retval;
 }
 
 int
-wnt_lstat (const char *file, struct stat *sb)
+wnt_lstat (const char *fileName, struct stat *sb)
 {
     int retval;
 
-    retval = lstat (file, sb);
+    retval = lstat (fileName, sb);
     if (retval < 0)
 	return retval;
-    check_statbuf (file, sb);
+    check_statbuf (fileName, sb);
     return retval;
+}
+
+int 
+wnt_utime( const char *fileName, struct utimbuf *times )
+{
+    HANDLE   hFile;
+    BOOL     success = FALSE;
+    FILETIME ftac, ftmod;
+
+    if (!times) {
+    	GetSystemTimeAsFileTime(&ftmod);
+	ftac = ftmod;
+    } else {
+	/* One second = 10,000,000 * 100 nsec */
+	static const ULONGLONG tenmillion = 10000000ull;
+	static const ULONGLONG Jan1970    = 116444736000000000ull;
+
+	ULONGLONG ulac, ulmod;
+	ulac  = (tenmillion * times->actime ) + Jan1970;
+	ulmod = (tenmillion * times->modtime) + Jan1970;
+
+	ftac  = *(FILETIME *)&ulac;
+	ftmod = *(FILETIME *)&ulmod;
+    }
+
+    hFile = CreateFile(
+                fileName,
+                FILE_WRITE_ATTRIBUTES,
+                0,           // hFile cannot be shared while doing this
+                NULL,        // hFile cannot be inherited
+                OPEN_EXISTING,
+                0,
+                NULL );      // no template file handle
+    if (hFile != INVALID_HANDLE_VALUE) {
+	success = SetFileTime(hFile, NULL, &ftac, &ftmod);
+	(void) CloseHandle(hFile);
+	if (!success) {
+	    errno = EACCES;
+	}
+    } else {
+        errno = ENOENT;
+    }
+    return (success != FALSE) - 1;
+}
+
+
+int
+wnt_fstat (int fd, struct stat *sb)
+{
+    HANDLE hFile;
+    BOOL   success;
+    int    rv;
+    BY_HANDLE_FILE_INFORMATION hInfo;
+
+    rv = fstat(fd, sb);
+    if (rv != 0)
+	return rv;
+
+    /* below here, if fstat has succeeded, there's no need to report failure.*/
+    hFile = (HANDLE)_get_osfhandle(fd);
+    if (hFile == INVALID_HANDLE_VALUE) 
+    	return rv;
+
+    success = GetFileInformationByHandle(hFile, &hInfo);
+    if (!success)
+    	return rv;
+    /* don't have to close hFile */
+
+    /* Now, fix fstat's lies about timestamps */
+    (void)UTCFileTimeToUnixTime(&hInfo.ftLastAccessTime,  &sb->st_atime);
+    (void)UTCFileTimeToUnixTime(&hInfo.ftCreationTime,    &sb->st_ctime);
+    (void)UTCFileTimeToUnixTime(&hInfo.ftLastWriteTime,   &sb->st_mtime);
+    return 0;
 }

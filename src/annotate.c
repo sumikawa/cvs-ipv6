@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (c) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (c) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -17,6 +22,7 @@
 /* Options from the command line.  */
 
 static int force_tag_match = 1;
+static int force_binary = 0;
 static char *tag = NULL;
 static int tag_validated;
 static char *date = NULL;
@@ -30,10 +36,11 @@ static int rannotate_proc PROTO((int argc, char **argv, char *xwhere,
 
 static const char *const annotate_usage[] =
 {
-    "Usage: %s %s [-lRf] [-r rev] [-D date] [files...]\n",
+    "Usage: %s %s [-lRfF] [-r rev] [-D date] [files...]\n",
     "\t-l\tLocal directory only, no recursion.\n",
     "\t-R\tProcess directories recursively.\n",
     "\t-f\tUse head revision if tag/date not found.\n",
+    "\t-F\tAnnotate binary files.\n",
     "\t-r rev\tAnnotate file as of specified revision/tag.\n",
     "\t-D date\tAnnotate file as of specified date.\n",
     "(Specify the --help global option for a list of other help options)\n",
@@ -52,13 +59,13 @@ annotate (argc, argv)
     int err = 0;
     int c;
 
-    is_rannotate = (strcmp(command_name, "rannotate") == 0);
+    is_rannotate = (strcmp(cvs_cmd_name, "rannotate") == 0);
 
     if (argc == -1)
 	usage (annotate_usage);
 
     optind = 0;
-    while ((c = getopt (argc, argv, "+lr:D:fR")) != -1)
+    while ((c = getopt (argc, argv, "+lr:D:fFR")) != -1)
     {
 	switch (c)
 	{
@@ -76,6 +83,9 @@ annotate (argc, argv)
 		break;
 	    case 'f':
 	        force_tag_match = 0;
+		break;
+	    case 'F':
+	        force_binary = 1;
 		break;
 	    case '?':
 	    default:
@@ -100,9 +110,12 @@ annotate (argc, argv)
 	    send_arg ("-l");
 	if (!force_tag_match)
 	    send_arg ("-f");
+	if (force_binary)
+	    send_arg ("-F");
 	option_with_arg ("-r", tag);
 	if (date)
 	    client_senddate (date);
+	send_arg ("--");
 	if (is_rannotate)
 	{
 	    int i;
@@ -128,14 +141,14 @@ annotate (argc, argv)
 	for (i = 0; i < argc; i++)
 	{
 	    err += do_module (db, argv[i], MISC, "Annotating", rannotate_proc,
-			     (char *) NULL, 0, 0, 0, 0, (char *) NULL);
+			     (char *) NULL, 0, local, 0, 0, (char *) NULL);
 	}
 	close_module (db);
     }
     else
     {
 	err = rannotate_proc (argc + 1, argv - 1, (char *) NULL,
-			 (char *) NULL, (char *) NULL, 0, 0, (char *) NULL,
+			 (char *) NULL, (char *) NULL, 0, local, (char *) NULL,
 			 (char *) NULL);
     }
 
@@ -214,16 +227,15 @@ rannotate_proc (argc, argv, xwhere, mwhere, mfile, shorten, local, mname, msg)
 	{
 	    error (0, errno, "cannot chdir to %s", repository);
 	    free (repository);
+	    free (where);
 	    return (1);
 	}
-	free (repository);
 	/* End section which is identical to patch_proc.  */
 
 	if (force_tag_match && tag != NULL)
 	    which = W_REPOS | W_ATTIC;
 	else
 	    which = W_REPOS;
-	repository = NULL;
     }
     else
     {
@@ -240,8 +252,12 @@ rannotate_proc (argc, argv, xwhere, mwhere, mfile, shorten, local, mname, msg)
 
     err = start_recursion (annotate_fileproc, (FILESDONEPROC) NULL,
 			   (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-			   argc - 1, argv + 1, local, which, 0, 1,
-			   where, 1);
+			   argc - 1, argv + 1, local, which, 0, CVS_LOCK_READ,
+			   where, 1, repository);
+    if ( which & W_REPOS )
+	free ( repository );
+    if ( where != NULL )
+	free (where);
     return err;
 }
 
@@ -251,7 +267,7 @@ annotate_fileproc (callerdat, finfo)
     void *callerdat;
     struct file_info *finfo;
 {
-    char *version;
+    char *expand, *version;
 
     if (finfo->rcs == NULL)
         return (1);
@@ -259,19 +275,28 @@ annotate_fileproc (callerdat, finfo)
     if (finfo->rcs->flags & PARTIAL)
         RCS_reparsercsfile (finfo->rcs, (FILE **) NULL, (struct rcsbuffer *) NULL);
 
+    expand = RCS_getexpand (finfo->rcs);
     version = RCS_getversion (finfo->rcs, tag, date, force_tag_match,
 			      (int *) NULL);
+
     if (version == NULL)
         return 0;
 
     /* Distinguish output for various files if we are processing
        several files.  */
-    cvs_outerr ("Annotations for ", 0);
+    cvs_outerr ("\nAnnotations for ", 0);
     cvs_outerr (finfo->fullname, 0);
     cvs_outerr ("\n***************\n", 0);
 
-    RCS_deltas (finfo->rcs, (FILE *) NULL, (struct rcsbuffer *) NULL,
-		version, RCS_ANNOTATE, NULL, NULL, NULL, NULL);
+    if (!force_binary && expand && expand[0] == 'b')
+    {
+        cvs_outerr ("Skipping binary file -- -F not specified.\n", 0);
+    }
+    else
+    {
+	RCS_deltas (finfo->rcs, (FILE *) NULL, (struct rcsbuffer *) NULL,
+		    version, RCS_ANNOTATE, NULL, NULL, NULL, NULL);
+    }
     free (version);
     return 0;
 }

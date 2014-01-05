@@ -1,4 +1,16 @@
 #! @CSH@ -f
+
+# Copyright (C) 1995-2005 The Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
 # Sccs2rcs is a script to convert an existing SCCS
 # history into an RCS history without losing any of
@@ -42,6 +54,12 @@
 # ...!harvard!cg-atla!viewlog!kenstir
 #
 # Various hacks made by Brian Berliner before inclusion in CVS contrib area.
+#
+# Modified to detect SCCS binary files. If binary, skip the keyword
+# substitution and flag the RCS file as binary (using rcs -i -kb).
+#      -Allan G. Schrum schrum@ofsoptics.com agschrum@mindspring.com
+# Fri Sep 26 10:40:40 EDT 2003
+#
 
 
 #we'll assume the user set up the path correctly
@@ -69,7 +87,7 @@ endif
 if (-d RCS) then
     echo "Warning: RCS directory exists"
     if (`ls -a RCS | wc -l` > 2) then
-        echo "Error: RCS directory not empty
+        echo "Error: RCS directory not empty"
         exit 1
     endif
 else
@@ -163,6 +181,13 @@ end
 
 onintr ERROR
 
+sort -k 1,1 /dev/null >& /dev/null
+if ($status == 0) then
+    set sort_each_field = '-k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9'
+else
+    set sort_each_field = '+0 +1 +2 +3 +4 +5 +6 +7 +8'
+endif
+
 ############################################################
 # Loop over every s-file in SCCS dir
 #
@@ -172,34 +197,54 @@ foreach sfile (SCCS/s.*)
 
     # work on each rev of that file in ascending order
     set firsttime = 1
-    sccs prs $file | grep "^D " | awk '{print $2}' | sed -e 's/\./ /g' | sort -n -u +0 +1 +2 +3 +4 +5 +6 +7 +8 | sed -e 's/ /./g' > $revfile
+
+    # Only scan the file up to the "I" keyword, then see if
+    # the "f" keyword is set to binary. The SCCS file has
+    # <ctrl>-aI denoting the start of the file (or end of header).
+    set binary = (`sed -e '/^.I/,$d' < $sfile | grep '^.f e 1$'`)
+    #if ($#binary) then
+    #    echo This is a binary file
+    #else
+    #    echo This is not a binary file
+    #endif
+
+    sccs prs $file | grep "^D " | @AWK@ '{print $2}' | sed -e 's/\./ /g' | sort -n -u $sort_each_field | sed -e 's/ /./g' > $revfile
     foreach rev (`cat $revfile`)
         if ($status != 0) goto ERROR
 
         # get file into current dir and get stats
-	set year = `echo $date | cut -c3-4`
-	if ($year < 70) then
-		# Y2K Bug, change century to 20
-		set date = `sccs prs -r$rev $file | grep "^D " | awk '{printf("20%s %s", $3, $4); exit}'`
-	else
-		set date = `sccs prs -r$rev $file | grep "^D " | awk '{printf("19%s %s", $3, $4); exit}'`
-	endif
-        set author = `sccs prs -r$rev $file | grep "^D " | awk '{print $5; exit}'`
+
+	# Is the substr stuff and the +0 in the following awk script really
+	# necessary?  It seems to me that if we didn't find the date format
+	# we expected in the output we have other problems.
+	# Note: Solaris awk does not like the following line. Use gawk
+	# mawk, or nawk instead.
+	set date = `sccs prs -r$rev $file | @AWK@ '/^D / {print (substr($3,0,2)+0<70?20:19) $3, $4; exit}'`
+        set author = `sccs prs -r$rev $file | @AWK@ '/^D / {print $5; exit}'`
         echo ""
         echo "==> file $file, rev=$rev, date=$date, author=$author"
         sccs edit -r$rev $file >>& $logfile
         if ($status != 0) goto ERROR
         echo checked out of SCCS
 
-        # add RCS keywords in place of SCCS keywords
-        sed -f $sedfile $file > $tmpfile
-        if ($status != 0) goto ERROR
-        echo performed keyword substitutions
-        cp $tmpfile $file
+        # add RCS keywords in place of SCCS keywords (only if not binary)
+        if ($#binary == 0) then
+            sed -f $sedfile $file > $tmpfile
+            if ($status != 0) goto ERROR
+            echo performed keyword substitutions
+            cp $tmpfile $file
+        endif
 
         # check file into RCS
         if ($firsttime) then
             set firsttime = 0
+
+            if ($#binary) then
+                echo this is a binary file
+                # Mark initial, empty file as binary
+                rcs -i -kb -t$emptyfile $file
+            endif
+
             if ($nodesc) then
 		echo about to do ci
                 echo ci -f -r$rev -d"$date" -w$author -t$emptyfile $file 

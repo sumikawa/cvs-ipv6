@@ -23,10 +23,6 @@ GNU General Public License for more details.
 #include <varargs.h>
 #endif
 
-#ifndef strerror
-extern char *strerror ();
-#endif
-
 /* Queue up one-line messages to be printed at the end,
    when -l is specified.  Each message is recorded with a `struct msg'.  */
 
@@ -300,7 +296,7 @@ finish_output ()
   if (paginate_flag && outfile != 0 && outfile != stdout)
     {
 #ifdef PR_PROGRAM
-      int wstatus;
+      int wstatus, w;
       if (ferror (outfile))
 	fatal ("write error");
 # if ! HAVE_FORK
@@ -308,7 +304,9 @@ finish_output ()
 # else /* HAVE_FORK */
       if (fclose (outfile) != 0)
 	pfatal_with_name ("write error");
-      if (waitpid (pr_pid, &wstatus, 0) < 0)
+      while ((w = waitpid (pr_pid, &wstatus, 0)) < 0 && errno == EINTR)
+	;
+      if (w < 0)
 	pfatal_with_name ("waitpid");
 # endif /* HAVE_FORK */
       if (wstatus != 0)
@@ -366,7 +364,7 @@ printf_output (format, va_alist)
       char *str;
       int num;
       int ch;
-      unsigned char buf[100];
+      char buf[100];
 
       while ((q = strchr (p, '%')) != NULL)
 	{

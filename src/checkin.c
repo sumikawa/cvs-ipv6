@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -15,15 +20,15 @@
  * Returns non-zero on error.
  */
 
+#include <assert.h>
 #include "cvs.h"
 #include "fileattr.h"
 #include "edit.h"
 
 int
-Checkin (type, finfo, rcs, rev, tag, options, message)
+Checkin (type, finfo, rev, tag, options, message)
     int type;
     struct file_info *finfo;
-    char *rcs;
     char *rev;
     char *tag;
     char *options;
@@ -53,10 +58,15 @@ Checkin (type, finfo, rcs, rev, tag, options, message)
 	}
     }
 
-    if (finfo->rcs == NULL)
-	finfo->rcs = RCS_parse (finfo->file, finfo->repository);
+    /* There use to be a check for finfo->rcs == NULL here and then a
+     * call to RCS_parse when necessary, but Checkin() isn't called
+     * if the RCS file hasn't already been parsed in one of the
+     * check functions.
+     */
+    assert (finfo->rcs != NULL);
 
-    switch (RCS_checkin (finfo->rcs, NULL, message, rev, RCS_FLAGS_KEEPFILE))
+    switch (RCS_checkin (finfo->rcs, finfo->file, message, rev, 0,
+                         RCS_FLAGS_KEEPFILE))
     {
 	case 0:			/* everything normal */
 
@@ -69,7 +79,8 @@ Checkin (type, finfo, rcs, rev, tag, options, message)
 	       changes is if the file contains RCS keywords.  So we if
 	       we are not expanding RCS keywords, we are done.  */
 
-	    if (strcmp (options, "-V4") == 0) /* upgrade to V5 now */
+	    if (options != NULL
+		&& strcmp (options, "-V4") == 0) /* upgrade to V5 now */
 		options[0] = '\0';
 
 	    /* FIXME: If PreservePermissions is on, RCS_cmp_file is
@@ -78,11 +89,12 @@ Checkin (type, finfo, rcs, rev, tag, options, message)
                call RCS_checkout here, compare the resulting files
                using xcmp, and rename if necessary.  I think this
                should be fixed in RCS_cmp_file.  */
-	    if ((! preserve_perms
-		 && options != NULL
-		 && (strcmp (options, "-ko") == 0
-		     || strcmp (options, "-kb") == 0))
-		|| RCS_cmp_file (finfo->rcs, rev, options, finfo->file) == 0)
+	    if( ( ! preserve_perms
+		  && options != NULL
+		  && ( strcmp( options, "-ko" ) == 0
+		       || strcmp( options, "-kb" ) == 0 ) )
+		|| RCS_cmp_file( finfo->rcs, rev, (char **)NULL, (char *)NULL,
+	                         options, finfo->file ) == 0 )
 	    {
 		/* The existing file is correct.  We don't have to do
                    anything.  */
@@ -176,5 +188,5 @@ Checkin (type, finfo, rcs, rev, tag, options, message)
 	mark_up_to_date (finfo->file);
 
     freevers_ts (&vers);
-    return (0);
+    return 0;
 }

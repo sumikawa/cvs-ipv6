@@ -1,5 +1,10 @@
 /*
- * Copyright (c) 1993 david d zuhn
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1993 david d zuhn
  * 
  * Written by david d `zoo' zuhn while at Cygnus Support
  * 
@@ -21,8 +26,6 @@ char cvsrc[] = CVSRC_FILENAME;
 
 #define	GROW	10
 
-extern char *strtok ();
-
 /* Read cvsrc, processing options matching CMDNAME ("cvs" for global
    options, and update *ARGC and *ARGV accordingly.  */
 
@@ -30,7 +33,7 @@ void
 read_cvsrc (argc, argv, cmdname)
     int *argc;
     char ***argv;
-    char *cmdname;
+    const char *cmdname;
 {
     char *homedir;
     char *homeinit;
@@ -73,10 +76,7 @@ read_cvsrc (argc, argv, cmdname)
     if (!homedir)
 	return;
 
-    homeinit = (char *) xmalloc (strlen (homedir) + strlen (cvsrc) + 10);
-    strcpy (homeinit, homedir);
-    strcat (homeinit, "/");
-    strcat (homeinit, cvsrc);
+    homeinit = strcat_filename_onto_homedir (homedir, cvsrc);
 
     /* if it can't be read, there's no point to continuing */
 
@@ -123,9 +123,9 @@ read_cvsrc (argc, argv, cmdname)
     if (found)
     {
 	/* skip over command in the options line */
-	for (optstart = strtok (line + command_len, "\t \n");
+	for (optstart = strtok (line + command_len, "\t \n\r");
 	     optstart;
-	     optstart = strtok (NULL, "\t \n"))
+	     optstart = strtok (NULL, "\t \n\r"))
 	{
 	    new_argv [new_argc++] = xstrdup (optstart);
 	  

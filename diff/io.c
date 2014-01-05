@@ -101,7 +101,7 @@ sip (current, skip_test)
 #if HAVE_SETMODE
 	  int oldmode = setmode (current->desc, O_BINARY);
 #endif
-	  size_t n = read (current->desc, current->buffer, current->bufsize);
+	  ssize_t n = read (current->desc, current->buffer, current->bufsize);
 	  if (n == -1)
 	    pfatal_with_name (current->name);
 	  current->buffered_chars = n;
@@ -128,7 +128,7 @@ void
 slurp (current)
      struct file_data *current;
 {
-  size_t cc;
+  ssize_t cc;
 
   if (current->desc < 0)
     /* The file is nonexistent.  */
@@ -508,11 +508,10 @@ find_identical_ends (filevec)
       beg0 = filevec[0].prefix_end + (n0 < n1 ? 0 : n0 - n1);
 
       /* Scan back until chars don't match or we reach that point.  */
-      while (p0 != beg0)
-	if (*--p0 != *--p1)
+      for (; p0 != beg0; p0--, p1--)
+	if (*p0 != *p1)
 	  {
 	    /* Point at the first char of the matching suffix.  */
-	    ++p0, ++p1;
 	    beg0 = p0;
 	    break;
 	  }

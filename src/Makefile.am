@@ -1,6 +1,10 @@
 ## Process this file with automake to produce Makefile.in
 # Makefile for GNU CVS program.
-# Copyright (C) 1986, 1988-1990, 2000 Free Software Foundation, Inc.
+#
+# Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+#
+# Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+#                                  and others.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -71,10 +75,12 @@ cvs_SOURCES = \
 	run.c \
 	scramble.c \
 	server.c \
+	stack.c \
 	status.c \
 	subr.c \
 	tag.c \
 	update.c \
+	version.c \
 	vers_ts.c \
 	watch.c \
 	wrapper.c \
@@ -87,57 +93,45 @@ cvs_SOURCES = \
 	fileattr.h \
 	hardlink.h \
 	hash.h \
+	history.h \
 	myndbm.h \
 	rcs.h \
+	root.h \
 	server.h \
+	stack.h \
 	update.h \
 	watch.h
+
 cvs_LDADD = \
 	../diff/libdiff.a \
 	../lib/libcvs.a \
-	../zlib/libz.a \
-	version.o
-cvs_EXTRA_DIST = version.c
+	../zlib/libz.a
 
 # extra clean targets
 # wish this could be distclean-hdr-local but it's not part of automake
-DISTCLEANFILES = options.h-SAVED check.log check.plog
+DISTCLEANFILES = check.log check.plog
 
 # General
 EXTRA_DIST = \
-	$(cvs_EXTRA_DIST) \
 	.cvsignore \
 	ChangeLog-9194 \
 	ChangeLog-9395 \
 	ChangeLog-96 \
 	ChangeLog-97 \
 	build_src.com \
-	sanity.sh \
-	version.c \
-	version.c.in
+	sanity.sh
 
-check-local:
-	$(SHELL) $(srcdir)/sanity.sh `pwd`/cvs
+check-local: localcheck remotecheck
+
+.PHONY: localcheck
+localcheck:
+	$(SHELL) $(srcdir)/sanity.sh `pwd`/cvs$(EXEEXT)
 
 .PHONY: remotecheck
 remotecheck: all
-	$(SHELL) $(srcdir)/sanity.sh -r `pwd`/cvs
+	$(SHELL) $(srcdir)/sanity.sh -r `pwd`/cvs$(EXEEXT)
 
 ## MAINTAINER Targets
-
-# version.c
-# - build this here so that we can distribute it
-# - version.c needs to be updated only once, since it depends on
-#   configure.in, not on the results of a 'configure' run.
-# - It is guaranteed (with GNU Make) that when the version in configure.in
-#   is changed, acversion.m4 is built only after the new version number is
-#   propagated to the Makefile.  (Libtool uses the same guarantee.)
-# - need the explicit version.o dependency or else make won't match
-#   $(srcdir)/version.c when looking for a dependency for version.c
-version.o: $(srcdir)/version.c
-$(srcdir)/version.c: $(srcdir)/version.c.in $(top_srcdir)/configure.in
-	sed 's,@VERSION\@,$(VERSION),g' $(srcdir)/version.c.in >$(srcdir)/version.tc
-	mv $(srcdir)/version.tc $(srcdir)/version.c
 
 # for backwards compatibility with the old makefiles
 .PHONY: realclean

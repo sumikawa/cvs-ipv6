@@ -41,6 +41,8 @@ void printf_output PARAMS((char const *, ...))
      ;
 void flush_output PARAMS((void));
 
+char * cvs_temp_name PARAMS((void));
+
 /*
  * Internal data structures and macros for the diff3 program; includes
  * data structures for both diff3 diffs and normal diffs.
@@ -169,7 +171,7 @@ static int edscript;
 static int flagging;
 
 /* Number of lines to keep in identical prefix and suffix.  */
-static int horizon_lines = 10;
+static int const horizon_lines = 10;
 
 /* Use a tab to align output lines (-T).  */
 static int tab_align_flag;
@@ -368,28 +370,44 @@ diff3_run (argc, argv, out, callbacks_arg)
      file0-file1 diffs didn't line up with the file0-file2 diffs
      (which is entirely possible since we don't use diff's -n option),
      diff3 might report phantom changes from file1 to file2.  */
+  /* Also try to compare file0 to file1 because this is the where
+     changes are expected to come from.  Diffing between these pairs
+     of files is is most likely to return the intended changes.  There
+     can also be the same problem with phantom changes from file0 to
+     file1. */
+  /* Historically, the default common file was file2.  Ediff for emacs
+     and possibly other applications, have therefore made file2 the
+     ancestor.  So, for compatibility, if this is simply a three
+     way diff (not a merge or edscript) then use the old way with
+     file2 as the common file. */
 
-  if (strcmp (file[2], "-") == 0)
-    {
-      /* Sigh.  We've got standard input as the last arg.  We can't
-	 call diff twice on stdin.  Use the middle arg as the common
-	 file instead.  */
-      if (strcmp (file[0], "-") == 0 || strcmp (file[1], "-") == 0)
-        {
-	  diff_error ("%s", "`-' specified for more than one input file", 0);
-	  return 2;
-        }
-      mapping[0] = 0;
-      mapping[1] = 2;
-      mapping[2] = 1;
-    }
-  else
-    {
-      /* Normal, what you'd expect */
-      mapping[0] = 0;
-      mapping[1] = 1;
-      mapping[2] = 2;
-    }
+  {
+    int common;
+    if (edscript || merge )
+      {
+	common = 1;
+      }
+    else
+      {
+	common = 2;
+      }
+    if (strcmp (file[common], "-") == 0)
+      {
+	/* Sigh.  We've got standard input as the arg corresponding to
+	   the desired common file.  We can't call diff twice on
+	   stdin.  Use another arg as the common file instead.  */
+	common = 3 - common;
+	if (strcmp (file[0], "-") == 0 || strcmp (file[common], "-") == 0)
+	  {
+	    diff_error ("%s", "`-' specified for more than one input file", 0);
+	    return 2;
+	  }
+      }
+
+    mapping[0] = 0;
+    mapping[1] = 3 - common;
+    mapping[2] = common;
+  }
 
   for (i = 0; i < 3; i++)
     rev_mapping[mapping[i]] = i;
@@ -397,7 +415,7 @@ diff3_run (argc, argv, out, callbacks_arg)
   for (i = 0; i < 3; i++)
     if (strcmp (file[i], "-") != 0)
       {
-	if (stat (file[i], &statb) < 0)
+	if (CVS_STAT (file[i], &statb) < 0)
 	  {
 	    perror_with_name (file[i]);
 	    return 2;
@@ -426,7 +444,7 @@ diff3_run (argc, argv, out, callbacks_arg)
 	  outfile = fopen (out, "w");
 	  if (outfile == NULL)
 	    {
-	      perror_with_name ("could not open output file");
+	      perror_with_name (out);
 	      return 2;
 	    }
 	  opened_file = 1;
@@ -442,12 +460,18 @@ diff3_run (argc, argv, out, callbacks_arg)
   commonname = file[rev_mapping[FILEC]];
   thread1 = process_diff (file[rev_mapping[FILE1]], commonname, &last_block,
 			  &content1);
+  /* What is the intention behind determining horizon_lines from first
+     diff?  I think it is better to use the same parameters for each
+     diff so that equal differences in each diff will appear the
+     same. */
+  /*
   if (thread1)
     for (i = 0; i < 2; i++)
       {
 	horizon_lines = max (horizon_lines, D_NUMLINES (thread1, i));
 	horizon_lines = max (horizon_lines, D_NUMLINES (last_block, i));
       }
+  */
   thread0 = process_diff (file[rev_mapping[FILE0]], commonname, &last_block,
 			  &content0);
   diff3 = make_3way_diff (thread0, thread1);
@@ -475,8 +499,6 @@ diff3_run (argc, argv, out, callbacks_arg)
 
   free(content0);
   free(content1);
-  free_diff_blocks(thread0);
-  free_diff_blocks(thread1);
   free_diff3_blocks(diff3);
 
   if (! callbacks || ! callbacks->write_output)
@@ -676,7 +698,7 @@ make_3way_diff (thread0, thread1)
 
   struct diff3_block const *last_diff3;
 
-  static struct diff3_block const zero_diff3;
+  static struct diff3_block const zero_diff3 = { 0 };
 
   /* Initialization */
   result = 0;
@@ -765,6 +787,8 @@ make_3way_diff (thread0, thread1)
       tmpblock = using_to_diff3_block (using, last_using,
 				       base_water_thread, high_water_thread,
 				       last_diff3);
+      free_diff_blocks(using[0]);
+      free_diff_blocks(using[1]);
 
       if (!tmpblock)
 	diff3_fatal ("internal error: screwup in format of diff blocks");
@@ -1046,7 +1070,9 @@ compare_line_list (list1, lengths1, list2, lengths2, nl)
  * Routines to input and parse two way diffs.
  */
 
+#if !(HAVE_STDLIB_H || defined(STDC_HEADERS))
 extern char **environ;
+#endif
 
 static struct diff_block *
 process_diff (filea, fileb, last_block, diff_contents)
@@ -1274,7 +1300,7 @@ read_diff (filea, fileb, output_placement)
   *ap++ = fileb;
   *ap = 0;
 
-  diffout = tmpnam(NULL);
+  diffout = cvs_temp_name ();
 
   outfile_hold = outfile;
   callbacks_hold = callbacks;
@@ -1306,7 +1332,7 @@ read_diff (filea, fileb, output_placement)
     diff3_fatal ("could not open temporary diff file");
 
   current_chunk_size = 8 * 1024;
-  if (fstat (fd, &pipestat) == 0)
+  if (CVS_FSTAT (fd, &pipestat) == 0)
     current_chunk_size = max (current_chunk_size, STAT_BLOCKSIZE (pipestat));
 
   diff_result = xmalloc (current_chunk_size);
@@ -1336,6 +1362,7 @@ read_diff (filea, fileb, output_placement)
   if (close (fd) != 0)
     diff3_perror_with_exit ("pipe close");
   unlink (diffout);
+  free( diffout );
 
   return diff_result + total;
 }
@@ -1823,10 +1850,10 @@ myread (fd, ptr, size)
      char *ptr;
      size_t size;
 {
-  size_t result = read (fd, ptr, size);
+  ssize_t result = read (fd, ptr, size);
   if (result == -1)
     diff3_perror_with_exit ("read failed");
-  return result;
+  return (size_t)result;
 }
 
 static void
@@ -1853,7 +1880,6 @@ initialize_main (argcp, argvp)
   always_text = 0;
   edscript = 0;
   flagging = 0;
-  horizon_lines = 10;
   tab_align_flag = 0;
   simple_only = 0;
   overlap_only = 0;

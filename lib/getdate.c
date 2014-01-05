@@ -1,14 +1,17 @@
 #ifndef lint
-static char yysccsid[] = "@(#)yaccpar	1.9 (Berkeley) 02/21/93";
+static char yysccsid[] = "@(#)yaccpar	1.9 (Berkeley) 02/21/93 (BSDI)";
 #endif
+#include <stdlib.h>
 #define YYBYACC 1
 #define YYMAJOR 1
 #define YYMINOR 9
-#define yyclearin (yychar=(-1))
+#define YYEMPTY (-1)
+#define YYLEX yylex()
+#define yyclearin (yychar=YYEMPTY)
 #define yyerrok (yyerrflag=0)
 #define YYRECOVERING (yyerrflag!=0)
 #define YYPREFIX "yy"
-#line 2 "../../work/ccvs/lib/getdate.y"
+#line 2 "getdate.y"
 /*
 **  Originally written by Steven M. Bellovin <smb@research.att.com> while
 **  at the University of North Carolina at Chapel Hill.  Later tweaked by
@@ -49,46 +52,11 @@ static char yysccsid[] = "@(#)yaccpar	1.9 (Berkeley) 02/21/93";
    Include <sys/time.h> if that will be used.  */
 
 #if	defined(vms)
-
-#include <types.h>
-#include <time.h>
-
-#else
-
-#include <sys/types.h>
-
-#ifdef TIME_WITH_SYS_TIME
-#include <sys/time.h>
-#include <time.h>
-#else
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#else
-#include <time.h>
-#endif
-#endif
-
-#ifdef timezone
-#undef timezone /* needed for sgi */
-#endif
-
-#if defined(HAVE_SYS_TIMEB_H)
-#include <sys/timeb.h>
-#else
-/*
-** We use the obsolete `struct timeb' as part of our interface!
-** Since the system doesn't have it, we define it here;
-** our callers must do likewise.
-*/
-struct timeb {
-    time_t		time;		/* Seconds since the epoch	*/
-    unsigned short	millitm;	/* Field not used		*/
-    short		timezone;	/* Minutes west of GMT		*/
-    short		dstflag;	/* Field not used		*/
-};
-#endif /* defined(HAVE_SYS_TIMEB_H) */
-
-#endif	/* defined(vms) */
+# include <types.h>
+#else /* defined(vms) */
+# include <sys/types.h>
+#endif	/* !defined(vms) */
+# include "xtime.h"
 
 #if defined (STDC_HEADERS) || defined (USG)
 #include <string.h>
@@ -125,6 +93,7 @@ extern struct tm	*localtime();
 #define yylex getdate_yylex
 #define yyerror getdate_yyerror
 
+static int yyparse ();
 static int yylex ();
 static int yyerror ();
 
@@ -184,12 +153,12 @@ static MERIDIAN	yyMeridian;
 static time_t	yyRelMonth;
 static time_t	yyRelSeconds;
 
-#line 179 "../../work/ccvs/lib/getdate.y"
+#line 145 "getdate.y"
 typedef union {
     time_t		Number;
     enum _MERIDIAN	Meridian;
 } YYSTYPE;
-#line 193 "y.tab.c"
+#line 162 "getdate.c"
 #define tAGO 257
 #define tDAY 258
 #define tDAYZONE 259
@@ -205,55 +174,61 @@ typedef union {
 #define tDST 269
 #define YYERRCODE 256
 short yylhs[] = {                                        -1,
-    0,    0,    2,    2,    2,    2,    2,    2,    3,    3,
-    3,    3,    3,    4,    4,    4,    6,    6,    6,    5,
-    5,    5,    5,    5,    5,    5,    5,    7,    7,    9,
-    9,    9,    9,    9,    9,    9,    9,    9,    8,    1,
-    1,
+    0,    0,    2,    2,    2,    2,    2,    2,    2,    8,
+    3,    3,    3,    3,    3,    4,    4,    4,    6,    6,
+    6,    5,    5,    5,    5,    5,    5,    5,    5,    7,
+    7,   10,   10,   10,   10,   10,   10,   10,   10,   10,
+    9,    1,    1,
 };
 short yylen[] = {                                         2,
-    0,    2,    1,    1,    1,    1,    1,    1,    2,    4,
-    4,    6,    6,    1,    1,    2,    1,    2,    2,    3,
-    5,    3,    3,    2,    4,    2,    3,    2,    1,    2,
-    2,    1,    2,    2,    1,    2,    2,    1,    1,    0,
-    1,
+    0,    2,    1,    1,    1,    1,    1,    1,    1,   11,
+    2,    4,    4,    6,    6,    1,    1,    2,    1,    2,
+    2,    3,    5,    3,    3,    2,    4,    2,    3,    2,
+    1,    2,    2,    1,    2,    2,    1,    2,    2,    1,
+    1,    0,    1,
 };
 short yydefred[] = {                                      1,
-    0,    0,   15,   32,    0,   38,   35,    0,    0,    0,
-    2,    3,    4,    5,    6,    7,    8,    0,   18,    0,
-   31,   36,   33,   19,    9,   30,    0,   37,   34,    0,
-    0,    0,   16,   28,    0,   23,   27,   22,    0,    0,
-   25,   41,   11,    0,   10,    0,    0,   21,   13,   12,
+    0,    0,   17,   34,    0,   40,   37,    0,    0,    0,
+    2,    3,    4,    5,    6,    7,    8,    9,    0,   20,
+    0,   33,   38,   35,   21,   11,   32,    0,   39,   36,
+    0,    0,    0,    0,   18,   30,    0,   25,   29,   24,
+    0,    0,    0,   27,    0,   43,   13,    0,   12,    0,
+    0,    0,   23,    0,   15,   14,    0,    0,    0,    0,
+   10,
 };
 short yydgoto[] = {                                       1,
-   45,   11,   12,   13,   14,   15,   16,   17,   18,
+   49,   11,   12,   13,   14,   15,   16,   17,   18,   19,
 };
 short yysindex[] = {                                      0,
- -249,  -38,    0,    0, -260,    0,    0, -240,  -47, -248,
-    0,    0,    0,    0,    0,    0,    0, -237,    0,  -18,
-    0,    0,    0,    0,    0,    0, -262,    0,    0, -239,
- -238, -236,    0,    0, -235,    0,    0,    0,  -56,  -19,
-    0,    0,    0, -234,    0, -232, -258,    0,    0,    0,
+ -238,  -37,    0,    0, -252,    0,    0, -254,  -44, -256,
+    0,    0,    0,    0,    0,    0,    0,    0, -241,    0,
+  -27,    0,    0,    0,    0,    0,    0, -261,    0,    0,
+ -248, -245, -236, -235,    0,    0, -234,    0,    0,    0,
+  -11,  -58,  -28,    0, -231,    0,    0, -230,    0, -229,
+   -7, -257,    0, -227,    0,    0,   -5, -225,   -3, -223,
+    0,
 };
 short yyrindex[] = {                                      0,
     0,    1,    0,    0,    0,    0,    0,    0,   69,   12,
-    0,    0,    0,    0,    0,    0,    0,   23,    0,   34,
-    0,    0,    0,    0,    0,    0,   67,    0,    0,    0,
-    0,    0,    0,    0,    0,    0,    0,    0,   56,   45,
-    0,    0,    0,    0,    0,    0,   56,    0,    0,    0,
+    0,    0,    0,    0,    0,    0,    0,    0,   23,    0,
+   34,    0,    0,    0,    0,    0,    0,   67,    0,    0,
+    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+    0,   56,   45,    0,    0,    0,    0,    0,    0,    0,
+    0,   56,    0,    0,    0,    0,    0,    0,    0,    0,
+    0,
 };
 short yygindex[] = {                                      0,
-  -17,    0,    0,    0,    0,    0,    0,    0,    0,
+   -6,    0,    0,    0,    0,    0,    0,    0,    0,    0,
 };
 #define YYTABLESIZE 337
-short yytable[] = {                                      32,
-   17,   44,   42,   36,   37,   19,   20,   49,    2,    3,
-   31,   14,    4,    5,    6,    7,    8,    9,   10,   34,
-   33,   21,   29,   22,   23,   35,   38,   46,   39,   50,
-   40,   41,   47,   24,   48,    0,    0,    0,    0,    0,
-    0,    0,    0,    0,   20,    0,    0,    0,    0,    0,
-    0,    0,    0,    0,    0,   40,    0,    0,    0,    0,
-    0,    0,    0,    0,    0,    0,   26,    0,   39,    0,
+short yytable[] = {                                      48,
+   19,   32,   34,   46,   38,   39,   20,   22,   55,   23,
+   24,   16,   35,   33,   21,   36,   37,   40,   50,    2,
+    3,   41,   31,    4,    5,    6,    7,    8,    9,   10,
+   42,   43,   44,   26,   45,   51,   52,   53,   54,   57,
+   58,   59,   60,   61,   22,   56,    0,    0,    0,    0,
+    0,    0,    0,    0,    0,   42,    0,    0,    0,    0,
+    0,    0,    0,    0,    0,    0,   28,    0,   41,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
@@ -267,27 +242,27 @@ short yytable[] = {                                      32,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-    0,    0,    0,    0,   42,    0,    0,    0,    0,   43,
-   24,    0,    0,   25,   26,   27,   28,   29,   30,    0,
+    0,    0,   46,    0,    0,    0,    0,   47,    0,    0,
+    0,    0,    0,   25,    0,    0,   26,   27,   28,   29,
+   30,   31,    0,    0,    0,    0,    0,    0,    0,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
     0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-    0,    0,    0,    0,    0,    0,    0,    0,   17,   17,
-    0,    0,   17,   17,   17,   17,   17,   17,   17,   14,
-   14,    0,    0,   14,   14,   14,   14,   14,   14,   14,
-   29,   29,    0,    0,   29,   29,   29,   29,   29,   29,
-   29,   24,   24,    0,    0,   24,   24,   24,   24,   24,
-   24,   24,   20,   20,    0,    0,   20,   20,   20,   20,
-   20,   20,   20,   40,   40,    0,    0,   40,   40,   40,
-   40,    0,   40,   40,   26,   26,    0,   39,   26,   26,
-   26,   26,    0,    0,   26,   39,   39,
+    0,    0,    0,    0,    0,    0,    0,    0,   19,   19,
+    0,    0,   19,   19,   19,   19,   19,   19,   19,   16,
+   16,    0,    0,   16,   16,   16,   16,   16,   16,   16,
+   31,   31,    0,    0,   31,   31,   31,   31,   31,   31,
+   31,   26,   26,    0,    0,   26,   26,   26,   26,   26,
+   26,   26,   22,   22,    0,    0,   22,   22,   22,   22,
+   22,   22,   22,   42,   42,    0,    0,   42,   42,   42,
+   42,    0,   42,   42,   28,   28,    0,   41,   28,   28,
+   28,   28,    0,    0,   28,   41,   41,
 };
-short yycheck[] = {                                      47,
-    0,   58,  261,  266,  267,   44,  267,  266,  258,  259,
-   58,    0,  262,  263,  264,  265,  266,  267,  268,  257,
-  269,  262,    0,  264,  265,   44,  266,   47,  267,   47,
-  267,  267,  267,    0,  267,   -1,   -1,   -1,   -1,   -1,
-   -1,   -1,   -1,   -1,    0,   -1,   -1,   -1,   -1,   -1,
+short yycheck[] = {                                      58,
+    0,   46,   47,  261,  266,  267,   44,  262,  266,  264,
+  265,    0,  269,   58,  267,  257,   44,  266,   47,  258,
+  259,  267,    0,  262,  263,  264,  265,  266,  267,  268,
+  267,  267,  267,    0,   46,  267,  267,  267,   46,  267,
+   46,  267,   46,  267,    0,   52,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,    0,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,    0,   -1,    0,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
@@ -303,9 +278,9 @@ short yycheck[] = {                                      47,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
-   -1,   -1,   -1,   -1,  261,   -1,   -1,   -1,   -1,  266,
-  258,   -1,   -1,  261,  262,  263,  264,  265,  266,   -1,
-   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
+   -1,   -1,  261,   -1,   -1,   -1,   -1,  266,   -1,   -1,
+   -1,   -1,   -1,  258,   -1,   -1,  261,  262,  263,  264,
+  265,  266,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,  258,  259,
@@ -326,12 +301,12 @@ short yycheck[] = {                                      47,
 #if YYDEBUG
 char *yyname[] = {
 "end-of-file",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,"','",0,0,"'/'",0,0,0,0,0,0,0,0,0,0,"':'",0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,"','",0,"'.'","'/'",0,0,0,0,0,0,0,0,0,0,"':'",0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,"tAGO","tDAY",
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,"tAGO","tDAY",
 "tDAYZONE","tID","tMERIDIAN","tMINUTE_UNIT","tMONTH","tMONTH_UNIT","tSEC_UNIT",
 "tSNUMBER","tUNUMBER","tZONE","tDST",
 };
@@ -344,7 +319,9 @@ char *yyrule[] = {
 "item : date",
 "item : day",
 "item : rel",
+"item : cvsstamp",
 "item : number",
+"cvsstamp : tUNUMBER '.' tUNUMBER '.' tUNUMBER '.' tUNUMBER '.' tUNUMBER '.' tUNUMBER",
 "time : tUNUMBER tMERIDIAN",
 "time : tUNUMBER ':' tUNUMBER o_merid",
 "time : tUNUMBER ':' tUNUMBER tSNUMBER",
@@ -387,22 +364,25 @@ char *yyrule[] = {
 #ifdef YYMAXDEPTH
 #define YYSTACKSIZE YYMAXDEPTH
 #else
-#define YYSTACKSIZE 500
-#define YYMAXDEPTH 500
+#define YYSTACKSIZE 10000
+#define YYMAXDEPTH 10000
 #endif
 #endif
+#define YYINITSTACKSIZE 200
 int yydebug;
 int yynerrs;
-int yyerrflag;
-int yychar;
-short *yyssp;
-YYSTYPE *yyvsp;
-YYSTYPE yyval;
+struct yystack {
+    short *ssp;
+    YYSTYPE *vsp;
+    short *ss;
+    YYSTYPE *vs;
+    int stacksize;
+    short *sslim;
+};
+int yychar; /* some people use this, so we copy it in & out */
+int yyerrflag; /* must be global for yyerrok & YYRECOVERING */
 YYSTYPE yylval;
-short yyss[YYSTACKSIZE];
-YYSTYPE yyvs[YYSTACKSIZE];
-#define yystacksize YYSTACKSIZE
-#line 392 "../../work/ccvs/lib/getdate.y"
+#line 381 "getdate.y"
 
 /* Month and day table. */
 static TABLE const MonthDayTable[] = {
@@ -657,7 +637,9 @@ Convert(Month, Day, Year, Hours, Minutes, Seconds, Meridian, DSTmode)
 
     if (Year < 0)
 	Year = -Year;
-    if (Year < 100)
+    if (Year < 69)
+	Year += 2000;
+    else if (Year < 100)
 	Year += 1900;
     DaysInMonth[1] = Year % 4 == 0 && (Year % 100 != 0 || Year % 400 == 0)
 		    ? 29 : 28;
@@ -667,6 +649,12 @@ Convert(Month, Day, Year, Hours, Minutes, Seconds, Meridian, DSTmode)
      || Month < 1 || Month > 12
      /* Lint fluff:  "conversion from long may lose accuracy" */
      || Day < 1 || Day > DaysInMonth[(int)--Month])
+	/* FIXME:
+	 * It would be nice to set a global error string here.
+	 * "February 30 is not a valid date" is much more informative than
+	 * "Can't parse date/time: 100 months" when the user input was
+	 * "100 months" and addition resolved that to February 30, for
+	 * example.  See rcs2-7 in src/sanity.sh for more. */
 	return -1;
 
     for (Julian = Day - 1, i = 0; i < Month; i++)
@@ -971,7 +959,7 @@ get_date(p, now)
     }
 
     tm = localtime(&nowtime);
-    yyYear = tm->tm_year;
+    yyYear = tm->tm_year + 1900;
     yyMonth = tm->tm_mon + 1;
     yyDay = tm->tm_mday;
     yyTimezone = now->timezone;
@@ -1044,7 +1032,60 @@ main(ac, av)
     /* NOTREACHED */
 }
 #endif	/* defined(TEST) */
-#line 1048 "y.tab.c"
+#line 1036 "getdate.c"
+/* allocate initial stack */
+#if defined(__STDC__) || defined(__cplusplus)
+static int yyinitstack(struct yystack *sp)
+#else
+static int yyinitstack(sp)
+    struct yystack *sp;
+#endif
+{
+    int newsize;
+    short *newss;
+    YYSTYPE *newvs;
+
+    newsize = YYINITSTACKSIZE;
+    newss = (short *)malloc(newsize * sizeof *newss);
+    newvs = (YYSTYPE *)malloc(newsize * sizeof *newvs);
+    sp->ss = sp->ssp = newss;
+    sp->vs = sp->vsp = newvs;
+    if (newss == NULL || newvs == NULL) return -1;
+    sp->stacksize = newsize;
+    sp->sslim = newss + newsize - 1;
+    return 0;
+}
+
+/* double stack size, up to YYMAXDEPTH */
+#if defined(__STDC__) || defined(__cplusplus)
+static int yygrowstack(struct yystack *sp)
+#else
+static int yygrowstack(sp)
+    struct yystack *sp;
+#endif
+{
+    int newsize, i;
+    short *newss;
+    YYSTYPE *newvs;
+
+    if ((newsize = sp->stacksize) >= YYMAXDEPTH) return -1;
+    if ((newsize *= 2) > YYMAXDEPTH) newsize = YYMAXDEPTH;
+    i = sp->ssp - sp->ss;
+    if ((newss = (short *)realloc(sp->ss, newsize * sizeof *newss)) == NULL)
+        return -1;
+    sp->ss = newss;
+    sp->ssp = newss + i;
+    if ((newvs = (YYSTYPE *)realloc(sp->vs, newsize * sizeof *newvs)) == NULL)
+        return -1;
+    sp->vs = newvs;
+    sp->vsp = newvs + i;
+    sp->stacksize = newsize;
+    sp->sslim = newss + newsize - 1;
+    return 0;
+}
+
+#define YYFREESTACK(sp) { free((sp)->ss); free((sp)->vs); }
+
 #define YYABORT goto yyabort
 #define YYREJECT goto yyabort
 #define YYACCEPT goto yyaccept
@@ -1052,7 +1093,10 @@ main(ac, av)
 int
 yyparse()
 {
-    register int yym, yyn, yystate;
+    register int yym, yyn, yystate, yych;
+    register YYSTYPE *yyvsp;
+    YYSTYPE yyval;
+    struct yystack yystk;
 #if YYDEBUG
     register char *yys;
     extern char *getenv();
@@ -1067,48 +1111,46 @@ yyparse()
 
     yynerrs = 0;
     yyerrflag = 0;
-    yychar = (-1);
+    yychar = yych = YYEMPTY;
 
-    yyssp = yyss;
-    yyvsp = yyvs;
-    *yyssp = yystate = 0;
+    if (yyinitstack(&yystk)) goto yyoverflow;
+    *yystk.ssp = yystate = 0;
 
 yyloop:
     if (yyn = yydefred[yystate]) goto yyreduce;
-    if (yychar < 0)
+    if (yych < 0)
     {
-        if ((yychar = yylex()) < 0) yychar = 0;
+        if ((yych = YYLEX) < 0) yych = 0;
+        yychar = yych;
 #if YYDEBUG
         if (yydebug)
         {
             yys = 0;
-            if (yychar <= YYMAXTOKEN) yys = yyname[yychar];
+            if (yych <= YYMAXTOKEN) yys = yyname[yych];
             if (!yys) yys = "illegal-symbol";
             printf("%sdebug: state %d, reading %d (%s)\n",
-                    YYPREFIX, yystate, yychar, yys);
+                    YYPREFIX, yystate, yych, yys);
         }
 #endif
     }
-    if ((yyn = yysindex[yystate]) && (yyn += yychar) >= 0 &&
-            yyn <= YYTABLESIZE && yycheck[yyn] == yychar)
+    if ((yyn = yysindex[yystate]) && (yyn += yych) >= 0 &&
+            yyn <= YYTABLESIZE && yycheck[yyn] == yych)
     {
 #if YYDEBUG
         if (yydebug)
             printf("%sdebug: state %d, shifting to state %d\n",
                     YYPREFIX, yystate, yytable[yyn]);
 #endif
-        if (yyssp >= yyss + yystacksize - 1)
-        {
+        if (yystk.ssp >= yystk.sslim && yygrowstack(&yystk))
             goto yyoverflow;
-        }
-        *++yyssp = yystate = yytable[yyn];
-        *++yyvsp = yylval;
-        yychar = (-1);
+        *++yystk.ssp = yystate = yytable[yyn];
+        *++yystk.vsp = yylval;
+        yychar = yych = YYEMPTY;
         if (yyerrflag > 0)  --yyerrflag;
         goto yyloop;
     }
-    if ((yyn = yyrindex[yystate]) && (yyn += yychar) >= 0 &&
-            yyn <= YYTABLESIZE && yycheck[yyn] == yychar)
+    if ((yyn = yyrindex[yystate]) && (yyn += yych) >= 0 &&
+            yyn <= YYTABLESIZE && yycheck[yyn] == yych)
     {
         yyn = yytable[yyn];
         goto yyreduce;
@@ -1130,20 +1172,19 @@ yyinrecovery:
         yyerrflag = 3;
         for (;;)
         {
-            if ((yyn = yysindex[*yyssp]) && (yyn += YYERRCODE) >= 0 &&
+            if ((yyn = yysindex[*yystk.ssp]) &&
+                    (yyn += YYERRCODE) >= 0 &&
                     yyn <= YYTABLESIZE && yycheck[yyn] == YYERRCODE)
             {
 #if YYDEBUG
                 if (yydebug)
                     printf("%sdebug: state %d, error recovery shifting\
- to state %d\n", YYPREFIX, *yyssp, yytable[yyn]);
+ to state %d\n", YYPREFIX, *yystk.ssp, yytable[yyn]);
 #endif
-                if (yyssp >= yyss + yystacksize - 1)
-                {
+                if (yystk.ssp >= yystk.sslim && yygrowstack(&yystk))
                     goto yyoverflow;
-                }
-                *++yyssp = yystate = yytable[yyn];
-                *++yyvsp = yylval;
+                *++yystk.ssp = yystate = yytable[yyn];
+                *++yystk.vsp = yylval;
                 goto yyloop;
             }
             else
@@ -1151,28 +1192,28 @@ yyinrecovery:
 #if YYDEBUG
                 if (yydebug)
                     printf("%sdebug: error recovery discarding state %d\n",
-                            YYPREFIX, *yyssp);
+                            YYPREFIX, *yystk.ssp);
 #endif
-                if (yyssp <= yyss) goto yyabort;
-                --yyssp;
-                --yyvsp;
+                if (yystk.ssp <= yystk.ss) goto yyabort;
+                --yystk.ssp;
+                --yystk.vsp;
             }
         }
     }
     else
     {
-        if (yychar == 0) goto yyabort;
+        if (yych == 0) goto yyabort;
 #if YYDEBUG
         if (yydebug)
         {
             yys = 0;
-            if (yychar <= YYMAXTOKEN) yys = yyname[yychar];
+            if (yych <= YYMAXTOKEN) yys = yyname[yych];
             if (!yys) yys = "illegal-symbol";
             printf("%sdebug: state %d, error recovery discards token %d (%s)\n",
-                    YYPREFIX, yystate, yychar, yys);
+                    YYPREFIX, yystate, yych, yys);
         }
 #endif
-        yychar = (-1);
+        yychar = yych = YYEMPTY;
         goto yyloop;
     }
 yyreduce:
@@ -1182,41 +1223,63 @@ yyreduce:
                 YYPREFIX, yystate, yyn, yyrule[yyn]);
 #endif
     yym = yylen[yyn];
+    yyvsp = yystk.vsp; /* for speed in code under switch() */
     yyval = yyvsp[1-yym];
     switch (yyn)
     {
 case 3:
-#line 197 "../../work/ccvs/lib/getdate.y"
+#line 163 "getdate.y"
 {
 	    yyHaveTime++;
 	}
 break;
 case 4:
-#line 200 "../../work/ccvs/lib/getdate.y"
+#line 166 "getdate.y"
 {
 	    yyHaveZone++;
 	}
 break;
 case 5:
-#line 203 "../../work/ccvs/lib/getdate.y"
+#line 169 "getdate.y"
 {
 	    yyHaveDate++;
 	}
 break;
 case 6:
-#line 206 "../../work/ccvs/lib/getdate.y"
+#line 172 "getdate.y"
 {
 	    yyHaveDay++;
 	}
 break;
 case 7:
-#line 209 "../../work/ccvs/lib/getdate.y"
+#line 175 "getdate.y"
 {
 	    yyHaveRel++;
 	}
 break;
-case 9:
-#line 215 "../../work/ccvs/lib/getdate.y"
+case 8:
+#line 178 "getdate.y"
+{
+	    yyHaveTime++;
+	    yyHaveDate++;
+	    yyHaveZone++;
+	}
+break;
+case 10:
+#line 186 "getdate.y"
+{
+	    yyYear = yyvsp[-10].Number;
+	    yyMonth = yyvsp[-8].Number;
+	    yyDay = yyvsp[-6].Number;
+	    yyHour = yyvsp[-4].Number;
+	    yyMinutes = yyvsp[-2].Number;
+	    yySeconds = yyvsp[0].Number;
+	    yyDSTmode = DSToff;
+	    yyTimezone = 0;
+	}
+break;
+case 11:
+#line 198 "getdate.y"
 {
 	    yyHour = yyvsp[-1].Number;
 	    yyMinutes = 0;
@@ -1224,8 +1287,8 @@ case 9:
 	    yyMeridian = yyvsp[0].Meridian;
 	}
 break;
-case 10:
-#line 221 "../../work/ccvs/lib/getdate.y"
+case 12:
+#line 204 "getdate.y"
 {
 	    yyHour = yyvsp[-3].Number;
 	    yyMinutes = yyvsp[-1].Number;
@@ -1233,8 +1296,8 @@ case 10:
 	    yyMeridian = yyvsp[0].Meridian;
 	}
 break;
-case 11:
-#line 227 "../../work/ccvs/lib/getdate.y"
+case 13:
+#line 210 "getdate.y"
 {
 	    yyHour = yyvsp[-3].Number;
 	    yyMinutes = yyvsp[-1].Number;
@@ -1243,8 +1306,8 @@ case 11:
 	    yyTimezone = - (yyvsp[0].Number % 100 + (yyvsp[0].Number / 100) * 60);
 	}
 break;
-case 12:
-#line 234 "../../work/ccvs/lib/getdate.y"
+case 14:
+#line 217 "getdate.y"
 {
 	    yyHour = yyvsp[-5].Number;
 	    yyMinutes = yyvsp[-3].Number;
@@ -1252,8 +1315,8 @@ case 12:
 	    yyMeridian = yyvsp[0].Meridian;
 	}
 break;
-case 13:
-#line 240 "../../work/ccvs/lib/getdate.y"
+case 15:
+#line 223 "getdate.y"
 {
 	    yyHour = yyvsp[-5].Number;
 	    yyMinutes = yyvsp[-3].Number;
@@ -1263,65 +1326,71 @@ case 13:
 	    yyTimezone = - (yyvsp[0].Number % 100 + (yyvsp[0].Number / 100) * 60);
 	}
 break;
-case 14:
-#line 250 "../../work/ccvs/lib/getdate.y"
+case 16:
+#line 233 "getdate.y"
 {
 	    yyTimezone = yyvsp[0].Number;
 	    yyDSTmode = DSToff;
 	}
 break;
-case 15:
-#line 254 "../../work/ccvs/lib/getdate.y"
+case 17:
+#line 237 "getdate.y"
 {
 	    yyTimezone = yyvsp[0].Number;
 	    yyDSTmode = DSTon;
 	}
 break;
-case 16:
-#line 259 "../../work/ccvs/lib/getdate.y"
+case 18:
+#line 242 "getdate.y"
 {
 	    yyTimezone = yyvsp[-1].Number;
 	    yyDSTmode = DSTon;
 	}
 break;
-case 17:
-#line 265 "../../work/ccvs/lib/getdate.y"
+case 19:
+#line 248 "getdate.y"
 {
 	    yyDayOrdinal = 1;
 	    yyDayNumber = yyvsp[0].Number;
 	}
 break;
-case 18:
-#line 269 "../../work/ccvs/lib/getdate.y"
+case 20:
+#line 252 "getdate.y"
 {
 	    yyDayOrdinal = 1;
 	    yyDayNumber = yyvsp[-1].Number;
 	}
 break;
-case 19:
-#line 273 "../../work/ccvs/lib/getdate.y"
+case 21:
+#line 256 "getdate.y"
 {
 	    yyDayOrdinal = yyvsp[-1].Number;
 	    yyDayNumber = yyvsp[0].Number;
 	}
 break;
-case 20:
-#line 279 "../../work/ccvs/lib/getdate.y"
+case 22:
+#line 262 "getdate.y"
 {
 	    yyMonth = yyvsp[-2].Number;
 	    yyDay = yyvsp[0].Number;
 	}
 break;
-case 21:
-#line 283 "../../work/ccvs/lib/getdate.y"
+case 23:
+#line 266 "getdate.y"
 {
-	    yyMonth = yyvsp[-4].Number;
-	    yyDay = yyvsp[-2].Number;
-	    yyYear = yyvsp[0].Number;
+	    if (yyvsp[-4].Number >= 100) {
+		yyYear = yyvsp[-4].Number;
+		yyMonth = yyvsp[-2].Number;
+		yyDay = yyvsp[0].Number;
+	    } else {
+		yyMonth = yyvsp[-4].Number;
+		yyDay = yyvsp[-2].Number;
+		yyYear = yyvsp[0].Number;
+	    }
 	}
 break;
-case 22:
-#line 288 "../../work/ccvs/lib/getdate.y"
+case 24:
+#line 277 "getdate.y"
 {
 	    /* ISO 8601 format.  yyyy-mm-dd.  */
 	    yyYear = yyvsp[-2].Number;
@@ -1329,8 +1398,8 @@ case 22:
 	    yyDay = -yyvsp[0].Number;
 	}
 break;
-case 23:
-#line 294 "../../work/ccvs/lib/getdate.y"
+case 25:
+#line 283 "getdate.y"
 {
 	    /* e.g. 17-JUN-1992.  */
 	    yyDay = yyvsp[-2].Number;
@@ -1338,99 +1407,99 @@ case 23:
 	    yyYear = -yyvsp[0].Number;
 	}
 break;
-case 24:
-#line 300 "../../work/ccvs/lib/getdate.y"
+case 26:
+#line 289 "getdate.y"
 {
 	    yyMonth = yyvsp[-1].Number;
 	    yyDay = yyvsp[0].Number;
 	}
 break;
-case 25:
-#line 304 "../../work/ccvs/lib/getdate.y"
+case 27:
+#line 293 "getdate.y"
 {
 	    yyMonth = yyvsp[-3].Number;
 	    yyDay = yyvsp[-2].Number;
 	    yyYear = yyvsp[0].Number;
 	}
 break;
-case 26:
-#line 309 "../../work/ccvs/lib/getdate.y"
+case 28:
+#line 298 "getdate.y"
 {
 	    yyMonth = yyvsp[0].Number;
 	    yyDay = yyvsp[-1].Number;
 	}
 break;
-case 27:
-#line 313 "../../work/ccvs/lib/getdate.y"
+case 29:
+#line 302 "getdate.y"
 {
 	    yyMonth = yyvsp[-1].Number;
 	    yyDay = yyvsp[-2].Number;
 	    yyYear = yyvsp[0].Number;
 	}
 break;
-case 28:
-#line 320 "../../work/ccvs/lib/getdate.y"
+case 30:
+#line 309 "getdate.y"
 {
 	    yyRelSeconds = -yyRelSeconds;
 	    yyRelMonth = -yyRelMonth;
 	}
 break;
-case 30:
-#line 327 "../../work/ccvs/lib/getdate.y"
-{
-	    yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number * 60L;
-	}
-break;
-case 31:
-#line 330 "../../work/ccvs/lib/getdate.y"
-{
-	    yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number * 60L;
-	}
-break;
 case 32:
-#line 333 "../../work/ccvs/lib/getdate.y"
+#line 316 "getdate.y"
+{
+	    yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number * 60L;
+	}
+break;
+case 33:
+#line 319 "getdate.y"
+{
+	    yyRelSeconds += yyvsp[-1].Number * yyvsp[0].Number * 60L;
+	}
+break;
+case 34:
+#line 322 "getdate.y"
 {
 	    yyRelSeconds += yyvsp[0].Number * 60L;
 	}
 break;
-case 33:
-#line 336 "../../work/ccvs/lib/getdate.y"
-{
-	    yyRelSeconds += yyvsp[-1].Number;
-	}
-break;
-case 34:
-#line 339 "../../work/ccvs/lib/getdate.y"
-{
-	    yyRelSeconds += yyvsp[-1].Number;
-	}
-break;
 case 35:
-#line 342 "../../work/ccvs/lib/getdate.y"
+#line 325 "getdate.y"
+{
+	    yyRelSeconds += yyvsp[-1].Number;
+	}
+break;
+case 36:
+#line 328 "getdate.y"
+{
+	    yyRelSeconds += yyvsp[-1].Number;
+	}
+break;
+case 37:
+#line 331 "getdate.y"
 {
 	    yyRelSeconds++;
 	}
 break;
-case 36:
-#line 345 "../../work/ccvs/lib/getdate.y"
-{
-	    yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
-	}
-break;
-case 37:
-#line 348 "../../work/ccvs/lib/getdate.y"
-{
-	    yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
-	}
-break;
 case 38:
-#line 351 "../../work/ccvs/lib/getdate.y"
+#line 334 "getdate.y"
+{
+	    yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
+	}
+break;
+case 39:
+#line 337 "getdate.y"
+{
+	    yyRelMonth += yyvsp[-1].Number * yyvsp[0].Number;
+	}
+break;
+case 40:
+#line 340 "getdate.y"
 {
 	    yyRelMonth += yyvsp[0].Number;
 	}
 break;
-case 39:
-#line 356 "../../work/ccvs/lib/getdate.y"
+case 41:
+#line 345 "getdate.y"
 {
 	    if (yyHaveTime && yyHaveDate && !yyHaveRel)
 		yyYear = yyvsp[0].Number;
@@ -1457,24 +1526,25 @@ case 39:
 	    }
 	}
 break;
-case 40:
-#line 383 "../../work/ccvs/lib/getdate.y"
+case 42:
+#line 372 "getdate.y"
 {
 	    yyval.Meridian = MER24;
 	}
 break;
-case 41:
-#line 386 "../../work/ccvs/lib/getdate.y"
+case 43:
+#line 375 "getdate.y"
 {
 	    yyval.Meridian = yyvsp[0].Meridian;
 	}
 break;
-#line 1473 "y.tab.c"
+#line 1542 "getdate.c"
     }
-    yyssp -= yym;
-    yystate = *yyssp;
-    yyvsp -= yym;
+    yystk.ssp -= yym;
+    yystate = *yystk.ssp;
+    yystk.vsp -= yym;
     yym = yylhs[yyn];
+    yych = yychar;
     if (yystate == 0 && yym == 0)
     {
 #if YYDEBUG
@@ -1483,23 +1553,24 @@ break;
  state %d\n", YYPREFIX, YYFINAL);
 #endif
         yystate = YYFINAL;
-        *++yyssp = YYFINAL;
-        *++yyvsp = yyval;
-        if (yychar < 0)
+        *++yystk.ssp = YYFINAL;
+        *++yystk.vsp = yyval;
+        if (yych < 0)
         {
-            if ((yychar = yylex()) < 0) yychar = 0;
+            if ((yych = YYLEX) < 0) yych = 0;
+            yychar = yych;
 #if YYDEBUG
             if (yydebug)
             {
                 yys = 0;
-                if (yychar <= YYMAXTOKEN) yys = yyname[yychar];
+                if (yych <= YYMAXTOKEN) yys = yyname[yych];
                 if (!yys) yys = "illegal-symbol";
                 printf("%sdebug: state %d, reading %d (%s)\n",
-                        YYPREFIX, YYFINAL, yychar, yys);
+                        YYPREFIX, YYFINAL, yych, yys);
             }
 #endif
         }
-        if (yychar == 0) goto yyaccept;
+        if (yych == 0) goto yyaccept;
         goto yyloop;
     }
     if ((yyn = yygindex[yym]) && (yyn += yystate) >= 0 &&
@@ -1510,19 +1581,19 @@ break;
 #if YYDEBUG
     if (yydebug)
         printf("%sdebug: after reduction, shifting from state %d \
-to state %d\n", YYPREFIX, *yyssp, yystate);
+to state %d\n", YYPREFIX, *yystk.ssp, yystate);
 #endif
-    if (yyssp >= yyss + yystacksize - 1)
-    {
+    if (yystk.ssp >= yystk.sslim && yygrowstack(&yystk))
         goto yyoverflow;
-    }
-    *++yyssp = yystate;
-    *++yyvsp = yyval;
+    *++yystk.ssp = yystate;
+    *++yystk.vsp = yyval;
     goto yyloop;
 yyoverflow:
     yyerror("yacc stack overflow");
 yyabort:
+    YYFREESTACK(&yystk);
     return (1);
 yyaccept:
+    YYFREESTACK(&yystk);
     return (0);
 }
